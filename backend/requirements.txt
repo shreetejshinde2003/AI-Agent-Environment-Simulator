@@ -1,0 +1,17 @@
+# --- Core (active now) ---
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.1
+python-dotenv==1.0.1
+websockets==14.1
+
+# --- Storage (RESERVED — uncomment when app/storage/ is activated) ---
+# sqlalchemy==2.0.36
+# alembic==1.14.0          # recommended for real migrations once schema stabilizes
+# psycopg2-binary==2.9.10  # only needed once you switch from SQLite to Postgres
+
+# --- Agent framework (RESERVED — uncomment when app/agents/ is activated) ---
+# langgraph>=0.4
+# langchain-anthropic       # or langchain-openai, depending on which provider you use
+# anthropic

@@ -1,0 +1,127 @@
+/* ==========================================================================
+   Design Tokens — Multi-Agent AI Environment Simulator
+   Derived from the reference dashboard mockup.
+   ========================================================================== */
+
+:root {
+  /* --- Surface colors --- */
+  --bg-app: #0a0e17;          /* page background, near-black navy */
+  --bg-panel: #0f1420;        /* card/panel background */
+  --bg-panel-raised: #141a29; /* slightly raised surfaces (topbar, sidebar) */
+  --bg-hover: #1a2233;        /* hover state on interactive rows */
+  --border-subtle: #1f2937;   /* hairline card borders */
+  --border-strong: #2a3448;   /* emphasized borders (active nav item) */
+
+  /* --- Text colors --- */
+  --text-primary: #e8ecf4;
+  --text-secondary: #8b94a7;
+  --text-tertiary: #5b6478;
+
+  /* --- Brand / accent --- */
+  --accent-primary: #6366f1;     /* indigo — orchestrator, primary actions */
+  --accent-primary-soft: rgba(99, 102, 241, 0.14);
+
+  /* --- Agent role colors (matches node graph + timeline rows) --- */
+  --agent-research: #3b82f6;     /* blue */
+  --agent-data: #22c55e;         /* green */
+  --agent-websearch: #f59e0b;    /* orange */
+  --agent-analysis: #eab308;     /* yellow */
+  --agent-summarizer: #14b8a6;   /* teal */
+  --agent-report: #ec4899;       /* pink */
+  --agent-orchestrator: #8b5cf6; /* purple */
+
+  /* --- Status colors --- */
+  --status-success: #22c55e;
+  --status-success-soft: rgba(34, 197, 94, 0.14);
+  --status-warning: #f59e0b;
+  --status-warning-soft: rgba(245, 158, 11, 0.14);
+  --status-danger: #ef4444;
+  --status-danger-soft: rgba(239, 68, 68, 0.14);
+  --status-info: #3b82f6;
+  --status-info-soft: rgba(59, 130, 246, 0.14);
+
+  /* --- Typography --- */
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+
+  /* --- Spacing scale --- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* --- Radius --- */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-full: 999px;
+
+  /* --- Layout --- */
+  --sidebar-width: 260px;
+  --topbar-height: 68px;
+
+  /* --- Shadows --- */
+  --shadow-panel: 0 1px 2px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.02);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  background: var(--bg-app);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+::selection {
+  background: var(--accent-primary-soft);
+}
+
+/* Visible keyboard focus, respected across the app */
+:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

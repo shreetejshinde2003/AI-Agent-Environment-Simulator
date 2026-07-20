@@ -1,0 +1,134 @@
+.task-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  z-index: 9999;
+}
+
+.task-modal {
+
+  width: 600px;
+  max-width: 90%;
+
+  background: #161b22;
+
+  border: 1px solid #30363d;
+  border-radius: 14px;
+
+  padding: 24px;
+
+  color: white;
+
+  box-shadow: 0 15px 60px rgba(0,0,0,.5);
+}
+
+.task-modal-header{
+
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+
+  margin-bottom:20px;
+}
+
+.task-modal h2{
+
+  margin:0;
+  font-size:22px;
+}
+
+.close-btn{
+
+  background:none;
+  border:none;
+
+  color:white;
+
+  font-size:24px;
+
+  cursor:pointer;
+}
+
+.task-modal form{
+
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+
+.task-modal label{
+
+  font-size:14px;
+  font-weight:600;
+}
+
+.task-modal textarea{
+
+  resize:vertical;
+
+  min-height:120px;
+
+  padding:12px;
+
+  border-radius:8px;
+
+  border:1px solid #444;
+
+  background:#0d1117;
+
+  color:white;
+}
+
+.task-modal select{
+
+  padding:10px;
+
+  border-radius:8px;
+
+  border:1px solid #444;
+
+  background:#0d1117;
+
+  color:white;
+}
+
+.modal-buttons{
+
+  display:flex;
+
+  justify-content:flex-end;
+
+  gap:12px;
+
+  margin-top:18px;
+}
+
+.modal-buttons button{
+
+  padding:10px 18px;
+
+  border:none;
+
+  border-radius:8px;
+
+  cursor:pointer;
+
+  font-weight:600;
+}
+
+.modal-buttons button:first-child{
+
+  background:#444;
+  color:white;
+}
+
+.modal-buttons button:last-child{
+
+  background:#2563eb;
+  color:white;
+}

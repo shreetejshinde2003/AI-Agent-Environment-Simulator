@@ -1,0 +1,53 @@
+.sim-info-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.sim-info-title {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--accent-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: var(--space-1);
+}
+
+.sim-info-row {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sim-info-label {
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+
+.sim-info-value {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  text-transform: capitalize;
+}
+
+.sim-info-value.is-mono {
+  font-family: var(--font-mono);
+  text-transform: none;
+}
+
+.sim-info-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--status-success);
+}
+
+.sim-info-status-dot-offline {
+  background: var(--text-tertiary);
+}

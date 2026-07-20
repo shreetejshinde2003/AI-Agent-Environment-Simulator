@@ -1,0 +1,36 @@
+.agent-graph-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.agent-graph-canvas {
+  flex: 1;
+  min-height: 380px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-app);
+}
+
+/* React Flow theming overrides — keep it in step with the dark palette */
+.agent-graph-canvas .react-flow__controls {
+  background: var(--bg-panel-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.agent-graph-canvas .react-flow__controls-button {
+  background: transparent;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.agent-graph-canvas .react-flow__controls-button:hover {
+  background: var(--bg-hover);
+}
+
+.agent-graph-canvas .react-flow__controls-button svg {
+  fill: var(--text-secondary);
+}
