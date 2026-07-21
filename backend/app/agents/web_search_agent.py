@@ -5,11 +5,10 @@ RESERVED — one of the six agents. Fill in the `call_llm(...)` call
 inside `process()` once app/agents/llm_client.py is activated.
 """
 
-from multiprocessing import context
-from urllib import response
+
 
 from app.agents.base_agent import BaseAgent
-from backend.app.agents.llm_client_backup import call_llm
+from app.agents.llm_client import call_llm
 
 # USER-DEFINED: starting-point prompt — refine after real trials.
 SYSTEM_PROMPT = """You are the Web Search Agent in a multi-agent simulation.

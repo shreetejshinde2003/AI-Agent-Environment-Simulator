@@ -19,7 +19,7 @@ IMPORTANT — the split between run() and process():
 """
 
 import time
-from urllib import response
+
 
 from app.agents.stats_tracker import stats_tracker
 from app.agents.llm_client import DEFAULT_MODEL
@@ -74,4 +74,4 @@ class BaseAgent:
             response_preview=result_text,
             model_used=self.MODEL or DEFAULT_MODEL,
         )
-        return response.text
+        return result_text

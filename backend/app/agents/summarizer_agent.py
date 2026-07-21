@@ -5,9 +5,8 @@ RESERVED — one of the six agents. Fill in the `call_llm(...)` call
 inside `process()` once app/agents/llm_client.py is activated.
 """
 
-from urllib import response
 
-from click import prompt
+
 
 from app.agents.base_agent import BaseAgent
 from app.agents.llm_client import call_llm
