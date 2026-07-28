@@ -1,4 +1,4 @@
-# 🚀 AI Multi-Agent HR Analytics Platform
+# 🚀 AI-Agent-Environment-Simulator
 
 A full-stack AI-powered HR Analytics platform built using:
 
