@@ -25,16 +25,17 @@ export function SimulationProvider({ children }) {
   // is established) — auto-select the first task once tasks actually
   // exist, instead of only checking on the very first render.
   useEffect(() => {
-    if (selectedTaskId === null && data.tasks.length > 0) {
-      setSelectedTaskId(data.tasks[0].id);
-    }
-    // If the previously-selected task disappeared (e.g. backend reset,
-    // or we just disconnected and fell back to the empty state), clear it
-    // instead of pointing at a task that no longer exists.
-    if (selectedTaskId !== null && !data.tasks.some((t) => t.id === selectedTaskId)) {
-      setSelectedTaskId(data.tasks[0]?.id ?? null);
-    }
-  }, [data.tasks, selectedTaskId]);
+  if (data.tasks.length === 0) {
+    setSelectedTaskId(null);
+    return;
+  }
+
+  const latestTask = data.tasks[data.tasks.length - 1];
+
+  if (latestTask.id !== selectedTaskId) {
+    setSelectedTaskId(latestTask.id);
+  }
+}, [data.tasks]);
 
   const value = useMemo(
     () => ({
