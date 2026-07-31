@@ -48,6 +48,13 @@ class AgentStatsTracker:
         if agent_id not in self._stats:
             self._stats[agent_id] = AgentRuntimeStats(agent_id=agent_id)
 
+    def set_status(self, agent_id: str, status) -> None:
+        """Called by BaseAgent.run() when an agent starts/finishes a
+        real call — this is what makes the Agent Relationship Graph's
+        "active"/"idle" status genuine instead of a fixed roster value."""
+        self.register(agent_id)
+        self._stats[agent_id].status = status
+
     def record_call(
         self,
         agent_id: str,

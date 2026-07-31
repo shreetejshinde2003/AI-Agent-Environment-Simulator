@@ -94,3 +94,35 @@
 .task-details-checklist li.is-done svg {
   color: var(--status-success);
 }
+
+.task-details-output {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--bg-app);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.task-details-error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--status-danger);
+  line-height: 1.5;
+  background: var(--status-danger-soft);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+}
+
+.task-details-error svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}

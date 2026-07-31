@@ -24,7 +24,7 @@ class WebSearchAgent(BaseAgent):
     # real token cost across a long simulation without hurting quality.
     MODEL = None  # None = use llm_client.DEFAULT_MODEL — recommend llm_client.FAST_MODEL here after benchmarking
 
-    async def process(self, directive: str, context: dict) -> str:
+    async def process(self, directive: str, context: dict):
         # RESERVED — uncomment once app/agents/llm_client.py is activated:
         #
         # from app.agents.llm_client import call_llm, FAST_MODEL
@@ -41,5 +41,5 @@ class WebSearchAgent(BaseAgent):
         #     system=SYSTEM_PROMPT,
         #     model=self.MODEL or FAST_MODEL,
         # )
-        # return response.text
+        # return response   # return the LLMResponse object itself, not response.text — see research_agent.py
         raise NotImplementedError("WebSearchAgent.process() needs llm_client.py activated first")

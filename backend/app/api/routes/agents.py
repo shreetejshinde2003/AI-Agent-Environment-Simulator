@@ -14,23 +14,35 @@ import uuid
 
 from fastapi import APIRouter, HTTPException
 
-from app.models.schemas import Agent, AgentRelationship, AgentStatus, CreateAgentRequest, RelationshipType
+from app.models.schemas import (
+    Agent,
+    AgentRelationship,
+    AgentRuntimeStats,
+    AgentStatus,
+    CreateAgentRequest,
+    RelationshipType,
+)
+from app.agents.stats_tracker import stats_tracker
 from app.websocket.manager import manager
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
 
 # ----------------------------------------------------------------------
-# TEMPORARY in-memory mock data — matches frontend/src/services/mockData.js
-# Replace with a real DB-backed store once app/storage/ is activated.
+# Agent ROSTER — who exists and their display metadata (name/role/color).
+# This is NOT their live status: `status` here is just the initial
+# default. GET /agents (below) overrides it with the real, live status
+# from app/agents/stats_tracker.py before returning — so a task
+# actually has to run for an agent to show "active", instead of the
+# roster claiming 6/7 agents are active when nothing has ever run.
 # ----------------------------------------------------------------------
 _MOCK_AGENTS: dict[str, Agent] = {
-    "orchestrator": Agent(id="orchestrator", name="Orchestrator", role="orchestrator", status=AgentStatus.ACTIVE, color="#8b5cf6"),
-    "research": Agent(id="research", name="Research Agent", role="research", status=AgentStatus.ACTIVE, color="#3b82f6"),
-    "data": Agent(id="data", name="Data Agent", role="data", status=AgentStatus.ACTIVE, color="#22c55e"),
-    "web_search": Agent(id="web_search", name="Web Search Agent", role="web_search", status=AgentStatus.ACTIVE, color="#f59e0b"),
-    "analysis": Agent(id="analysis", name="Analysis Agent", role="analysis", status=AgentStatus.ACTIVE, color="#eab308"),
-    "summarizer": Agent(id="summarizer", name="Summarizer Agent", role="summarizer", status=AgentStatus.ACTIVE, color="#14b8a6"),
+    "orchestrator": Agent(id="orchestrator", name="Orchestrator", role="orchestrator", status=AgentStatus.IDLE, color="#8b5cf6"),
+    "research": Agent(id="research", name="Research Agent", role="research", status=AgentStatus.IDLE, color="#3b82f6"),
+    "data": Agent(id="data", name="Data Agent", role="data", status=AgentStatus.IDLE, color="#22c55e"),
+    "web_search": Agent(id="web_search", name="Web Search Agent", role="web_search", status=AgentStatus.IDLE, color="#f59e0b"),
+    "analysis": Agent(id="analysis", name="Analysis Agent", role="analysis", status=AgentStatus.IDLE, color="#eab308"),
+    "summarizer": Agent(id="summarizer", name="Summarizer Agent", role="summarizer", status=AgentStatus.IDLE, color="#14b8a6"),
     "report": Agent(id="report", name="Report Agent", role="report", status=AgentStatus.IDLE, color="#ec4899"),
 }
 
@@ -49,8 +61,19 @@ _MOCK_RELATIONSHIPS: list[AgentRelationship] = [
 
 @router.get("", response_model=list[Agent])
 async def list_agents():
-    """GET /api/v1/agents — powers the Agents page + graph node list."""
-    return list(_MOCK_AGENTS.values())
+    """
+    GET /api/v1/agents — powers the Agents page + graph node list.
+
+    Merges each agent's REAL live status from stats_tracker (idle
+    unless it's actually mid-call right now) into the static roster —
+    the roster only supplies name/role/color, never status.
+    """
+    agents = []
+    for agent in _MOCK_AGENTS.values():
+        live_stats = stats_tracker.get(agent.id)
+        live_status = live_stats.status if live_stats else agent.status
+        agents.append(agent.model_copy(update={"status": live_status}))
+    return agents
 
 
 @router.get("/relationships", response_model=list[AgentRelationship])
@@ -59,11 +82,42 @@ async def list_agent_relationships():
     return _MOCK_RELATIONSHIPS
 
 
+@router.get("/stats", response_model=list[AgentRuntimeStats])
+async def list_agent_stats():
+    """
+    GET /api/v1/agents/stats — powers the frontend's Agents page (token
+    usage, avg response time, call counts per agent).
+
+    IMPORTANT: this route MUST stay declared before GET /{agent_id}
+    below — FastAPI matches routes in order, and /{agent_id} would
+    otherwise swallow "/stats" as if "stats" were an agent id.
+
+    Every value here comes straight from app/agents/stats_tracker.py,
+    which starts every agent at a genuine zero and only updates once
+    that agent's BaseAgent.run() actually executes a real LLM call
+    (see app/agents/llm_client.py's activation checklist). Until then,
+    this honestly returns all-zero stats — not fabricated numbers.
+    """
+    return stats_tracker.get_all()
+
+
+@router.get("/{agent_id}/stats", response_model=AgentRuntimeStats)
+async def get_agent_stats(agent_id: str):
+    """GET /api/v1/agents/{id}/stats — one agent's real runtime stats."""
+    stats = stats_tracker.get(agent_id)
+    if stats is None:
+        raise HTTPException(status_code=404, detail=f"No stats tracked for agent '{agent_id}'")
+    return stats
+
+
 @router.get("/{agent_id}", response_model=Agent)
 async def get_agent(agent_id: str):
     agent = _MOCK_AGENTS.get(agent_id)
     if agent is None:
         raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found")
+    live_stats = stats_tracker.get(agent_id)
+    if live_stats:
+        return agent.model_copy(update={"status": live_stats.status})
     return agent
 
 

@@ -1,4 +1,4 @@
-import { Check, Circle, ClipboardList } from "lucide-react";
+import { Check, Circle, ClipboardList, AlertTriangle } from "lucide-react";
 import Badge from "../common/Badge";
 import ProgressBar from "../common/ProgressBar";
 import EmptyState from "../common/EmptyState";
@@ -76,7 +76,7 @@ export default function TaskDetailsPanel({ task, agents }) {
       </div>
 
       <ul className="task-details-checklist">
-        {(task.progressSteps ?? []).map((step, i) => (
+        {task.progressSteps.map((step, i) => (
           <li key={i} className={step.done ? "is-done" : ""}>
             {step.done ? (
               <Check size={14} strokeWidth={2.5} />
@@ -87,6 +87,26 @@ export default function TaskDetailsPanel({ task, agents }) {
           </li>
         ))}
       </ul>
+
+      {/* This is the piece that used to be terminal-only: the agent's
+          actual output text. Rendered here the moment the backend sets
+          task.output (see backend/app/api/routes/tasks.py's _run_task). */}
+      {task.output && (
+        <div className="task-details-block">
+          <span className="task-details-field-label">Agent Output</span>
+          <div className="task-details-output">{task.output}</div>
+        </div>
+      )}
+
+      {task.error && (
+        <div className="task-details-block">
+          <span className="task-details-field-label">Error</span>
+          <div className="task-details-error">
+            <AlertTriangle size={14} strokeWidth={2} />
+            <span>{task.error}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

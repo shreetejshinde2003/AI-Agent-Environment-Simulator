@@ -23,7 +23,7 @@ class ReportAgent(BaseAgent):
     # stronger model.
     MODEL = None  # None = use llm_client.DEFAULT_MODEL
 
-    async def process(self, directive: str, context: dict) -> str:
+    async def process(self, directive: str, context: dict):
         # RESERVED — uncomment once app/agents/llm_client.py is activated:
         #
         # from app.agents.llm_client import call_llm
@@ -34,5 +34,5 @@ class ReportAgent(BaseAgent):
         #     system=SYSTEM_PROMPT,
         #     model=self.MODEL,
         # )
-        # return response.text
+        # return response   # return the LLMResponse object itself, not response.text — see research_agent.py
         raise NotImplementedError("ReportAgent.process() needs llm_client.py activated first")

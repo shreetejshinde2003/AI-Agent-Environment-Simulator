@@ -47,7 +47,11 @@ src/
 │   └── common/                     # generic, reusable UI pieces
 │       ├── Badge.jsx / Card.jsx / Button.jsx / ProgressBar.jsx / Avatar.jsx
 │       ├── EmptyState.jsx            # honest "nothing here yet" state, used by every panel
-│       └── ConnectionBadge.jsx        # real Live/Offline/Demo badge, replaces hardcoded "Live" pills
+│       ├── ConnectionBadge.jsx        # real Live/Offline/Demo badge, replaces hardcoded "Live" pills
+│       └── Modal.jsx                   # generic overlay dialog, used by the two forms below
+│   dashboard/ also has:
+│       ├── CreateTaskModal.jsx        # real "Create Task" form → POST /api/v1/tasks
+│       └── AddAgentModal.jsx           # real "Add Agent" form → POST /api/v1/agents
 │
 ├── context/
 │   └── SimulationContext.jsx       # global simulation state, wraps useSimulationData()
@@ -78,12 +82,16 @@ by default. A real-time dashboard that shows "6/7 agents active" when
 nothing is running is lying, so this app simply won't do that.
 
 **To see real data:**
-1. Start `/backend` (see its own README) — `python run.py`.
-2. Start this frontend — `npm run dev`.
-3. Within ~5 seconds, the connection badge in the Topbar flips from
-   "Disconnected" to "Connected" and real data (currently the backend's
-   mock agents/tasks, until storage + the agent framework are wired up
-   on the backend side) starts flowing in.
+1. Start Ollama — `ollama serve`, and `ollama pull gemma2:2b` if you haven't.
+2. Start `/backend` (see its own README) — `python run.py`.
+3. Start this frontend — `npm run dev`.
+4. Within ~5 seconds, the connection badge in the Topbar flips from
+   "Disconnected" to "Connected".
+5. Use the **Create Task** quick action (bottom-right of the dashboard)
+   to assign a real directive to the Research Agent — the result (or a
+   real error, e.g. if Ollama isn't running) appears in the **Task
+   Details** panel's new "Agent Output" section within a few seconds,
+   pushed live over WebSocket — no page refresh, no polling delay.
 
 **To preview the UI without any backend at all** (e.g. showing a
 teammate the design, or working on styling in isolation): set
@@ -116,3 +124,15 @@ two comment markers — search the codebase for them:
   roles, which page a button navigates to, mock vs. real data toggle)
 - `LOCATION-CHANGING` — a value that differs by machine/environment
   (API base URL, WebSocket URL, dev server port)
+
+## Field naming contract with the backend (important)
+
+Every field this frontend reads is camelCase (`totalAgents`,
+`assignedAgentId`) because that's the JS convention. The backend's
+Pydantic models are internally snake_case (Python convention) but
+convert to camelCase automatically via a shared `CamelModel` base — see
+`backend/app/models/schemas.py`. If a new field ever shows up as
+`undefined` on this side despite the backend responding 200 OK, check
+that the backend model actually inherits `CamelModel` before assuming
+the frontend is broken — that mismatch is a real bug class that's bitten
+this project before.

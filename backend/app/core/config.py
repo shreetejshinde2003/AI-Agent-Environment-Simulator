@@ -47,12 +47,20 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./simulator.db"  # <-- USER-DEFINED: change to your Postgres URL when ready
 
     # ------------------------------------------------------------------
-    # USER-DEFINED — Agent framework (LangGraph) credentials
+    # USER-DEFINED — LLM provider
     # ------------------------------------------------------------------
-    # Whoever wires up app/agents/ will need an LLM provider API key.
-    # NEVER hardcode the actual key — put it in your local .env file only.
-    ANTHROPIC_API_KEY: str = ""   # <-- USER-DEFINED: set in .env, never commit the real value
-    OPENAI_API_KEY: str = ""      # <-- USER-DEFINED: only needed if a node uses an OpenAI model
+    # ACTIVE default: a local Ollama server (matches the team's validated
+    # setup — Ollama + gemma2:2b). Start it before running the backend:
+    #     ollama serve            # in its own terminal
+    #     ollama pull gemma2:2b    # one-time, if not already pulled
+    OLLAMA_HOST: str = "http://localhost:11434"  # <-- LOCATION-CHANGING: change if Ollama runs elsewhere (e.g. a shared team server)
+    OLLAMA_MODEL: str = "gemma2:2b"                # <-- USER-DEFINED: must match a model you've actually pulled — see `ollama list`
+
+    # RESERVED — alternate: cloud providers, if the team switches later
+    # (better quality, no local GPU needed, costs money per call).
+    # Not used by app/agents/llm_client.py right now.
+    ANTHROPIC_API_KEY: str = ""   # <-- USER-DEFINED: set in .env if you switch to Claude, never commit the real value
+    OPENAI_API_KEY: str = ""      # <-- USER-DEFINED: set in .env if you switch to GPT
 
     # ------------------------------------------------------------------
     # WebSocket
