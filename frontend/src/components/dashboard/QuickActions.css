@@ -32,3 +32,14 @@
   background: var(--status-danger-soft);
   border-color: var(--status-danger);
 }
+
+.quick-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.quick-action-btn:disabled:hover {
+  background: var(--bg-panel-raised);
+  color: var(--text-secondary);
+  border-color: var(--border-subtle);
+}

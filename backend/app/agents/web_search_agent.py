@@ -5,10 +5,7 @@ RESERVED — one of the six agents. Fill in the `call_llm(...)` call
 inside `process()` once app/agents/llm_client.py is activated.
 """
 
-
-
 from app.agents.base_agent import BaseAgent
-from app.agents.llm_client import call_llm
 
 # USER-DEFINED: starting-point prompt — refine after real trials.
 SYSTEM_PROMPT = """You are the Web Search Agent in a multi-agent simulation.
@@ -16,17 +13,7 @@ Given a task directive, identify what should be searched for and
 summarize what a real web search would need to return (competitor
 websites, pricing pages, recent news). If you're given actual search
 results as input (via a real search tool call — see the RESERVED note
-below), summarize them factually instead of guessing.
-Your responsibility is to identify information that should be gathered
-from external sources.
-
-Rules:
-
-- Focus on identifying missing or outdated information.
-- Suggest useful search queries.
-- Do not fabricate web results.
-- If no external search is needed, explicitly state that.
-- Return Markdown."""
+below), summarize them factually instead of guessing."""
 
 
 class WebSearchAgent(BaseAgent):
@@ -37,25 +24,22 @@ class WebSearchAgent(BaseAgent):
     # real token cost across a long simulation without hurting quality.
     MODEL = None  # None = use llm_client.DEFAULT_MODEL — recommend llm_client.FAST_MODEL here after benchmarking
 
-    async def process(self, directive: str, context: dict) -> str:
-
-        research_findings = context.get("research_findings", "")
-
-        prompt = f"""
-Task:
-{directive}
-
-Current Research:
-{research_findings}
-
-Determine whether additional web searches are required.
-If yes, suggest search queries.
-"""
-
-        response = await call_llm(
-        prompt=prompt,
-        system=SYSTEM_PROMPT,
-        model=self.MODEL,
-    )
-
-        return response.text
+    async def process(self, directive: str, context: dict):
+        # RESERVED — uncomment once app/agents/llm_client.py is activated:
+        #
+        # from app.agents.llm_client import call_llm, FAST_MODEL
+        #
+        # # RESERVED: for a REAL web search (not just an LLM guessing),
+        # # wire in an actual search tool here (e.g. Anthropic's built-in
+        # # web_search tool, or a SERP API) before calling the LLM to
+        # # summarize the results. Passing the raw directive straight to
+        # # the LLM without real search results risks the model
+        # # fabricating sources — same failure mode the frontend was
+        # # fixed for, just at the agent layer instead of the UI layer.
+        # response = await call_llm(
+        #     prompt=directive,
+        #     system=SYSTEM_PROMPT,
+        #     model=self.MODEL or FAST_MODEL,
+        # )
+        # return response   # return the LLMResponse object itself, not response.text — see research_agent.py
+        raise NotImplementedError("WebSearchAgent.process() needs llm_client.py activated first")

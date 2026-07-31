@@ -5,37 +5,41 @@ Endpoints for the Messages page and the "Message Flow (Live)" card on
 the dashboard.
 """
 
+import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter
 
 from app.models.schemas import Message, MessageKind
+from app.websocket.manager import manager
 
 router = APIRouter(prefix="/messages", tags=["messages"])
 
 
 # ----------------------------------------------------------------------
-# TEMPORARY in-memory mock data — replace with DB query once storage
-# is activated.
+# Real message log — starts empty (not fake pre-populated conversation
+# history). Replace with a DB query once storage is activated.
+# RESERVED: currently nothing calls record_message() yet — wire it into
+# api/routes/tasks.py's _run_task() once multiple agents hand off to
+# each other (right now there's only one real agent, so there's no
+# real agent-to-agent message to log — a single agent completing a
+# task is captured as an ActivityEvent, not a Message).
 # ----------------------------------------------------------------------
-_MOCK_MESSAGES: list[Message] = [
-    Message(
-        id="m1", from_agent_id="research", to_agent_id="data", kind=MessageKind.REQUEST,
-        content="Please extract structured data from sources", timestamp=datetime.now(timezone.utc),
-    ),
-    Message(
-        id="m2", from_agent_id="data", to_agent_id="analysis", kind=MessageKind.RESPONSE,
-        content="Extracted 42 records successfully", timestamp=datetime.now(timezone.utc),
-    ),
-    Message(
-        id="m3", from_agent_id="analysis", to_agent_id="summarizer", kind=MessageKind.REQUEST,
-        content="Please generate insights summary", timestamp=datetime.now(timezone.utc),
-    ),
-    Message(
-        id="m4", from_agent_id="summarizer", to_agent_id="report", kind=MessageKind.RESPONSE,
-        content="Summary generated. Preparing report.", timestamp=datetime.now(timezone.utc),
-    ),
-]
+_MESSAGES: list[Message] = []
+
+
+async def record_message(from_agent_id: str, to_agent_id: str, kind: MessageKind, content: str) -> None:
+    """Call this once a real agent hands off to another agent."""
+    message = Message(
+        id=f"m-{uuid.uuid4().hex[:8]}",
+        from_agent_id=from_agent_id,
+        to_agent_id=to_agent_id,
+        kind=kind,
+        content=content,
+        timestamp=datetime.now(timezone.utc),
+    )
+    _MESSAGES.append(message)
+    await manager.broadcast("message_sent", message.model_dump(mode="json"))
 
 
 @router.get("", response_model=list[Message])
@@ -43,7 +47,14 @@ async def list_messages(limit: int = 50):
     """GET /api/v1/messages — powers the Messages page and Message Flow card.
 
     `limit` param: RESERVED for pagination once message volume grows —
-    harmless no-op against mock data today, but wire it into the real
-    DB query (ORDER BY timestamp DESC LIMIT :limit) once storage exists.
+    harmless no-op against in-memory data today, but wire it into the
+    real DB query (ORDER BY timestamp DESC LIMIT :limit) once storage exists.
     """
-    return _MOCK_MESSAGES[-limit:]
+    return _MESSAGES[-limit:]
+
+
+def get_message_count() -> int:
+    """Used by api/routes/simulation.py to compute totalMessages live —
+    kept as a function (not a direct import of _MESSAGES) so this
+    module stays the one source of truth for what counts as a message."""
+    return len(_MESSAGES)

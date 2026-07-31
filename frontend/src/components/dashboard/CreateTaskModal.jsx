@@ -1,106 +1,93 @@
 import { useState } from "react";
-import "./CreateTaskModal.css";
+import Modal from "../common/Modal";
+import Button from "../common/Button";
+import { apiClient } from "../../services/apiClient";
+import "./AgentActionForms.css";
 
-export default function CreateTaskModal({
-  isOpen,
-  onClose,
-  onSubmit,
-}) {
+/**
+ * CreateTaskModal — the real thing QuickActions' "Create Task" button
+ * opens. Submits to POST /api/v1/tasks (see backend/app/api/routes/tasks.py),
+ * which runs the assigned agent in the background and broadcasts the
+ * result over WebSocket — hooks/useLiveSocket.js picks that up and
+ * refetches automatically, so this modal doesn't need to do anything
+ * clever after a successful submit besides closing itself.
+ *
+ * Props:
+ *  - agents: Agent[]  (for the assignee dropdown)
+ *  - onClose: () => void
+ */
+export default function CreateTaskModal({ agents, onClose }) {
   const [directive, setDirective] = useState("");
+  const [assignedAgentId, setAssignedAgentId] = useState(agents[0]?.id ?? "research");
   const [priority, setPriority] = useState("medium");
-  const [assignedAgent, setAssignedAgent] = useState("research");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState(null);
 
-  if (!isOpen) return null;
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!directive.trim()) return;
 
-    onSubmit({
-      directive,
-      priority,
-      assigned_agent_id: assignedAgent,
-    });
-
-    setDirective("");
-    setPriority("medium");
-    setAssignedAgent("research");
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      await apiClient.createTask({ directive: directive.trim(), assignedAgentId, priority });
+      onClose();
+    } catch (err) {
+      // USER-DEFINED: only "research" is a real, implemented agent
+      // right now (see backend/app/api/routes/tasks.py's
+      // _IMPLEMENTED_AGENTS). Assigning to any other agent will create
+      // the task successfully, then it will visibly fail a moment
+      // later with "agent not implemented yet" — that's expected until
+      // more agents are activated, not a bug in this form.
+      setError(err.message || "Failed to create task — is the backend running?");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <div className="task-modal-overlay">
-      <div className="task-modal">
+    <Modal title="Create Task" onClose={onClose}>
+      <form onSubmit={handleSubmit}>
+        {error && <div className="form-error">{error}</div>}
 
-        <div className="task-modal-header">
-          <h2>Create New Task</h2>
-
-          <button
-            className="close-btn"
-            onClick={onClose}
-          >
-            ✕
-          </button>
+        <div className="form-field">
+          <label htmlFor="task-directive">Directive</label>
+          <textarea
+            id="task-directive"
+            value={directive}
+            onChange={(e) => setDirective(e.target.value)}
+            placeholder="e.g. Summarize recent trends in on-device AI inference"
+            autoFocus
+          />
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <div className="form-field">
+          <label htmlFor="task-agent">Assign to</label>
+          <select id="task-agent" value={assignedAgentId} onChange={(e) => setAssignedAgentId(e.target.value)}>
+            {agents.map((agent) => (
+              <option key={agent.id} value={agent.id}>
+                {agent.name}{agent.id !== "research" ? " (not implemented yet)" : ""}
+              </option>
+            ))}
+          </select>
+        </div>
 
-          <label>
-            Directive
-          </label>
-
-          <textarea
-            rows="5"
-            value={directive}
-            onChange={(e)=>setDirective(e.target.value)}
-            placeholder="Describe the research task..."
-            required
-          />
-
-          <label>
-            Priority
-          </label>
-
-          <select
-            value={priority}
-            onChange={(e)=>setPriority(e.target.value)}
-          >
+        <div className="form-field">
+          <label htmlFor="task-priority">Priority</label>
+          <select id="task-priority" value={priority} onChange={(e) => setPriority(e.target.value)}>
             <option value="low">Low</option>
             <option value="medium">Medium</option>
             <option value="high">High</option>
           </select>
+        </div>
 
-          <label>
-            Assigned Agent
-          </label>
-
-          <select
-            value={assignedAgent}
-            onChange={(e)=>setAssignedAgent(e.target.value)}
-          >
-            <option value="research">Research Agent</option>
-            <option value="web_search">Web Search Agent</option>
-            <option value="analysis">Analysis Agent</option>
-          </select>
-
-          <div className="modal-buttons">
-
-            <button
-              type="button"
-              onClick={onClose}
-            >
-              Cancel
-            </button>
-
-            <button
-              type="submit"
-            >
-              Create Task
-            </button>
-
-          </div>
-
-        </form>
-
-      </div>
-    </div>
+        <div className="form-actions">
+          <Button variant="ghost" onClick={onClose} type="button">Cancel</Button>
+          <Button variant="primary" type="submit" disabled={isSubmitting || !directive.trim()}>
+            {isSubmitting ? "Creating…" : "Create Task"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }

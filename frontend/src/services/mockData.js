@@ -53,6 +53,22 @@ export const mockTasks = [
       { label: "Collecting pricing and product details", done: false },
       { label: "Compiling results", done: false },
     ],
+    output: null,
+    error: null,
+  },
+  {
+    id: "T-1023",
+    directive: "Summarize recent trends in on-device AI inference.",
+    assignedAgentId: "research",
+    status: "completed",
+    priority: "medium",
+    startedAt: new Date(Date.now() - 400_000).toISOString(),
+    durationSeconds: 38,
+    progressPercent: 100,
+    progressSteps: [{ label: "research completed the task", done: true }],
+    output:
+      "## Research Findings\n\nOn-device inference has shifted toward smaller, quantized models (2B-8B parameters) that run acceptably on consumer hardware. Key drivers: privacy-sensitive use cases, offline reliability, and falling per-token cloud costs no longer being the only lever. Frameworks like Ollama and llama.cpp have made local deployment far more accessible to small teams.\n\n(Demo Mode sample output — not a real agent response.)",
+    error: null,
   },
 ];
 

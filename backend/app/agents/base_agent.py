@@ -20,9 +20,9 @@ IMPORTANT — the split between run() and process():
 
 import time
 
-
 from app.agents.stats_tracker import stats_tracker
 from app.agents.llm_client import DEFAULT_MODEL
+from app.models.schemas import AgentStatus
 
 
 class BaseAgent:
@@ -38,12 +38,13 @@ class BaseAgent:
     def __init__(self) -> None:
         stats_tracker.register(self.AGENT_ID)
 
-    async def process(self, directive: str, context: dict) -> str:
+    async def process(self, directive: str, context: dict):
         """
-        RESERVED — every agent subclass overrides this. Should call
-        `app.agents.llm_client.call_llm(...)` and return the response
-        text. Left unimplemented here on purpose — see the six agent
-        files in this folder for where this gets filled in.
+        RESERVED (for 5 of the 6 agents) — every agent subclass
+        overrides this. Should call `app.agents.llm_client.call_llm(...)`
+        and return the resulting LLMResponse object directly (not just
+        the text) — see research_agent.py for the working example.
+        Left unimplemented here on purpose.
         """
         raise NotImplementedError(
             f"{self.__class__.__name__}.process() is not implemented yet — "
@@ -57,21 +58,39 @@ class BaseAgent:
         regardless of which agent subclass is running.
         """
         context = context or {}
+        stats_tracker.set_status(self.AGENT_ID, AgentStatus.ACTIVE)
         start = time.perf_counter()
 
-        result_text = await self.process(directive, context)
+        try:
+            result = await self.process(directive, context)
+        except Exception:
+            stats_tracker.set_status(self.AGENT_ID, AgentStatus.ERROR)
+            raise
 
         elapsed = time.perf_counter() - start
-        # RESERVED: token counts should come from the real LLM response
-        # (see llm_client.LLMResponse.total_tokens) once process() is
-        # implemented and returns that alongside the text — 0 here is
-        # the honest value for a call that didn't happen, not a filler
-        # guess. Update this once process() returns real usage data.
+
+        # Agents that call a real LLM (research_agent.py) return the
+        # LLMResponse object directly, so we get genuine token counts.
+        # Agents still RESERVED raise NotImplementedError above and
+        # never reach this line, so there's no risk of this silently
+        # reporting fake numbers for an agent that didn't really run.
+        if hasattr(result, "text") and hasattr(result, "total_tokens"):
+            text = result.text
+            tokens_used = result.total_tokens
+            model_used = result.model
+        else:
+            # Defensive fallback only — in practice every agent either
+            # returns an LLMResponse or raises before getting here.
+            text = result
+            tokens_used = 0
+            model_used = self.MODEL or DEFAULT_MODEL
+
         stats_tracker.record_call(
             agent_id=self.AGENT_ID,
             response_time_seconds=elapsed,
-            tokens_used=0,
-            response_preview=result_text,
-            model_used=self.MODEL or DEFAULT_MODEL,
+            tokens_used=tokens_used,
+            response_preview=text,
+            model_used=model_used,
         )
-        return result_text
+        stats_tracker.set_status(self.AGENT_ID, AgentStatus.IDLE)
+        return text

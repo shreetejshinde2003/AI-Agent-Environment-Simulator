@@ -8,10 +8,11 @@
  *     empty state. No fabricated numbers, ever. That's the whole fix
  *     this file exists for — a dashboard showing "6/7 agents active"
  *     with no backend running was lying to whoever's looking at it.
- *   - If the backend IS reachable, this fetches real data from it and
- *     polls for updates. (RESERVED: replace the poll with the
- *     WebSocket in hooks/useLiveSocket.js once the backend broadcasts
- *     events — polling is a fine stand-in until then.)
+ *   - If the backend IS reachable, this fetches real data from it,
+ *     polls every 5s as a safety net, AND listens on the WebSocket
+ *     (hooks/useLiveSocket.js) to refetch immediately the moment
+ *     something actually changes — a task finishing, an agent's status
+ *     flipping — instead of waiting for the next poll tick.
  *
  * Demo mode (opt-in, off by default):
  *   - For UI development/demos without a backend running at all, set
@@ -24,6 +25,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiClient } from "../services/apiClient";
 import { useBackendConnection } from "./useBackendConnection";
+import { useLiveSocket } from "./useLiveSocket";
 import {
   mockAgents,
   mockRelationships,
@@ -113,9 +115,24 @@ export function useSimulationData() {
     }
 
     fetchRealData();
+    // Polling stays on as a safety net (covers the case where a
+    // WebSocket event was missed, e.g. brief reconnect) — the live
+    // socket below is what makes updates feel instant instead of
+    // waiting up to 5s.
     const intervalId = setInterval(fetchRealData, POLL_INTERVAL_MS);
     return () => clearInterval(intervalId);
   }, [connectionStatus, isDemoMode, fetchRealData]);
+
+  // Any broadcast from backend/app/websocket/manager.py — a task
+  // finishing, an agent's status changing, a new activity event — means
+  // something is now stale. Refetching everything is simpler and more
+  // reliable than trying to patch state per event type on the frontend,
+  // and the payload is small enough that this is cheap.
+  const handleLiveEvent = useCallback(() => {
+    fetchRealData();
+  }, [fetchRealData]);
+
+  useLiveSocket(handleLiveEvent, !isDemoMode && connectionStatus === "connected");
 
   if (isDemoMode) {
     return {

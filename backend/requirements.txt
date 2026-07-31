@@ -6,12 +6,18 @@ pydantic-settings==2.7.1
 python-dotenv==1.0.1
 websockets==14.1
 
+# --- LLM (active now) ---
+# Local model via Ollama — matches the team's validated setup.
+# Requires `ollama serve` running locally with gemma2:2b pulled.
+ollama
+httpx          # transitive dep of ollama's client, also handy for direct calls if ever needed
+
 # --- Storage (RESERVED — uncomment when app/storage/ is activated) ---
 # sqlalchemy==2.0.36
 # alembic==1.14.0          # recommended for real migrations once schema stabilizes
 # psycopg2-binary==2.9.10  # only needed once you switch from SQLite to Postgres
 
-# --- Agent framework (RESERVED — uncomment when app/agents/ is activated) ---
+# --- Agent framework (RESERVED — uncomment if the graph moves to LangGraph) ---
 # langgraph>=0.4
-# langchain-anthropic       # or langchain-openai, depending on which provider you use
+# langchain-anthropic       # or langchain-openai — only needed if you switch off Ollama, see llm_client.py
 # anthropic

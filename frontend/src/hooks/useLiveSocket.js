@@ -1,15 +1,11 @@
 /**
  * hooks/useLiveSocket.js
  *
- * STUB — not connected anywhere yet. This is a no-op today; it exists
- * so the "Live" badges scattered around the dashboard have a real
- * data source to attach to once the backend WebSocket
- * (see backend/app/websocket/manager.py) is actually running.
- *
- * When you're ready to go live:
- *   1. Call this hook once, near the top of pages/LiveSimulation.jsx.
- *   2. Have it update SimulationContext state on each incoming event
- *      instead of just logging.
+ * Connects to the backend's WebSocket broadcast
+ * (backend/app/websocket/manager.py) and fires `onEvent` for every
+ * message. Used by hooks/useSimulationData.js to refetch immediately
+ * when something actually changes, instead of waiting for the next
+ * 5-second poll.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -19,28 +15,37 @@ import { useEffect, useRef, useState } from "react";
 // (see services/apiClient.js) but with ws:// instead of http://.
 const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:8000/ws/live";
 
-// USER-DEFINED: turn this on once the backend WebSocket endpoint is
-// actually running — leaving it off avoids a noisy failed-connection
-// error in the console during frontend-only development.
-const LIVE_SOCKET_ENABLED = false;
+// USER-DEFINED: global kill-switch, independent of the `enabled` param
+// below. Turn off only if you need to debug polling in isolation.
+const LIVE_SOCKET_ENABLED = true;
 
-export function useLiveSocket(onEvent) {
+/**
+ * @param onEvent  called with the parsed { event, data, timestamp } message
+ * @param enabled  per-call gate — e.g. useSimulationData only passes
+ *                 true once connectionStatus === "connected", so this
+ *                 doesn't try to open a socket against a backend that
+ *                 isn't there.
+ */
+export function useLiveSocket(onEvent, enabled = true) {
   const [isConnected, setIsConnected] = useState(false);
   const socketRef = useRef(null);
 
   useEffect(() => {
-    if (!LIVE_SOCKET_ENABLED) return undefined;
+    if (!LIVE_SOCKET_ENABLED || !enabled) return undefined;
 
     const socket = new WebSocket(WS_URL);
     socketRef.current = socket;
 
     socket.onopen = () => setIsConnected(true);
     socket.onclose = () => setIsConnected(false);
+    socket.onerror = () => setIsConnected(false);
 
     socket.onmessage = (event) => {
       try {
         const parsed = JSON.parse(event.data);
-        // Expected shape: { event: "task_created" | "agent_status_changed" | ..., data: {...}, timestamp }
+        // Real shape, from backend/app/websocket/manager.py's broadcast():
+        // { event: "task_created" | "task_updated" | "agent_status_changed" |
+        //   "activity_event" | "message_sent" | "stats_updated", data: {...}, timestamp }
         onEvent?.(parsed);
       } catch {
         console.warn("Received a non-JSON WebSocket message:", event.data);
@@ -48,7 +53,7 @@ export function useLiveSocket(onEvent) {
     };
 
     return () => socket.close();
-  }, [onEvent]);
+  }, [onEvent, enabled]);
 
   return { isConnected };
 }

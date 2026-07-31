@@ -49,23 +49,7 @@ export const apiClient = {
 
   getMessages: (limit = 50) => request(`/messages?limit=${limit}`),
 
-  getSimulationStats: async () => {
-  const data = await request("/simulation/stats");
-
-  return {
-    simulationId: data.simulation_id,
-    status: data.status,
-    startTime: data.start_time,
-    durationSeconds: data.duration_seconds,
-    totalAgents: data.total_agents,
-    activeAgents: data.active_agents,
-    totalTasks: data.total_tasks,
-    completedTasks: data.completed_tasks,
-    totalMessages: data.total_messages,
-    avgResponseTimeSeconds: data.avg_response_time_seconds,
-    successRatePercent: data.success_rate_percent,
-  };
-},
+  getSimulationStats: () => request("/simulation/stats"),
   getActivityFeed: (limit = 20) => request(`/simulation/activity?limit=${limit}`),
   pauseSimulation: () => request("/simulation/pause", { method: "POST" }),
   resumeSimulation: () => request("/simulation/resume", { method: "POST" }),

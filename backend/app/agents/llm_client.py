@@ -2,56 +2,60 @@
 app/agents/llm_client.py
 
 THE single place the LLM provider and model(s) get declared. Every
-agent file in this folder should call `call_llm()` from here — no
-agent should import an LLM SDK directly. That's what makes swapping
-providers later (or using a different model per agent) a one-file change.
+agent file in this folder calls `call_llm()` from here — no agent
+should import the `ollama` package (or any other provider SDK)
+directly. That's what makes swapping models, or the provider itself,
+later a one-file change instead of a hunt through six agent files.
 
 --------------------------------------------------------------------
-STATUS: RESERVED — no real API calls happen yet.
+STATUS: ACTIVE — this makes real calls, using Ollama.
 --------------------------------------------------------------------
-Calling `call_llm()` right now raises NotImplementedError on purpose.
-A stub that returned canned text would silently reintroduce the exact
-"fabricated data" problem the frontend was fixed for — an agent
-"responding" with fake text is worse than an agent that clearly
-doesn't work yet. See the checklist below to activate it for real.
+Matches the team's already-validated setup: a local Ollama server
+running gemma2:2b. Before this will work, you need Ollama actually
+running with the model pulled:
+
+    ollama serve             # in its own terminal, leave it running
+    ollama pull gemma2:2b     # one-time — confirm with `ollama list`
+
+If Ollama isn't running, `call_llm()` will raise a connection error —
+that's the correct, honest failure mode (see BaseAgent.run() /
+api/routes/tasks.py for how that gets surfaced to the dashboard as a
+real error instead of hanging silently).
 
 --------------------------------------------------------------------
-HOW TO ACTIVATE THIS (checklist):
+SWITCHING PROVIDERS LATER (e.g. to Claude/GPT for better quality):
 --------------------------------------------------------------------
-1. `pip install anthropic` (already in requirements.txt, commented out
-   — uncomment it) and set ANTHROPIC_API_KEY in your .env.
-2. Uncomment the `_client = Anthropic(...)` line and the real body of
-   `call_llm()` below.
-3. Each of the six agent files (research_agent.py, data_agent.py, etc.)
-   already has a commented-out call to `call_llm(...)` in its
-   `process()` method — uncomment those once this file is live.
-4. Token usage: Anthropic's response includes `usage.input_tokens` /
-   `usage.output_tokens` — wire those into the LLMResponse below so
-   app/agents/stats_tracker.py reports REAL token counts, not zeros.
+Only this file changes. Keep the same `call_llm()` signature and
+`LLMResponse` shape so none of the six agent files need to change.
+A commented-out Anthropic version is included at the bottom of this
+file as a starting point when that day comes.
 """
 
 import time
-import httpx
 from dataclasses import dataclass
+
+from ollama import AsyncClient
 
 from app.core.config import settings
 
 # ----------------------------------------------------------------------
 # USER-DEFINED — model selection
 # ----------------------------------------------------------------------
-# Pick models based on what each agent actually needs. Research/Analysis/
-# Summarizer are open-ended reasoning tasks — worth a stronger model.
-# Web Search/Data extraction are more mechanical — a cheaper/faster
-# model is usually fine and meaningfully reduces token cost across a
-# long simulation. This split is a real cost decision, not a detail —
-# see the "Research Paper Track" trade-off notes in the project's
-# tech-stack doc for why this matters at simulation scale.
-DEFAULT_MODEL = "gemma2:2b"   # <-- USER-DEFINED: reasoning-heavy agents
-FAST_MODEL = "gemma2:2b"       # <-- USER-DEFINED: mechanical/high-volume agents
-OLLAMA_URL = "http://localhost:11434/api/generate"
-# USER-DEFINED: hard ceiling per call — prevents one runaway agent
-# response from blowing the token budget for the whole simulation.
+# Both point at the same local model today, since the team is running
+# one model. Split these the same way cloud setups split a
+# reasoning-heavy default from a cheap/fast option once you're running
+# more than one local model size (e.g. gemma2:2b for mechanical agents,
+# a larger model for Research/Analysis/Report).
+DEFAULT_MODEL = settings.OLLAMA_MODEL   # <-- USER-DEFINED: reasoning-heavy agents
+FAST_MODEL = settings.OLLAMA_MODEL       # <-- USER-DEFINED: point at a smaller/faster model once you have one pulled
+
+# USER-DEFINED: soft ceiling on response length per call (Ollama's
+# `num_predict` option) — prevents one runaway response from eating the
+# whole simulation's time budget. Unlike cloud APIs this doesn't affect
+# billing, but it does affect how long you wait.
 DEFAULT_MAX_TOKENS = 1024
+
+_client = AsyncClient(host=settings.OLLAMA_HOST)
 
 
 @dataclass
@@ -67,36 +71,63 @@ class LLMResponse:
         return self.input_tokens + self.output_tokens
 
 
-# RESERVED — uncomment once ready to make real calls:
+async def call_llm(
+    prompt: str,
+    system: str | None = None,
+    model: str | None = None,
+    max_tokens: int = DEFAULT_MAX_TOKENS,
+) -> LLMResponse:
+    """
+    The ONE function every agent calls to talk to the LLM. Wraps timing
+    so callers (BaseAgent.run(), via stats_tracker) get real
+    response-time numbers — not estimates.
+
+    Token counts come from Ollama's own response fields
+    (`prompt_eval_count` / `eval_count`), which are Ollama's equivalent
+    of input/output tokens — real numbers, not guesses.
+    """
+    resolved_model = model or DEFAULT_MODEL
+    start = time.perf_counter()
+
+    response = await _client.generate(
+        model=resolved_model,
+        prompt=prompt,
+        system=system or "",
+        options={"num_predict": max_tokens},
+    )
+
+    elapsed = time.perf_counter() - start
+
+    return LLMResponse(
+        text=response.get("response", ""),
+        input_tokens=response.get("prompt_eval_count", 0) or 0,
+        output_tokens=response.get("eval_count", 0) or 0,
+        response_time_seconds=elapsed,
+        model=resolved_model,
+    )
+
+
+# ----------------------------------------------------------------------
+# RESERVED — cloud provider alternate (not active). Swap to this
+# implementation (keeping the function name/signature identical) if the
+# team moves off a local model later.
+# ----------------------------------------------------------------------
 #
 # from anthropic import Anthropic
 #
-# _client = Anthropic(api_key=settings.ANTHROPIC_API_KEY)  # <-- USER-DEFINED: key lives in .env, see app/core/config.py
+# _cloud_client = Anthropic(api_key=settings.ANTHROPIC_API_KEY)
 #
-# async def call_llm(
-#     prompt: str,
-#     system: str | None = None,
-#     model: str | None = None,
-#     max_tokens: int = DEFAULT_MAX_TOKENS,
-# ) -> LLMResponse:
-#     """
-#     The ONE function every agent calls to talk to an LLM. Wraps
-#     timing so callers (BaseAgent.run(), via stats_tracker) get real
-#     response-time numbers, not guesses.
-#     """
-#     resolved_model = model or DEFAULT_MODEL
+# async def call_llm(prompt, system=None, model=None, max_tokens=DEFAULT_MAX_TOKENS) -> LLMResponse:
+#     resolved_model = model or "claude-sonnet-4-5"
 #     start = time.perf_counter()
-#
-#     response = _client.messages.create(
+#     response = _cloud_client.messages.create(
 #         model=resolved_model,
 #         max_tokens=max_tokens,
 #         system=system or "",
 #         messages=[{"role": "user", "content": prompt}],
 #     )
-#
 #     elapsed = time.perf_counter() - start
 #     text = "".join(block.text for block in response.content if block.type == "text")
-#
 #     return LLMResponse(
 #         text=text,
 #         input_tokens=response.usage.input_tokens,
@@ -104,51 +135,3 @@ class LLMResponse:
 #         response_time_seconds=elapsed,
 #         model=resolved_model,
 #     )
-
-
-async def call_llm(
-    prompt: str,
-    system: str | None = None,
-    model: str | None = None,
-    max_tokens: int = DEFAULT_MAX_TOKENS,
-) -> LLMResponse:
-
-    resolved_model = model or DEFAULT_MODEL
-
-    full_prompt = prompt
-
-    if system:
-        full_prompt = f"{system}\n\n{prompt}"
-
-    start = time.perf_counter()
-
-    async with httpx.AsyncClient(timeout=120) as client:
-
-        response = await client.post(
-            OLLAMA_URL,
-            json={
-                "model": resolved_model,
-                "prompt": full_prompt,
-                "stream": False,
-            },
-        )
-
-        response.raise_for_status()
-
-        data = response.json()
-
-    elapsed = time.perf_counter() - start
-
-    text = data.get("response", "")
-
-    prompt_eval = data.get("prompt_eval_count", 0)
-
-    eval_count = data.get("eval_count", 0)
-
-    return LLMResponse(
-        text=text,
-        input_tokens=prompt_eval,
-        output_tokens=eval_count,
-        response_time_seconds=elapsed,
-        model=resolved_model,
-    )
