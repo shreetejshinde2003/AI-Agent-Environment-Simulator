@@ -1,176 +1,301 @@
 # 🚀 AI-Agent-Environment-Simulator
 
-A full-stack AI-powered HR Analytics platform built using:
+A full-stack Multi-Agent AI platform focused on **HR Analytics and Recruitment Assistance**.
 
-- React + Vite
-- FastAPI
-- Ollama (Local LLM for development)
-- Multi-Agent Architecture
-- WebSockets
-- Multiple LLM Provider Support (Upcoming)
+The project simulates how multiple AI agents collaborate to perform HR-related tasks such as job analysis, candidate screening, report generation, research, summarization, and workflow automation. The current implementation provides the foundation for a scalable multi-agent environment with a React frontend, FastAPI backend, and local LLM integration using Ollama.
 
 ---
 
-# 📍 Current Project Status
+# 📌 Project Status
 
-## ✅ Phase 1 — Project Setup (Completed)
+**Current Version:** v0.2
 
-- Repository created
-- GitHub collaboration setup
-- Frontend scaffold completed
-- Backend scaffold completed
-- Database datasets collected
-- Git branching workflow configured
+**Development Stage:** Academic Project (Under Active Development)
+
+**Current Focus:**
+Building a working Multi-Agent HR Analytics platform with local AI inference before expanding to cloud LLM providers.
 
 ---
 
-## 🔄 Phase 2 — Backend Integration (Current Sprint)
+# 🎯 Project Objectives
 
-Current objective:
-
-Connect every AI agent with the frontend and Ollama to create a complete working system.
-
-Tasks include:
-
-- Replace all backend mock endpoints
-- Connect Research Agent to frontend
-- Connect Analysis Agent
-- Connect Data Agent
-- Connect Report Agent
-- Connect Summarizer Agent
-- Connect Web Search Agent
-- Build Agent Orchestrator
-- Real-time WebSocket updates
-- Display AI outputs in dashboard
-
-Development LLM:
-
-- Ollama
-- Gemma 2B
+- Build a modular Multi-Agent AI environment.
+- Automate HR analytics and recruitment workflows.
+- Enable collaboration between specialized AI agents.
+- Support local LLM execution using Ollama.
+- Design a scalable architecture for future cloud deployment.
 
 ---
 
-## 🔜 Phase 3 — Multi-LLM Support
+# ✨ Current Features
 
-After the complete system works locally:
+## Frontend
 
-Support multiple providers:
-
-- OpenAI GPT
-- Claude
-- Gemini
-- DeepSeek
-- Grok
-- OpenRouter
-- Ollama
-
-Users will be able to enter their own API Keys.
-
----
-
-## 🔜 Phase 4 — Production Ready
-
-Future Improvements
-
-- SQLite / PostgreSQL
-- Authentication
-- User Accounts
-- Saved Conversations
-- Reports
-- Analytics
-- Deployment
-
----
-
-# 👥 Team Responsibilities
-
-## Project Lead (Shreetej)
-
-Responsible for:
-
-- Backend development
-- AI Agents
-- Multi-Agent Orchestration
-- Ollama Integration
-- Backend APIs
-- Frontend Integration
-- GitHub Repository Management
-
----
-
-## Database Module (Sumit)
-
-Responsible for:
-
-- Dataset organization
-- Dataset validation
-- Data loading scripts
-- Database API
-- Documentation
-
----
-
-## Frontend Module (Parag)
-
-Responsible for:
-
-- UI/UX
 - Dashboard
-- Agent Cards
-- Settings Page
-- API Key Management UI
-- Live Simulation UI
-- Chat Interface
-- Replay Interface
+- Agent Monitoring
+- Task Summary
+- Messages
+- Logs
+- Replay
+- Settings
+- Live Simulation Interface
+
+---
+
+## Backend
+
+- FastAPI Backend
+- REST APIs
+- WebSocket Support
+- Multi-Agent Architecture
+- Agent Orchestrator
+- Local LLM Integration (Ollama)
+- Modular Backend Structure
+
+---
+
+## AI Agents
+
+Current agent modules include:
+
+- Research Agent
+- Analysis Agent
+- Data Agent
+- Report Agent
+- Summarizer Agent
+- Web Search Agent
+- Agent Orchestrator
+
+---
+
+# 🏗 System Architecture
+
+```
+                User
+                  │
+                  ▼
+        React + Vite Frontend
+                  │
+        REST API / WebSockets
+                  │
+                  ▼
+            FastAPI Backend
+                  │
+        Agent Orchestrator
+                  │
+ ┌────────┬────────┬────────┬────────┬────────┐
+ ▼        ▼        ▼        ▼        ▼
+Research Analysis Data Report Summarizer
+ Agent     Agent    Agent  Agent    Agent
+                  │
+                  ▼
+             Ollama LLM
+                  │
+                  ▼
+            Local Datasets
+```
+
+---
+
+# 🛠 Tech Stack
+
+### Frontend
+
+- React
+- Vite
+- JavaScript
+- CSS
+
+### Backend
+
+- FastAPI
+- Python
+- Uvicorn
+- WebSockets
+
+### AI
+
+- Ollama
+- Gemma (Development)
+- Multi-Agent Architecture
+
+### Database
+
+- HR Datasets (JSON)
+- Local Storage
+
+---
+
+# 📂 Project Structure
+
+```
+AI-Agent-Environment-Simulator
+│
+├── frontend/
+│
+├── backend/
+│
+├── database/
+│
+├── docs/
+│
+├── .github/
+│
+└── README.md
+```
+
+---
+
+# ⚙ Getting Started
+
+## Clone Repository
+
+```bash
+git clone https://github.com/shreetejshinde2003/AI-Agent-Environment-Simulator.git
+```
+
+---
+
+## Backend
+
+```bash
+cd backend
+
+python -m venv .venv
+
+source .venv/bin/activate
+
+pip install -r requirements.txt
+
+uvicorn app.main:app --reload
+```
+
+Backend runs at:
+
+```
+http://127.0.0.1:8000
+```
+
+---
+
+## Frontend
+
+```bash
+cd frontend
+
+npm install
+
+npm run dev
+```
+
+Frontend runs at:
+
+```
+http://localhost:5173
+```
 
 ---
 
 # 🌳 Git Workflow
 
+```
 main
 │
 ├── shreetej-backend
 ├── sumit-database
 └── parag-frontend
+```
 
-Every member works ONLY on their own branch.
-
-No one commits directly to main.
-
-Changes are merged only after Pull Request review.
+Development is performed on feature branches and merged into **main** after testing.
 
 ---
 
-# 🛠 Development Workflow
+# 📈 Development Roadmap
 
-Feature
+## ✅ Completed
 
-↓
-
-Own Branch
-
-↓
-
-Commit
-
-↓
-
-Push
-
-↓
-
-Pull Request
-
-↓
-
-Review
-
-↓
-
-Merge into main
+- Repository setup
+- GitHub collaboration
+- Frontend foundation
+- Backend foundation
+- Multi-Agent architecture
+- Dashboard implementation
+- Agent pages
+- Logs page
+- Messages page
+- Replay page
+- Settings page
+- Task Summary
+- Initial Ollama integration
+- Versioning (v0.1, v0.2)
 
 ---
 
-# Current Development Goal
+## 🔄 In Progress
 
-Complete a fully working Multi-Agent HR Analytics Platform using Ollama before integrating multiple cloud LLM providers.
+- HR Analytics specialization
+- Recruitment Assistant workflow
+- Backend integration with frontend
+- Live AI agent execution
+- Database integration
+- Real-time monitoring
+
+---
+
+## 🔜 Planned
+
+- Candidate matching
+- Resume analysis
+- Job description generation
+- Hiring recommendation engine
+- Analytics dashboard
+- Authentication
+- PostgreSQL
+- Cloud LLM support
+- Deployment
+
+---
+
+# 👥 Team
+
+### Shreetej Shinde
+
+- Project Lead
+- Backend Development
+- AI Agents
+- System Integration
+- Repository Management
+
+### Sumit Jadhav
+
+- Database Module
+- Dataset Preparation
+- Data Validation
+- Documentation
+
+### Parag Kulkarni
+
+- Frontend Development
+- UI/UX
+- Dashboard
+- Visualization
+
+---
+
+# 📊 Current Milestone
+
+**Version:** v0.2
+
+Current objective is to transform the existing multi-agent framework into a specialized **HR Analytics and Recruitment Assistance Platform** capable of demonstrating end-to-end AI-assisted recruitment workflows.
+
+---
+
+# 📄 License
+
+This project is currently being developed as an academic project.
+
+License selection will be finalized before the public release (v1.0).
+
+---
+
+⭐ Project under active development.
