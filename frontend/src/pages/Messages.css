@@ -1,0 +1,41 @@
+.messages-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.messages-toolbar {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.messages-search {
+  flex: 2;
+  min-width: 200px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+.messages-select {
+  flex: 1;
+  min-width: 140px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+.messages-empty {
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+}

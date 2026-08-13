@@ -1,0 +1,95 @@
+.settings-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  max-width: 640px;
+}
+
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.settings-field:last-child {
+  margin-bottom: 0;
+}
+
+.settings-field-row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.settings-label {
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.settings-input {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+.settings-hint {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.settings-hint code {
+  background: rgba(0, 0, 0, 0.25);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+}
+
+.settings-toggle {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.settings-account-name {
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.settings-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.settings-btn {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.settings-btn:hover {
+  background: var(--border-strong);
+}
+
+.settings-btn-primary {
+  background: var(--status-info, #3b82f6);
+  color: white;
+  border-color: transparent;
+}
+
+.settings-saved-message {
+  font-size: var(--text-sm);
+  color: var(--status-success, #22c55e);
+}
