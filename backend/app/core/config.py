@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     CORS_ORIGINS: list[str] = [
         "http://localhost:5173",   # <-- LOCATION-CHANGING: Vite dev server. Update if you run on a different port.
         "http://127.0.0.1:5173",
+        "https://ai-agent-environment-simulator.vercel.app",
         # "https://your-deployed-frontend.example.com",  # <-- USER-DEFINED: uncomment + fill in once deployed
     ]
 
