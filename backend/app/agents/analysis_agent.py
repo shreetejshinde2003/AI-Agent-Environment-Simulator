@@ -25,13 +25,12 @@ class AnalysisAgent(BaseAgent):
     async def process(self, directive: str, context: dict):
         # RESERVED — uncomment once app/agents/llm_client.py is activated:
         #
-        # from app.agents.llm_client import call_llm
+        from app.agents.llm_client import call_llm
         #
-        # structured_data = context.get("structured_data", "")
-        # response = await call_llm(
-        #     prompt=f"Analyze this data and produce insights:\n\n{structured_data}",
-        #     system=SYSTEM_PROMPT,
-        #     model=self.MODEL,
-        # )
-        # return response   # return the LLMResponse object itself, not response.text — see research_agent.py
-        raise NotImplementedError("AnalysisAgent.process() needs llm_client.py activated first")
+        structured_data = context.get("structured_data", "")
+        response = await call_llm(
+            prompt=f"Analyze this data and produce insights:\n\n{structured_data}",
+            system=SYSTEM_PROMPT,
+            model=self.MODEL,
+        )
+        return response   # return the LLMResponse object itself, not response.text — see research_agent.py

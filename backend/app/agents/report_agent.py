@@ -26,13 +26,12 @@ class ReportAgent(BaseAgent):
     async def process(self, directive: str, context: dict):
         # RESERVED — uncomment once app/agents/llm_client.py is activated:
         #
-        # from app.agents.llm_client import call_llm
+        from app.agents.llm_client import call_llm
         #
-        # summary = context.get("summary", "")
-        # response = await call_llm(
-        #     prompt=f"Write the final report based on this summary:\n\n{summary}",
-        #     system=SYSTEM_PROMPT,
-        #     model=self.MODEL,
-        # )
-        # return response   # return the LLMResponse object itself, not response.text — see research_agent.py
-        raise NotImplementedError("ReportAgent.process() needs llm_client.py activated first")
+        summary = context.get("summary", "")
+        response = await call_llm(
+            prompt=f"Write the final report based on this summary:\n\n{summary}",
+            system=SYSTEM_PROMPT,
+            model=self.MODEL,
+        )
+        return response  # return the LLMResponse object itself, not response.text — see research_agent.py

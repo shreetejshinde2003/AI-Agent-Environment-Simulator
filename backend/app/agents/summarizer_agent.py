@@ -23,13 +23,12 @@ class SummarizerAgent(BaseAgent):
     async def process(self, directive: str, context: dict):
         # RESERVED — uncomment once app/agents/llm_client.py is activated:
         #
-        # from app.agents.llm_client import call_llm
+        from app.agents.llm_client import call_llm
         #
-        # insights = context.get("insights", "")
-        # response = await call_llm(
-        #     prompt=f"Summarize these insights for a final report:\n\n{insights}",
-        #     system=SYSTEM_PROMPT,
-        #     model=self.MODEL,
-        # )
-        # return response   # return the LLMResponse object itself, not response.text — see research_agent.py
-        raise NotImplementedError("SummarizerAgent.process() needs llm_client.py activated first")
+        insights = context.get("insights", "")
+        response = await call_llm(
+            prompt=f"Summarize these insights for a final report:\n\n{insights}",
+            system=SYSTEM_PROMPT,
+            model=self.MODEL,
+        )
+        return response   # return the LLMResponse object itself, not response.text — see research_agent.py

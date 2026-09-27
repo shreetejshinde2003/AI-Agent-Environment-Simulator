@@ -43,82 +43,95 @@ requirements.txt):
 --------------------------------------------------------------------
 """
 
-# from langgraph.graph import StateGraph, END
-# from langgraph.checkpoint.memory import MemorySaver
-# from typing import TypedDict, Annotated
-# import operator
+from langgraph.graph import StateGraph, END
+from langgraph.checkpoint.memory import MemorySaver
+from typing import TypedDict, Annotated
+import operator
+
+from app.agents.research_agent import ResearchAgent
+from app.agents.data_agent import DataAgent
+from app.agents.web_search_agent import WebSearchAgent
+from app.agents.analysis_agent import AnalysisAgent
+from app.agents.summarizer_agent import SummarizerAgent
+from app.agents.report_agent import ReportAgent
+from app.websocket.manager import manager
 #
-# from app.agents.research_agent import ResearchAgent
-# from app.agents.data_agent import DataAgent
-# from app.agents.web_search_agent import WebSearchAgent
-# from app.agents.analysis_agent import AnalysisAgent
-# from app.agents.summarizer_agent import SummarizerAgent
-# from app.agents.report_agent import ReportAgent
-# from app.websocket.manager import manager
 #
-#
-# class SimulationState(TypedDict):
-#     goal: str
-#     research_findings: str
-#     structured_data: str
-#     insights: str
-#     summary: str
-#     final_report: str
-#     messages: Annotated[list, operator.add]
-#
+class SimulationState(TypedDict):
+     goal: str
+     research_findings: str
+     structured_data: str
+     insights: str
+     summary: str
+     final_report: str
+     messages: Annotated[list, operator.add]
+
 #
 # # One instance per agent, reused across the whole graph run — this is
 # # where each agent's real stats (calls_made, avg_response_time_seconds)
 # # accumulate via stats_tracker as the simulation executes.
-# research_agent = ResearchAgent()
-# data_agent = DataAgent()
-# web_search_agent = WebSearchAgent()
-# analysis_agent = AnalysisAgent()
-# summarizer_agent = SummarizerAgent()
-# report_agent = ReportAgent()
+research_agent = ResearchAgent()
+data_agent = DataAgent()
+web_search_agent = WebSearchAgent()
+analysis_agent = AnalysisAgent()
+summarizer_agent = SummarizerAgent()
+report_agent = ReportAgent()
 #
 #
-# async def research_node(state: SimulationState) -> dict:
-#     result = await research_agent.run(state["goal"], context=state)
-#     await manager.broadcast("agent_status_changed", {"agent_id": "research", "status": "active"})
-#     return {"research_findings": result}
+async def research_node(state: SimulationState) -> dict:
+     result = await research_agent.run(state["goal"], context=state)
+     await manager.broadcast("agent_status_changed", {"agent_id": "research", "status": "active"})
+     return {"research_findings": result}
 #
 #
-# async def data_node(state: SimulationState) -> dict:
-#     result = await data_agent.run(state["goal"], context=state)
-#     return {"structured_data": result}
+async def data_node(state: SimulationState) -> dict:
+     result = await data_agent.run(state["goal"], context=state)
+     return {"structured_data": result}
+
+async def web_search_node(state: SimulationState) -> dict:
+     result = await web_search_agent.run(state["goal"], context=state)
+     return {"research_findings": result}
+
+async def analysis_node(state: SimulationState) -> dict:
+     result = await analysis_agent.run(state["goal"], context=state)
+     return {"insights": result}
+
+async def summarizer_node(state: SimulationState) -> dict:
+     result = await summarizer_agent.run(state["goal"], context=state)
+     return {"summary": result}
+
+async def report_node(state: SimulationState) -> dict:
+     result = await report_agent.run(state["goal"], context=state)
+     return {"final_report": result}
+
+#
+def build_graph() -> StateGraph:
+     graph = StateGraph(SimulationState)
+     graph.add_node("research", research_node)
+     graph.add_node("data", data_node)
+     graph.add_node("web_search", web_search_node)
+     graph.add_node("analysis", analysis_node)
+     graph.add_node("summarizer", summarizer_node)
+     graph.add_node("report", report_node)
+
+     # RESERVED: this sequence IS the "relationship and interdependency"
+     # the frontend's Agent Relationship Graph visualizes — decide the
+     # real order/parallelism here, this is just a straight-line example.
+     graph.set_entry_point("research")
+     graph.add_edge("research", "data")
+     graph.add_edge("data", "analysis")
+     graph.add_edge("analysis", "summarizer")
+     graph.add_edge("summarizer", "report")
+     graph.add_edge("report", END)
+#
+     return graph.compile(checkpointer=MemorySaver())
 #
 #
-# # ... one node function per remaining agent, following the same pattern.
-#
-#
-# def build_graph() -> StateGraph:
-#     graph = StateGraph(SimulationState)
-#     graph.add_node("research", research_node)
-#     graph.add_node("data", data_node)
-#     # graph.add_node("web_search", web_search_node)
-#     # graph.add_node("analysis", analysis_node)
-#     # graph.add_node("summarizer", summarizer_node)
-#     # graph.add_node("report", report_node)
-#
-#     # RESERVED: this sequence IS the "relationship and interdependency"
-#     # the frontend's Agent Relationship Graph visualizes — decide the
-#     # real order/parallelism here, this is just a straight-line example.
-#     graph.set_entry_point("research")
-#     graph.add_edge("research", "data")
-#     # graph.add_edge("data", "analysis")
-#     # graph.add_edge("analysis", "summarizer")
-#     # graph.add_edge("summarizer", "report")
-#     # graph.add_edge("report", END)
-#
-#     return graph.compile(checkpointer=MemorySaver())
-#
-#
-# async def run_simulation(goal: str):
-#     """Called by app/api/routes/simulation.py. Streams state updates as
-#     the graph executes; the route forwards each update through
-#     app/websocket/manager.py so the dashboard updates live."""
-#     graph = build_graph()
-#     async for state_update in graph.astream({"goal": goal, "messages": []}):
-#         await manager.broadcast("task_updated", state_update)
-#         yield state_update
+async def run_simulation(goal: str):
+     """Called by app/api/routes/simulation.py. Streams state updates as
+    the graph executes; the route forwards each update through
+     app/websocket/manager.py so the dashboard updates live."""
+     graph = build_graph()
+     async for state_update in graph.astream({"goal": goal, "messages": []}):
+         await manager.broadcast("task_updated", state_update)
+         yield state_update

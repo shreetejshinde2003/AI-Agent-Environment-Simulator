@@ -25,18 +25,15 @@ class DataAgent(BaseAgent):
     MODEL = None  # None = use llm_client.DEFAULT_MODEL — swap to FAST_MODEL after benchmarking
 
     async def process(self, directive: str, context: dict):
-        # RESERVED — uncomment once app/agents/llm_client.py is activated:
-        #
-        # from app.agents.llm_client import call_llm
-        #
-        # # `context` should include the Research Agent's output by the
-        # # time the orchestrator calls this agent — see
-        # # app/agents/orchestrator.py's SimulationState design.
-        # research_findings = context.get("research_findings", "")
-        # response = await call_llm(
-        #     prompt=f"Structure this research into clean records:\n\n{research_findings}",
-        #     system=SYSTEM_PROMPT,
-        #     model=self.MODEL,
-        # )
-        # return response   # return the LLMResponse object itself, not response.text — see research_agent.py
-        raise NotImplementedError("DataAgent.process() needs llm_client.py activated first")
+        # `context` should include the Research Agent's output by the
+        # time the orchestrator calls this agent — see
+        # app/agents/orchestrator.py's SimulationState design.
+        from app.agents.llm_client import call_llm
+
+        research_findings = context.get("research_findings", "")
+        response = await call_llm(
+            prompt=f"Structure this research into clean records:\n\n{research_findings}",
+            system=SYSTEM_PROMPT,
+            model=self.MODEL,
+        )
+        return response  # return the LLMResponse object itself, not response.text — see research_agent.py
