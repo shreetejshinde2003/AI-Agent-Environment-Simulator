@@ -50,16 +50,22 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------
     # USER-DEFINED — LLM provider
     # ------------------------------------------------------------------
-    # ACTIVE default: a local Ollama server (matches the team's validated
-    # setup — Ollama + gemma2:2b). Start it before running the backend:
-    #     ollama serve            # in its own terminal
-    #     ollama pull gemma2:2b    # one-time, if not already pulled
-    OLLAMA_HOST: str = "http://localhost:11434"  # <-- LOCATION-CHANGING: change if Ollama runs elsewhere (e.g. a shared team server)
-    OLLAMA_MODEL: str = "gemma2:2b"                # <-- USER-DEFINED: must match a model you've actually pulled — see `ollama list`
+    # ACTIVE: Groq's hosted API (free tier, no card required as of
+    # 2026-09). Get a key at console.groq.com/keys and set it in .env
+    # for local dev AND in Railway's Variables tab for the deployed
+    # backend (Railway never reads your local .env).
+    GROQ_API_KEY: str = ""                              # <-- USER-DEFINED: from console.groq.com/keys — never commit the real value
+    GROQ_MODEL: str =  "openai/gpt-oss-120b"         # <-- USER-DEFINED: verify still live at console.groq.com/docs/models
+    GROQ_FAST_MODEL: str = "openai/gpt-oss-20b"        # <-- USER-DEFINED: verify still live at console.groq.com/docs/models
 
-    # RESERVED — alternate: cloud providers, if the team switches later
-    # (better quality, no local GPU needed, costs money per call).
-    # Not used by app/agents/llm_client.py right now.
+    # RESERVED — local Ollama (previously active, switched off
+    # 2026-09-25 because Railway can't reach a laptop's localhost).
+    # Kept in case the team ever falls back to a local model.
+    OLLAMA_HOST: str = "http://localhost:11434"
+    OLLAMA_MODEL: str = "gemma2:2b"
+
+    # RESERVED — Anthropic alternate, if the team switches off Groq
+    # later for quality over speed. Not used by llm_client.py right now.
     ANTHROPIC_API_KEY: str = ""   # <-- USER-DEFINED: set in .env if you switch to Claude, never commit the real value
     OPENAI_API_KEY: str = ""      # <-- USER-DEFINED: set in .env if you switch to GPT
 

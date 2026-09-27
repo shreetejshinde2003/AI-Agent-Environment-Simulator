@@ -3,59 +3,64 @@ app/agents/llm_client.py
 
 THE single place the LLM provider and model(s) get declared. Every
 agent file in this folder calls `call_llm()` from here — no agent
-should import the `ollama` package (or any other provider SDK)
+should import the `groq` package (or any other provider SDK)
 directly. That's what makes swapping models, or the provider itself,
 later a one-file change instead of a hunt through six agent files.
 
 --------------------------------------------------------------------
-STATUS: ACTIVE — this makes real calls, using Ollama.
+STATUS: ACTIVE — this makes real calls, using Groq's hosted API.
 --------------------------------------------------------------------
-Matches the team's already-validated setup: a local Ollama server
-running gemma2:2b. Before this will work, you need Ollama actually
-running with the model pulled:
+Switched off local Ollama on 2026-09-25: Ollama only ran on one
+teammate's laptop, so the deployed Railway backend could never reach
+it ("Failed to connect to Ollama" in production was this, not a bug).
+Groq was picked because it has a real no-credit-card free tier
+(~30 req/min, OpenAI-compatible surface) — plenty for a classroom demo.
 
-    ollama serve             # in its own terminal, leave it running
-    ollama pull gemma2:2b     # one-time — confirm with `ollama list`
+Needs GROQ_API_KEY set in the environment (get one at
+console.groq.com/keys). Set it in backend/.env for local dev AND in
+Railway's service → Variables tab for the deployed backend — .env is
+gitignored, so Railway never sees it unless you add it there directly.
 
-If Ollama isn't running, `call_llm()` will raise a connection error —
-that's the correct, honest failure mode (see BaseAgent.run() /
-api/routes/tasks.py for how that gets surfaced to the dashboard as a
-real error instead of hanging silently).
+Verify DEFAULT_MODEL / FAST_MODEL below are still live model IDs at
+console.groq.com/docs/models before relying on them — Groq deprecates
+models over time (e.g. gemma2 was retired there already).
+
+If the key is missing/invalid or the model ID is stale, `call_llm()`
+will raise — that's the correct, honest failure mode (see
+BaseAgent.run() / api/routes/tasks.py for how that gets surfaced to
+the dashboard as a real error instead of hanging silently).
 
 --------------------------------------------------------------------
-SWITCHING PROVIDERS LATER (e.g. to Claude/GPT for better quality):
+SWITCHING PROVIDERS AGAIN LATER:
 --------------------------------------------------------------------
 Only this file changes. Keep the same `call_llm()` signature and
 `LLMResponse` shape so none of the six agent files need to change.
-A commented-out Anthropic version is included at the bottom of this
-file as a starting point when that day comes.
+The previous Ollama implementation and a commented-out Anthropic
+version are both kept at the bottom of this file as references.
 """
 
 import time
 from dataclasses import dataclass
 
-from ollama import AsyncClient
+from groq import AsyncGroq
 
 from app.core.config import settings
 
 # ----------------------------------------------------------------------
 # USER-DEFINED — model selection
 # ----------------------------------------------------------------------
-# Both point at the same local model today, since the team is running
-# one model. Split these the same way cloud setups split a
-# reasoning-heavy default from a cheap/fast option once you're running
-# more than one local model size (e.g. gemma2:2b for mechanical agents,
-# a larger model for Research/Analysis/Report).
-DEFAULT_MODEL = settings.OLLAMA_MODEL   # <-- USER-DEFINED: reasoning-heavy agents
-FAST_MODEL = settings.OLLAMA_MODEL       # <-- USER-DEFINED: point at a smaller/faster model once you have one pulled
+# Split reasoning-heavy agents (Research/Analysis/Report) from
+# mechanical ones the same way you would with local model sizes —
+# just picking two Groq model tiers instead of two pulled models.
+DEFAULT_MODEL = settings.GROQ_MODEL       # <-- USER-DEFINED: reasoning-heavy agents — verify at console.groq.com/docs/models
+FAST_MODEL = settings.GROQ_FAST_MODEL     # <-- USER-DEFINED: cheap/fast agents — verify at console.groq.com/docs/models
 
-# USER-DEFINED: soft ceiling on response length per call (Ollama's
-# `num_predict` option) — prevents one runaway response from eating the
-# whole simulation's time budget. Unlike cloud APIs this doesn't affect
-# billing, but it does affect how long you wait.
+# USER-DEFINED: soft ceiling on response length per call — this DOES
+# affect billing/free-tier token budget on a cloud provider, unlike
+# with local Ollama, so don't raise it casually.
 DEFAULT_MAX_TOKENS = 1024
 
-_client = AsyncClient(host=settings.OLLAMA_HOST)
+_client = AsyncGroq(api_key=settings.GROQ_API_KEY)
 
 
 @dataclass
@@ -82,35 +87,68 @@ async def call_llm(
     so callers (BaseAgent.run(), via stats_tracker) get real
     response-time numbers — not estimates.
 
-    Token counts come from Ollama's own response fields
-    (`prompt_eval_count` / `eval_count`), which are Ollama's equivalent
-    of input/output tokens — real numbers, not guesses.
+    Token counts come from Groq's own `usage` block on the response,
+    which mirrors OpenAI's chat-completions shape (prompt_tokens /
+    completion_tokens) — real numbers, not guesses.
     """
     resolved_model = model or DEFAULT_MODEL
     start = time.perf_counter()
 
-    response = await _client.generate(
+    messages = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
+
+    response = await _client.chat.completions.create(
         model=resolved_model,
-        prompt=prompt,
-        system=system or "",
-        options={"num_predict": max_tokens},
+        messages=messages,
+        max_tokens=max_tokens,
     )
 
     elapsed = time.perf_counter() - start
+    usage = response.usage
 
     return LLMResponse(
-        text=response.get("response", ""),
-        input_tokens=response.get("prompt_eval_count", 0) or 0,
-        output_tokens=response.get("eval_count", 0) or 0,
+        text=response.choices[0].message.content or "",
+        input_tokens=usage.prompt_tokens if usage else 0,
+        output_tokens=usage.completion_tokens if usage else 0,
         response_time_seconds=elapsed,
         model=resolved_model,
     )
 
 
 # ----------------------------------------------------------------------
-# RESERVED — cloud provider alternate (not active). Swap to this
+# RESERVED — previous local-Ollama implementation (not active). Kept as
+# a reference in case the team ever needs to fall back to a local model
+# (e.g. no internet at the venue, or free-tier limits get hit live).
+# ----------------------------------------------------------------------
+#
+# from ollama import AsyncClient
+# _ollama_client = AsyncClient(host=settings.OLLAMA_HOST)
+#
+# async def call_llm(prompt, system=None, model=None, max_tokens=DEFAULT_MAX_TOKENS) -> LLMResponse:
+#     resolved_model = model or settings.OLLAMA_MODEL
+#     start = time.perf_counter()
+#     response = await _ollama_client.generate(
+#         model=resolved_model,
+#         prompt=prompt,
+#         system=system or "",
+#         options={"num_predict": max_tokens},
+#     )
+#     elapsed = time.perf_counter() - start
+#     return LLMResponse(
+#         text=response.get("response", ""),
+#         input_tokens=response.get("prompt_eval_count", 0) or 0,
+#         output_tokens=response.get("eval_count", 0) or 0,
+#         response_time_seconds=elapsed,
+#         model=resolved_model,
+#     )
+
+
+# ----------------------------------------------------------------------
+# RESERVED — Anthropic alternate (not active). Swap to this
 # implementation (keeping the function name/signature identical) if the
-# team moves off a local model later.
+# team wants Claude's quality instead of Groq's speed later.
 # ----------------------------------------------------------------------
 #
 # from anthropic import Anthropic
