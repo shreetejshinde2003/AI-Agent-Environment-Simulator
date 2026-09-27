@@ -3,6 +3,13 @@ import Modal from "../common/Modal";
 import Button from "../common/Button";
 import { apiClient } from "../../services/apiClient";
 import "./AgentActionForms.css";
+const IMPLEMENTED_AGENT_IDS = new Set([
+  "research",
+  "data",
+  "analysis",
+  "summarizer",
+  "report",
+]);
 
 /**
  * CreateTaskModal — the real thing QuickActions' "Create Task" button
@@ -33,12 +40,8 @@ export default function CreateTaskModal({ agents, onClose }) {
       await apiClient.createTask({ directive: directive.trim(), assignedAgentId, priority });
       onClose();
     } catch (err) {
-      // USER-DEFINED: only "research" is a real, implemented agent
-      // right now (see backend/app/api/routes/tasks.py's
-      // _IMPLEMENTED_AGENTS). Assigning to any other agent will create
-      // the task successfully, then it will visibly fail a moment
-      // later with "agent not implemented yet" — that's expected until
-      // more agents are activated, not a bug in this form.
+      // Currently implemented agents: research, data, analysis, summarizer, report.
+      // Web search remains unavailable until its process() implementation is completed.
       setError(err.message || "Failed to create task — is the backend running?");
     } finally {
       setIsSubmitting(false);
@@ -66,7 +69,7 @@ export default function CreateTaskModal({ agents, onClose }) {
           <select id="task-agent" value={assignedAgentId} onChange={(e) => setAssignedAgentId(e.target.value)}>
             {agents.map((agent) => (
               <option key={agent.id} value={agent.id}>
-                {agent.name}{agent.id !== "research" ? " (not implemented yet)" : ""}
+                {agent.name}{!IMPLEMENTED_AGENT_IDS.has(agent.id) ? " (not implemented yet)" : ""}
               </option>
             ))}
           </select>

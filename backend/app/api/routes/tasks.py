@@ -6,10 +6,10 @@ live dashboard.
 
 THIS is the file that actually closes the loop between "agent output
 appears in the terminal" and "agent output appears on the dashboard".
-Creating a task now really invokes the assigned agent (if implemented
-— currently just Research) in the background, and the result (or
-error) is written back onto the Task and broadcast over WebSocket.
-"""
+# Creating a task invokes the assigned implemented agent in the background.
+# Currently implemented: research, data, analysis, summarizer, report.
+# The result (or error) is written back onto the Task and broadcast over WebSocket.
+# """
 
 import time
 import uuid
@@ -21,6 +21,12 @@ from app.agents.research_agent import ResearchAgent
 from app.api.routes.simulation import record_activity, register_task_created, register_task_finished
 from app.models.schemas import CreateTaskRequest, Task, TaskPriority, TaskProgressStep, TaskStatus
 from app.websocket.manager import manager
+
+
+from app.agents.data_agent import DataAgent
+from app.agents.analysis_agent import AnalysisAgent
+from app.agents.summarizer_agent import SummarizerAgent
+from app.agents.report_agent import ReportAgent
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -39,18 +45,20 @@ _TASKS: dict[str, Task] = {}
 # calls_made/avg_response_time across every task that agent handles —
 # matches how app/agents/orchestrator.py's reserved example reuses one
 # instance per agent across a whole graph run.
-#
-# USER-DEFINED: add an entry here the moment each of the other five
-# agents (data, web_search, analysis, summarizer, report) gets
-# activated — one line each, nothing else in this file needs to change.
+
+
+# Which agents actually work right now. One shared instance per agent
+# so stats_tracker accumulates real calls_made/avg_response_time across
+# every task that agent handles.
+# Add an entry here when another agent becomes executable.
 # ----------------------------------------------------------------------
 _IMPLEMENTED_AGENTS = {
     "research": ResearchAgent(),
-    # "data": DataAgent(),
+    "data": DataAgent(),
     # "web_search": WebSearchAgent(),
-    # "analysis": AnalysisAgent(),
-    # "summarizer": SummarizerAgent(),
-    # "report": ReportAgent(),
+    "analysis": AnalysisAgent(),
+    "summarizer": SummarizerAgent(),
+    "report": ReportAgent(),
 }
 
 
