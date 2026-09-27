@@ -84,6 +84,11 @@ class TaskPriority(str, Enum):
     HIGH = "high"
 
 
+class TaskExecutionMode(str, Enum):
+    SINGLE_AGENT = "single_agent"
+    FULL_PIPELINE = "full_pipeline"
+
+
 class RelationshipType(str, Enum):
     DATA_FLOW = "data_flow"
     MESSAGE = "message"
@@ -137,6 +142,7 @@ class Task(CamelModel):
     assigned_agent_id: str
     status: TaskStatus
     priority: TaskPriority
+    execution_mode: TaskExecutionMode = TaskExecutionMode.SINGLE_AGENT
     started_at: datetime
     duration_seconds: int
     progress_percent: int = Field(ge=0, le=100)
@@ -196,6 +202,7 @@ class CreateTaskRequest(CamelModel):
     directive: str
     assigned_agent_id: str
     priority: TaskPriority = TaskPriority.MEDIUM
+    execution_mode: TaskExecutionMode = TaskExecutionMode.SINGLE_AGENT
 
 
 # ==========================================================================

@@ -25,7 +25,10 @@ const IMPLEMENTED_AGENT_IDS = new Set([
  */
 export default function CreateTaskModal({ agents, onClose }) {
   const [directive, setDirective] = useState("");
-  const [assignedAgentId, setAssignedAgentId] = useState(agents[0]?.id ?? "research");
+  const [executionMode, setExecutionMode] = useState("full_pipeline");
+  const [assignedAgentId, setAssignedAgentId] = useState(
+    agents.find((agent) => agent.id === "research")?.id ?? agents[0]?.id ?? "research"
+  );
   const [priority, setPriority] = useState("medium");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -37,7 +40,12 @@ export default function CreateTaskModal({ agents, onClose }) {
     setIsSubmitting(true);
     setError(null);
     try {
-      await apiClient.createTask({ directive: directive.trim(), assignedAgentId, priority });
+      await apiClient.createTask({
+        directive: directive.trim(),
+        assignedAgentId: executionMode === "full_pipeline" ? "orchestrator" : assignedAgentId,
+        priority,
+        executionMode,
+      });
       onClose();
     } catch (err) {
       // Currently implemented agents: research, data, analysis, summarizer, report.
@@ -65,6 +73,26 @@ export default function CreateTaskModal({ agents, onClose }) {
         </div>
 
         <div className="form-field">
+          <label htmlFor="task-execution-mode">Execution mode</label>
+          <select
+            id="task-execution-mode"
+            value={executionMode}
+            onChange={(e) => setExecutionMode(e.target.value)}
+          >
+            <option value="full_pipeline">Full Multi-Agent Pipeline (Research → Report)</option>
+            <option value="single_agent">Individual Agent</option>
+          </select>
+        </div>
+
+        {executionMode === "full_pipeline" && (
+          <div className="form-field">
+            <span className="form-field-label">Pipeline</span>
+            <p>Research → Data → Analysis → Summarizer → Report</p>
+          </div>
+        )}
+
+        {executionMode === "single_agent" && (
+        <div className="form-field">
           <label htmlFor="task-agent">Assign to</label>
           <select id="task-agent" value={assignedAgentId} onChange={(e) => setAssignedAgentId(e.target.value)}>
             {agents.map((agent) => (
@@ -74,6 +102,7 @@ export default function CreateTaskModal({ agents, onClose }) {
             ))}
           </select>
         </div>
+        )}
 
         <div className="form-field">
           <label htmlFor="task-priority">Priority</label>
