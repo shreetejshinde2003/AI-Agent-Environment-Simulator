@@ -17,8 +17,8 @@ or newly introduced metric fields; those remain unset rather than invented.
 
 ## Railway PostgreSQL
 
-Provision a private Railway PostgreSQL service in the existing project. Bind
-the backend service's `DATABASE_URL` to the PostgreSQL service's connection URL
+The production backend uses a private Railway PostgreSQL service. Bind
+the backend service's `DATABASE_URL` to that service's connection URL
 using Railway's private variable reference. Acceptable schemes are
 `postgres://`, `postgresql://` and `postgresql+psycopg://`; the app uses psycopg
 3. Do not paste credentials into source, docs, logs or the browser. Existing
@@ -34,9 +34,21 @@ benchmark JSON files must survive backend deployments. The six files are not
 committed and are not downloaded from Drive at runtime.
 
 The backend starts with local SQLite if `DATABASE_URL` is missing; on Railway
-that fallback is not durable on an ephemeral filesystem. Configure the variable
-before relying on production history. No PostgreSQL server was provisioned by
-this code change, and no production credentials are committed.
+that fallback is not durable on an ephemeral filesystem. The production backend
+has `DATABASE_URL` configured for Railway PostgreSQL. No credentials are committed.
+
+## Production verification — 2026-09-29
+
+Deployed commit: `ef27951`. Production path: Vercel frontend → Railway FastAPI
+backend → Railway PostgreSQL. One real five-agent simulation completed and appeared
+in Simulation History. After the Railway backend was restarted/redeployed, the
+same simulation remained available with completed status, graph state, timestamps,
+duration, token usage and final result. This verifies the live PostgreSQL
+connection and durable operational persistence across a **backend** restart. It
+does not establish survival of deletion or loss of the PostgreSQL service itself.
+
+The six benchmark JSON files have not been verified as provisioned in production.
+They remain separate from the operational PostgreSQL database.
 
 ## Switching and limitations
 

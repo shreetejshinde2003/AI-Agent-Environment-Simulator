@@ -84,7 +84,10 @@ never enter benchmark context. Registration is explicit; no Drive fetch occurs.
 
 Default database: `./simulator.db`. Start one worker only. In-progress/queued runs
 become failed on restart; finished history survives on the same disk. Use backups
-and a durable database for long-lived data. PostgreSQL support is implemented but
-requires a separately provisioned Railway PostgreSQL service. No automatic
-retention, job queue, login or ownership enforcement exists yet. See
+and a durable database for long-lived data. The Railway PostgreSQL service is
+connected in production: a completed run from commit `ef27951` remained available
+after a backend restart on 2026-09-29. This verifies backend-restart durability,
+not survival of PostgreSQL service loss. Benchmark JSON provisioning in production
+remains unverified. No automatic retention, job queue, login or ownership
+enforcement exists yet. See
 `../docs/PHASE2_DATABASE_DEPLOYMENT.md` for setup and migration limits.

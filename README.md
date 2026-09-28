@@ -61,8 +61,8 @@ without deleting the original tables. Interrupted runs are marked failed after
 a restart; they are never silently retried or marked successful.
 
 The six `employee_*` and `hr_*` JSON files are **benchmark/domain inputs**, not
-the operational database. They are privately provisioned under
-`data/benchmark/`, excluded from Git, validated and registered with
+the operational database. For local benchmark use, place them under
+`data/benchmark/`; they are excluded from Git, validated and registered with
 `(cd backend && python -m app.datasets.cli register)`. Raw records stay on disk;
 only metadata and bounded non-personal aggregates enter the application.
 See [dataset audit](docs/PHASE2_DATASET_AUDIT.md) and
@@ -75,9 +75,13 @@ execution. Only bounded prepared context is retained; original file bytes are no
 an archival upload facility.
 
 Use one API worker: execution remains in-process, and multiple workers are not
-coordinated. PostgreSQL preserves database records across Railway restarts when
-the service is provisioned, but raw benchmark files still need authorized
-provisioning. No Railway service or deployment setting is changed by this code.
+coordinated. Production uses Vercel → Railway FastAPI → Railway PostgreSQL.
+On 2026-09-29, a real five-agent run from commit `ef27951` remained in Simulation
+History with its result and execution details after a backend restart. This
+verifies operational persistence across backend restarts, not loss of the
+PostgreSQL service. Production provisioning of the benchmark JSON files remains
+unverified; they are separate from operational storage. See the
+[production verification](docs/PHASE2_DATABASE_DEPLOYMENT.md#production-verification--2026-09-29).
 
 ## Validation
 
