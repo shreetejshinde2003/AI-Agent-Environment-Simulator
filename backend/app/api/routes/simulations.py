@@ -32,7 +32,7 @@ async def create_simulation(payload: CreateSimulationRequest, background_tasks: 
 async def metrics():
     runs = repository.list()
     by_agent = []
-    for agent_id in ("research", "data", "analysis", "summarizer", "report"):
+    for agent_id in ("research", "data", "analysis", "summarizer", "report", "direct"):
         stages = [s for r in runs for s in r.stages if s.agent_id == agent_id and s.started_at]
         stages.sort(key=lambda s: s.started_at)
         measured = [s for s in stages if s.total_tokens is not None]
@@ -49,8 +49,10 @@ async def metrics():
         ))
     return {"summary": aggregate(), "agents": by_agent, "history": [
         dict(id=r.id, createdAt=(r.created_at or r.started_at).isoformat(), status=r.status.value,
+             executionMode=r.execution_mode.value, invocationCount=sum(s.started_at is not None for s in r.stages),
              duration=r.elapsed_seconds,
-             tokens=sum(s.total_tokens for s in r.stages if s.total_tokens is not None))
+             tokens=sum(s.total_tokens for s in r.stages if s.total_tokens is not None)
+             if any(s.total_tokens is not None for s in r.stages) else None)
         for r in runs
     ]}
 

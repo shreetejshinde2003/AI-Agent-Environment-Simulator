@@ -6,7 +6,8 @@ LLM responses are generated through the existing server-side Groq client.
 
 ## What works
 
-Create a simulation, optionally attach TXT/CSV/JSON reference data, and run:
+Create a simulation, optionally attach TXT/CSV/JSON reference data, and choose
+`fixed` (default) or `single`:
 
 ```text
 Original goal → Sequential coordinator → Research → Data → Analysis → Summarizer → Report
@@ -14,7 +15,11 @@ Original goal → Sequential coordinator → Research → Data → Analysis → 
 ```
 
 Every stage receives the original goal. Each output becomes the next agent's context.
-The same five agents can also execute individually. The coordinator remains in
+The direct-answer `single` baseline makes one model call with the same bounded
+permitted input and records one stage, without handoffs. The five specialist
+agents can still execute individually through legacy `single_agent` mode; that
+is not the research baseline. `adaptive` is recognized but returns HTTP 501,
+not a simulated route. The coordinator remains in
 `backend/app/api/routes/tasks.py`; LangGraph is not a runtime dependency.
 
 The workspace shows a live React Flow graph, stage details, handoffs, timestamped
@@ -59,6 +64,8 @@ a PostgreSQL URL selects PostgreSQL for Railway. Startup initializes schema
 version 2. Existing V1 SQLite records are validated, backed up and migrated
 without deleting the original tables. Interrupted runs are marked failed after
 a restart; they are never silently retried or marked successful.
+The existing `execution_mode` string column and run snapshot store Phase 3.1
+mode values without a schema change; old `full_pipeline` records read as `fixed`.
 
 The six `employee_*` and `hr_*` JSON files are **benchmark/domain inputs**, not
 the operational database. For local benchmark use, place them under
@@ -101,6 +108,8 @@ limits, schema/API changes, and real integration results.
 
 Web Search, PDF extraction, authentication, custom executable agents,
 pause/cancel of active model requests, and automatic retry/resume remain unavailable.
+Adaptive routing, evaluation scoring and a LangGraph execution runtime are also
+not implemented. Phase 3.1 has no measured benchmark or superiority result.
 Event History inspects recorded events; it does not pretend to replay execution.
 The old `agents/orchestrator.py` LangGraph prototype and unused frontend demo
 fixtures remain reference code only, outside the active runtime.

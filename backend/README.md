@@ -2,6 +2,8 @@
 
 The V1 engine is the existing sequential coordinator in `app/api/routes/tasks.py`.
 It uses FastAPI BackgroundTasks and the existing Groq client, not LangGraph.
+Phase 3.1 adds `single` (one neutral Direct Agent call) and names the existing
+five-agent pipeline `fixed`; `adaptive` returns HTTP 501 until implemented.
 
 ## Run and validate
 
@@ -20,14 +22,19 @@ temporary databases. No provider credits are required.
 ## Contracts
 
 Python fields are snake_case; `CamelModel` serializes REST/WebSocket JSON camelCase.
-Legacy `/api/v1/tasks` retains `queued/in_progress/completed/failed`. The additive
-`/api/v1/simulations` projection calls `in_progress` **running**.
+Legacy `/api/v1/tasks` retains `queued/in_progress/completed/failed`. A missing
+mode on that legacy endpoint still selects one specialist; `/simulations` defaults
+to `fixed`. Legacy `full_pipeline` inputs and persisted snapshots read as `fixed`.
+The `/api/v1/simulations` projection calls `in_progress` **running**.
 
 Research receives the directive plus optional uploaded reference context.
 Data receives that directive, exact `research_findings`, and uploaded context.
 Analysis receives the directive and `structured_data`; Summarizer receives the
 directive and `insights`; Report receives the directive and `summary`.
 The exact Report text becomes `task.output`. Context is local to each run.
+In `single` mode the Direct Agent receives the original directive and the same
+bounded prepared uploads and safe benchmark aggregates, makes one Groq request,
+and stores its answer as `task.output`. It records one stage and no handoffs.
 
 Per-stage metrics are captured from the real LLMResponse via a ContextVar, avoiding
 cross-run contamination from shared counters. Errors are credential-redacted before
@@ -41,7 +48,7 @@ All paths below are relative to `/api/v1`.
 | Endpoint | Behavior |
 |---|---|
 | GET/POST /tasks; GET /tasks/{id} | Compatible task creation/read API |
-| GET/POST /simulations; GET /simulations/{id} | Complete run records; POST defaults to full pipeline |
+| GET/POST /simulations; GET /simulations/{id} | Complete run records; POST defaults to `fixed` |
 | GET /simulations/metrics | Persisted aggregate, per-agent and duration history metrics |
 | GET /simulations/{id}/events | Chronological real event list |
 | GET /simulations/{id}/export?format=txt,json,csv | One format per request; terminal runs only |

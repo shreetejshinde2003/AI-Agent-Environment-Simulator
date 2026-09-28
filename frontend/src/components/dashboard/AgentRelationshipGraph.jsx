@@ -20,7 +20,8 @@ export default function AgentRelationshipGraph({task, agents = []}) {
     const running = task?.status === "in_progress";
     const orchestration = running ? "active" : task?.status === "completed" ? "completed" :
       task?.status === "failed" ? "failed" : "waiting";
-    const ids = ["goal", "orchestrator", ...sequence, "result"];
+    const isFixed = !task || ["fixed", "full_pipeline"].includes(task.executionMode);
+    const ids = ["goal", ...(isFixed ? ["orchestrator"] : []), ...sequence, "result"];
     const nodes = ids.map((id, i) => ({
       id, type: "stage", position: {x: 120, y: i * 122},
       data: {label: id === "goal" ? "User Goal" : id === "result" ? "Final Result" :
@@ -29,13 +30,15 @@ export default function AgentRelationshipGraph({task, agents = []}) {
         kind: id === "orchestrator" ? "Sequential coordinator · no LLM" :
           ["goal", "result"].includes(id) ? "Simulation" : "Agent",
         status: stageMap[id]?.status ?? (id === "goal" ? task ? "completed" : "waiting" :
-          id === "result" ? task?.status === "completed" ? "completed" : "waiting" : orchestration)},
+          id === "result" ? task?.status === "completed" ? "completed" : "waiting" :
+          id === "orchestrator" ? orchestration : "waiting")},
     }));
     const edges = ids.slice(0, -1).map((id, i) => {
       const next = ids[i+1];
       const handoff = task?.messages?.find(m => m.fromAgentId === id && m.toAgentId === next);
       const actual = handoff || (id === "goal" && task?.executionStartedAt) ||
         (id === "orchestrator" && stageMap[next]?.startedAt) ||
+        (id === "goal" && stageMap[next]?.startedAt) ||
         (next === "result" && task?.status === "completed");
       return {id: id + "-" + next, source: id, target: next,
         label: handoff?.outputKey ?? (stageMap[id]?.outputKey || ""),

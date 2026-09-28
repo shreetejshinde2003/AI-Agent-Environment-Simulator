@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { apiClient } from "../../services/apiClient";
 const date = value => value ? new Date(value).toLocaleString() : "Not yet";
+const modeLabel = task => task.executionMode === "single" ? "Single Agent · Direct Baseline" :
+  ["fixed", "full_pipeline"].includes(task.executionMode) ? "Fixed five-agent pipeline" :
+  task.executionMode === "single_agent" ? `Individual specialist · ${task.assignedAgentId}` :
+  task.executionMode;
 function ResultText({text}) {
   // Render only simple emphasis as React text. Never interpret model HTML.
   return <div className="final-result result-text">{text.split(/(\*\*[^*\n]+\*\*)/g).map((part, index) =>
@@ -23,7 +27,8 @@ export default function TaskDetailsPanel({task}) {
     <span className={"run-status state-" + task.status}>{task.status.replace("_", " ")}</span>
     <p className="directive">{task.directive}</p>
     <dl className="metadata">
-      <dt>Execution</dt><dd>{task.executionMode === "full_pipeline" ? "Full five-agent pipeline" : task.assignedAgentId}</dd>
+      <dt>Execution</dt><dd>{modeLabel(task)}</dd>
+      <dt>Agent invocations</dt><dd>{task.stages.filter(s => s.startedAt).length}</dd>
       <dt>Created</dt><dd>{date(task.createdAt)}</dd>
       <dt>Started</dt><dd>{date(task.executionStartedAt)}</dd>
       <dt>Completed</dt><dd>{date(task.completedAt)}</dd>

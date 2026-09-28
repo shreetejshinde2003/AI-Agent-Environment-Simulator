@@ -5,10 +5,14 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 from fastapi import BackgroundTasks
 from fastapi.testclient import TestClient
+from sqlalchemy import update
 from app.api.routes import tasks
+from app.agents.direct_agent import DirectAgent
+from app.agents.llm_client import LLMResponse
 from app.main import app
 from app.models.schemas import CreateTaskRequest, TaskExecutionMode
 from app.storage.database import repository, Repository
+from app.storage import models as dbm
 
 class FakeAgent:
     def __init__(self, name, order, failure=None):
@@ -30,7 +34,9 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         repository.initialize()
         self.order = []
         self.agents = {key: FakeAgent(key, self.order) for key, _ in tasks._PIPELINE_STAGES}
-        self.agent_patch = patch.object(tasks, "_IMPLEMENTED_AGENTS", self.agents)
+        self.direct_agent = FakeAgent("direct", self.order)
+        self.agent_patch = patch.object(tasks, "_IMPLEMENTED_AGENTS",
+                                        {**self.agents, "direct": self.direct_agent})
         self.agent_patch.start()
         self.broadcast = AsyncMock()
         self.socket_patch = patch.object(tasks.manager, "broadcast", self.broadcast)
@@ -84,10 +90,141 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(run.events[-1].type, "simulation_failed")
                 self.agents[aid].failure = None
     async def test_direct_mode(self):
+        # Historical specialist execution remains separate from the new baseline.
         run = await self.run_task("analysis", "single_agent")
         self.assertEqual(self.order, ["analysis"])
         self.assertEqual(run.output, "analysis actual output")
         self.assertEqual(run.messages, [])
+    async def test_single_baseline_is_one_real_stage_with_no_handoffs(self):
+        run = await self.run_task(mode="single")
+        self.assertEqual(run.execution_mode, TaskExecutionMode.SINGLE)
+        self.assertEqual(run.assigned_agent_id, "direct")
+        self.assertEqual(self.order, ["direct"])
+        self.assertEqual(self.direct_agent.calls, [("Original goal", {})])
+        self.assertEqual(run.output, "direct actual output")
+        self.assertEqual([(s.agent_id, s.output_key, s.status) for s in run.stages],
+                         [("direct", "final_answer", "completed")])
+        self.assertEqual(run.messages, [])
+        self.assertEqual([e.type for e in run.events].count("agent_completed"), 1)
+        self.assertEqual([e.type for e in run.events].count("message_created"), 0)
+        self.assertFalse(any(e.agent_id == "orchestrator" for e in run.events))
+        self.assertFalse(any(a.agent_id == "orchestrator" for a in run.activities))
+        self.assertEqual([a.agent_id for a in run.activities if a.text == "Started processing"], ["direct"])
+        reopened = Repository("sqlite:///" + self.path)
+        reopened.initialize()
+        self.assertEqual(reopened.get(run.id).execution_mode, TaskExecutionMode.SINGLE)
+        self.assertEqual(reopened.get(run.id).output, run.output)
+        stage_events = [c.args[1] for c in self.broadcast.await_args_list if c.args[0] == "agent_completed"]
+        self.assertEqual(stage_events[0]["executionMode"], "single")
+    async def test_single_failure_does_not_fabricate_success(self):
+        self.direct_agent.failure = "controlled direct failure"
+        run = await self.run_task(mode="single")
+        self.assertEqual(self.order, ["direct"])
+        self.assertEqual(run.status.value, "failed")
+        self.assertEqual(run.error, "controlled direct failure")
+        self.assertIsNone(run.output)
+        self.assertEqual([s.status for s in run.stages], ["failed"])
+        self.assertEqual(run.messages, [])
+    async def test_mode_defaults_and_legacy_snapshot(self):
+        self.assertEqual(CreateTaskRequest(directive="x", assigned_agent_id="research").execution_mode,
+                         TaskExecutionMode.SINGLE_AGENT)
+        from app.models.schemas import CreateSimulationRequest, Task
+        self.assertEqual(CreateSimulationRequest(directive="x").execution_mode,
+                         TaskExecutionMode.FIXED)
+        self.assertIs(TaskExecutionMode.FULL_PIPELINE, TaskExecutionMode.FIXED)
+        run = await self.run_task(mode="fixed")
+        self.assertEqual(self.order, list(self.agents))
+        self.assertEqual(run.execution_mode, TaskExecutionMode.FIXED)
+        snapshot = run.model_dump(mode="json")
+        snapshot["executionMode"] = "full_pipeline"
+        self.assertEqual(Task.model_validate(snapshot).execution_mode, TaskExecutionMode.FIXED)
+        with repository.engine.begin() as connection:
+            connection.execute(update(dbm.simulations).where(dbm.simulations.c.id == run.id).values(
+                execution_mode="full_pipeline", payload=snapshot))
+        reopened = Repository("sqlite:///" + self.path)
+        reopened.initialize()
+        self.assertEqual(reopened.get(run.id).execution_mode, TaskExecutionMode.FIXED)
+        self.assertEqual(reopened.get(run.id).output, run.output)
+        snapshot.pop("executionMode")
+        self.assertEqual(Task.model_validate(snapshot).execution_mode, TaskExecutionMode.SINGLE_AGENT)
+    async def test_direct_agent_makes_one_shared_client_call_with_permitted_context(self):
+        from app.agents import direct_agent
+        response = LLMResponse(text="Actual direct answer", input_tokens=7,
+                               output_tokens=4, response_time_seconds=0.1, model="test-model")
+        with patch.object(direct_agent, "call_llm", new_callable=AsyncMock, return_value=response) as llm:
+            actual = await DirectAgent().run("Original goal", {
+                "uploaded_context": "File: reference.txt\nSafe note",
+                "benchmark_context": "Records: 294; Department: Engineering"})
+        self.assertEqual(actual, response.text)
+        llm.assert_awaited_once()
+        prompt = llm.await_args.kwargs["prompt"]
+        self.assertIn("Original goal", prompt)
+        self.assertIn("Safe note", prompt)
+        self.assertIn("Records: 294", prompt)
+    async def test_single_coordinator_records_real_model_usage(self):
+        from app.agents import direct_agent
+        tasks._IMPLEMENTED_AGENTS["direct"] = DirectAgent()
+        response = LLMResponse(text="Actual direct answer", input_tokens=7,
+                               output_tokens=4, response_time_seconds=0.1, model="test-model")
+        with patch.object(direct_agent, "call_llm", new_callable=AsyncMock, return_value=response) as llm:
+            run = await self.run_task(mode="single")
+        llm.assert_awaited_once()
+        self.assertEqual(run.output, response.text)
+        self.assertEqual(len(run.stages), 1)
+        self.assertEqual(run.stages[0].model, "test-model")
+        self.assertEqual((run.stages[0].input_tokens, run.stages[0].output_tokens,
+                          run.stages[0].total_tokens), (7, 4, 11))
+        self.assertEqual(run.messages, [])
+    async def test_single_upload_context_uses_same_bounded_input(self):
+        from app.api.routes.uploads import parse_upload
+        upload = parse_upload("reference.txt", b"Supplied fact: 42")
+        repository.save_upload(upload)
+        run = await self.run_task(mode="single", uploads=[upload.id])
+        self.assertEqual(run.uploads[0].id, upload.id)
+        self.assertIn("File: reference.txt\nSupplied fact: 42",
+                      self.direct_agent.calls[0][1]["uploaded_context"])
+        self.assertEqual(run.messages, [])
+    async def test_single_registered_benchmark_receives_only_safe_aggregates(self):
+        from app.datasets.registry import BENCHMARK_DIR, register_all
+        if not (BENCHMARK_DIR / "employee_small.json").is_file():
+            self.skipTest("Private benchmark JSON files are not provisioned")
+        register_all(repository)
+        queued = await tasks.create_task(CreateTaskRequest(
+            directive="Describe workforce structure", execution_mode="single",
+            dataset_id="employee_small"), BackgroundTasks())
+        await tasks._run_task(queued.id)
+        run = repository.get(queued.id)
+        context = self.direct_agent.calls[0][1]["benchmark_context"]
+        self.assertEqual(run.dataset_id, "employee_small")
+        self.assertIn("Records: 294", context)
+        for excluded in ("EmployeeID", "Age", "Gender", "Salary", "PerformanceRating"):
+            self.assertNotIn(excluded, context)
+    async def test_api_mode_contract_and_adaptive_guard(self):
+        with TestClient(app) as client:
+            adaptive = client.post("/api/v1/simulations", json={
+                "directive": "Original goal", "executionMode": "adaptive"})
+            self.assertEqual(adaptive.status_code, 501)
+            self.assertEqual(adaptive.json()["detail"]["code"], "execution_mode_not_implemented")
+            self.assertEqual(repository.list(), [])
+            malformed = client.post("/api/v1/simulations", json={
+                "directive": "Original goal", "executionMode": "other"})
+            self.assertEqual(malformed.status_code, 422)
+            self.assertEqual(repository.list(), [])
+            single = client.post("/api/v1/simulations", json={
+                "directive": "Original goal", "executionMode": "single"})
+            self.assertEqual(single.status_code, 201, single.text)
+            task_id = single.json()["id"]
+            self.assertEqual(single.json()["executionMode"], "single")
+            result = client.get("/api/v1/simulations/" + task_id).json()
+            self.assertEqual(result["executionMode"], "single")
+            self.assertEqual([s["agentId"] for s in result["stages"]], ["direct"])
+            self.assertEqual(result["messages"], [])
+            self.assertEqual(client.get("/api/v1/tasks/" + task_id).json()["executionMode"], "single")
+            metrics = client.get("/api/v1/simulations/metrics").json()
+            self.assertEqual(metrics["history"][0]["executionMode"], "single")
+            self.assertEqual(metrics["history"][0]["invocationCount"], 1)
+            self.assertEqual(next(a for a in metrics["agents"] if a["agentId"] == "direct")["calls"], 1)
+            self.assertEqual(client.get(f"/api/v1/simulations/{task_id}/export?format=json").json()["executionMode"], "single")
     async def test_web_search_and_orchestrator_not_executable(self):
         for aid in ("web_search", "orchestrator"):
             run = await self.run_task(aid, "single_agent")
@@ -199,6 +336,30 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
                     self.assertIn("task_updated", seen)
         finally:
             self.socket_patch.start()
+    async def test_single_websocket_has_one_stage_and_no_handoffs(self):
+        self.socket_patch.stop()
+        try:
+            with TestClient(app) as client:
+                with client.websocket_connect("/ws/live") as websocket:
+                    response = client.post("/api/v1/simulations", json={
+                        "directive": "Socket baseline", "executionMode": "single"})
+                    self.assertEqual(response.status_code, 201)
+                    seen = []
+                    while True:
+                        event = websocket.receive_json()
+                        seen.append(event)
+                        if event["event"] == "simulation_completed":
+                            break
+                    self.assertEqual(sum(e["event"] == "agent_completed" for e in seen), 1)
+                    self.assertFalse(any(e["event"] in ("message_sent", "message_created") for e in seen))
+                    stage = next(e for e in seen if e["event"] == "agent_completed")
+                    self.assertEqual(stage["data"]["executionMode"], "single")
+                    self.assertEqual(stage["data"]["agentId"], "direct")
+                    self.assertTrue(any(e["event"] == "task_updated" and
+                                        [s["agentId"] for s in e["data"]["stages"]] == ["direct"]
+                                        for e in seen))
+        finally:
+            self.socket_patch.start()
     async def test_api_upload_export_and_camel_case(self):
         with TestClient(app) as client:
             upload = client.post("/api/v1/uploads?filename=reference.csv",
@@ -223,7 +384,7 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(metrics["summary"]["completedTasks"], 1)
             self.assertEqual(metrics["summary"]["totalAgentExecutions"], 5)
             self.assertEqual(metrics["summary"]["measuredExecutions"], 0)
-            self.assertEqual(client.get("/api/v1/tasks/" + run_id).json()["executionMode"], "full_pipeline")
+            self.assertEqual(client.get("/api/v1/tasks/" + run_id).json()["executionMode"], "fixed")
             self.assertEqual(client.post("/api/v1/uploads?filename=bad.exe", content=b"x").status_code, 415)
             self.assertEqual(client.post("/api/v1/uploads?filename=bad.json", content=b"{").status_code, 422)
             self.assertEqual(client.post("/api/v1/uploads?filename=large.txt",

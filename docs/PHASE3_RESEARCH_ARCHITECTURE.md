@@ -1,21 +1,29 @@
-# Phase 3 research architecture (design only)
+# Phase 3 research architecture
 
-Status: **PLANNED**, 2026-09-29. Source baseline: `cc181e6` (Phase 2
-implementation `ef27951`). This document changes no runtime, schema, deployment,
-or provider configuration. The production five-stage pipeline and PostgreSQL
-restart durability are **COMPLETED**; adaptive routing and formal evaluation are
-**NOT IMPLEMENTED**.
+Status: Phase 3.1 execution-mode foundation **COMPLETED** locally; remaining
+research work **PLANNED**. Design baseline: `cc181e6` (Phase 2 implementation
+`ef27951`). The production five-stage pipeline and PostgreSQL restart durability
+are **COMPLETED**; this Phase 3.1 change has not been deployed or live-tested.
+Adaptive routing and formal evaluation are **NOT IMPLEMENTED**.
+
+Phase 3.1 uses one `executionMode` field: `single` (neutral Direct Agent),
+`fixed` (the unchanged five-stage sequence), or `adaptive` (explicitly rejected
+with HTTP 501). Legacy `full_pipeline` inputs and snapshots normalize to `fixed`;
+legacy `single_agent` remains a separate individual-specialist compatibility
+action, never a research baseline. Existing v2 string/JSON storage accepts these
+values without a schema migration. The mode is persisted and included in task
+responses, run events and metric history. No scores or routing plans exist yet.
 
 ## 1. Current architecture: code-level findings
 
 | Concern | Current implementation | Phase 3 implication |
 |---|---|---|
-| Creation/mode | `backend/app/api/routes/tasks.py:create_task` handles `/tasks`; `/simulations` delegates to it. `CreateTaskRequest.execution_mode` accepts `single_agent` or `full_pipeline`; the UI defaults to the latter. | Extend the mode contract compatibly. Existing `single_agent` means one selected specialist, **not** a controlled direct-answer baseline. |
+| Creation/mode | `backend/app/api/routes/tasks.py:create_task` handles `/tasks`; `/simulations` delegates to it. `executionMode` accepts `single`, `fixed`, `adaptive` and legacy `single_agent`; legacy `full_pipeline` maps to `fixed`. The UI defaults to fixed. | Existing `single_agent` means one selected specialist, **not** a controlled direct-answer baseline. |
 | Execution | `_run_task` uses FastAPI `BackgroundTasks`; `_run_pipeline` loops over the fixed five-stage tuple; `_run_stage` calls `agent.run(directive, context)` and stops on failure. | Reuse this lifecycle and stage executor with a validated plan; do not create three disconnected engines. One worker remains a constraint. |
 | Prompt/handoff | Each `agents/*_agent.py:process` builds its own prompt. The coordinator retains the original directive and exact outputs in `research_findings`, `structured_data`, `insights`, `summary`, `final_report`. Handoffs become persisted messages. | Skipping is **not** safe by merely omitting stages: Analysis reads only `structured_data`, Summarizer only `insights`, Report only `summary`. Add explicit, tested input contracts/adapters later; never relabel missing material as if an agent produced it. |
 | Measurements | `BaseAgent.run` and `llm_client.call_llm` capture model/usage; a request-local `ContextVar` writes tokens/model into `StageExecution`. `_run_stage` measures stage duration; `_run_task` measures wall time. `simulations.py` aggregates persisted runs. | Separate stage attempts from confirmed provider calls. `call_llm` currently substitutes zero when a successful response has no usage block; `simulations.py` also sums missing stage usage as zero in history. Treat those as unknown before a formal token comparison. `call_llm` passes no temperature/seed, so repeatability is not controlled yet. |
 | Persistence/events | `storage/database.py` transactionally saves a compatible Task JSON snapshot plus v2 relational projections. `storage/models.py` has simulations, tasks, stages, messages, events, metrics, uploads and dataset registry. `emit`, `record_message`, `record_activity` persist before `manager.broadcast`; `/ws/live` sends `{event,data,timestamp}`. | Keep one authoritative run record and event stream; new experiment metadata needs versioned storage, not a second hidden store. REST remains authoritative after reconnect. |
-| Graph/UI | `AgentRelationshipGraph.jsx` takes selected `task.stages` but always prepends Goal/Orchestrator and appends Result; no-task preview uses a fixed five-agent `ORDER`. `TaskDetailsPanel.jsx` labels all non-full runs by assigned agent. `simulations.py:metrics` and `simulation.py:aggregate` assume five roster agents. | Build per-run topology from the persisted plan and actual handoffs. A direct baseline must not display five executed agents or an LLM orchestrator. Revise metric labels/counts to derive from stages. |
+| Graph/UI | `AgentRelationshipGraph.jsx` uses persisted stages and omits the coordinator for single/legacy specialist runs; the no-task preview still shows the fixed path. Task details/history label the stored mode. Per-agent metrics include Direct Agent; run history includes invocation count. | Adaptive selected/skipped topology remains future work. |
 | Datasets | `dataset_id`, checksum, `task_type` and bounded aggregate `benchmark_context` are attached at creation. `datasets/registry.py` validates six Git-ignored JSON inputs and excludes individual/protected fields from agent context. | Current HR experiments are aggregate-level. Raw-row extraction, full-dataset reasoning and context-size experiments are **not** supported by this bounded context. Production provisioning of the six files is **PARTIAL**. |
 
 `agents/orchestrator.py` is an inactive LangGraph prototype, not the execution
@@ -31,8 +39,8 @@ Treat these as hypotheses to test, not expected improvements.
 
 | Research mode | Planned path | What is already available |
 |---|---|---|
-| Single baseline | Goal → one neutral direct-answer model call → Result | **NOT IMPLEMENTED**. Preserve the existing selectable `single_agent` specialist mode for compatibility; it is not a fair baseline because its specialist prompt expects a role-specific artifact. |
-| Fixed | Goal → Research → Data → Analysis → Summarizer → Report → Result | **COMPLETED** as `full_pipeline`; preserve its exact handoffs and failure semantics. |
+| Single baseline | Goal → one neutral direct-answer model call → Result | **COMPLETED** as `single`, using the Direct Agent and the same bounded uploaded/benchmark context as fixed mode. Legacy `single_agent` remains a specialist action, not this baseline. |
+| Fixed | Goal → Research → Data → Analysis → Summarizer → Report → Result | **COMPLETED** as `fixed` (legacy input `full_pipeline` accepted); exact handoffs and failure semantics preserved. |
 | Adaptive | Goal → explicit planner → selected valid specialist stages → Result | **NOT IMPLEMENTED**. Planner is non-executable metadata until a real router and contract-safe runner exist. |
 
 Future shared interface: `plan(request) -> ExecutionPlan` then
@@ -170,7 +178,7 @@ ones in dashboards and analysis. A future timeout must distinguish local
 deadline from provider-side timeout and should never imply a remote request was
 cancelled if that cannot be confirmed.
 
-## 9. Database and API implications (no changes in this phase)
+## 9. Database and API implications
 
 Existing v2 fields already cover `execution_mode`, `task_type`, `dataset_id` and
 checksum; `agent_executions` covers ordered path, agent/model/status/latency/
@@ -192,8 +200,11 @@ solely for skipped agents if the immutable plan records them. A version 3
 migration must preserve v2 rows and treat absent experiment metadata as null.
 Do not add these tables until the experiment contract and rubric are agreed.
 
-Future additive API: accept a research mode/experiment identifiers without
-breaking `single_agent` or `full_pipeline`; expose the persisted execution plan,
+Phase 3.1 adds `single`/`fixed`/`adaptive` to the existing mode field, without
+adding a database column or changing schema version 2. `/simulations` defaults
+to fixed; legacy `/tasks` requests without a mode retain specialist behavior.
+Future additive API should accept experiment identifiers without breaking
+legacy specialist or fixed requests; expose the persisted execution plan,
 selected/skipped reasons and per-run experimental metadata in simulation detail;
 provide a paginated experiment comparison/read endpoint only after real data
 exists. Reject invalid plans and unsupported agents with 4xx. Continue to use
@@ -272,12 +283,11 @@ without measured evidence. The contribution is the integrated, inspectable
 system and reproducible comparison protocol, not Groq, FastAPI, React Flow,
 PostgreSQL or hosting platforms.
 
-## 14. Ordered implementation checkpoints (all PLANNED)
+## 14. Ordered implementation checkpoints
 
 | Checkpoint | Purpose and likely files | Dependency / tests / deliverable / risk / live calls |
 |---|---|---|
-| 3.1 Plan contract | Add validated plan and artifact requirements near `models/schemas.py`, `api/routes/tasks.py`; preserve legacy modes. | Depends on frozen taxonomy. Unit-test valid/invalid plans and exact fixed path; deliver persisted plan shape. Risk: API compatibility. **Groq: no.** |
-| 3.2 Shared runner + direct baseline | Reuse `_run_stage`, lifecycle, repository and events; add one neutral direct-answer agent. | 3.1. Mocked tests for same input, one real call, failures, fixed regression; deliver three-mode-ready execution interface. Risk: unequal prompts. **Groq: one gated smoke test later.** |
+| 3.1 Execution-mode foundation + direct baseline — **COMPLETED locally** | Canonical mode values and minimal `_execute_mode` dispatch in `models/schemas.py` and `api/routes/tasks.py`; neutral Direct Agent. | Mocked call, context, legacy-read, API, failure and fixed-path tests. No live Groq call; production integration is **PARTIAL** until deployed/verified. Full adaptive plan/artifact validation is not included. |
 | 3.3 Experiment identity/storage | Versioned migration in `storage/models.py`, `database.py`; additive API fields. | 3.1–3.2. SQLite/PostgreSQL migration and restart tests; deliver queryable experiment IDs and immutable metadata. Risk: historic rows. **Groq: no.** |
 | 3.4 Rule-adaptive router | Capability tags, task features, contract adapters, reasons; no Web Search. | 3.1–3.3. Table-driven routing/handoff/failure tests; deliver honest rule-adaptive paths. Risk: ambiguous tasks or silent context loss. **Groq: small gated smoke set only.** |
 | 3.5 Dynamic visualization | Update modal, graph, details and events to show actual path/skips. | 3.4. Frontend build/lint plus UI tests for all modes/failures/reconnect; deliver true topology. Risk: stale fixed assumptions. **Groq: no.** |
@@ -285,9 +295,8 @@ PostgreSQL or hosting platforms.
 | 3.7 Failure experiments | Gated deterministic injection and labeled outcomes. | 3.4, 3.6. Mock failures at every boundary; deliver reliable failure evidence without retries. Risk: accidental production exposure. **Groq: no by default.** |
 | 3.8 Comparative dashboard/pilot | Paired mode views and bounded approved live experiment. | All prior gates. End-to-end checks, then explicit quota-limited runs; deliver raw results and limitations. Risk: API budget/provider drift. **Groq: yes, with approval/budget cap.** |
 
-Each checkpoint should be reviewed and committed separately by the team; none
-is implemented by this document. Preserve the working fixed path as a regression
-test throughout.
+Review and commit checkpoints separately. Preserve the working fixed path as a
+regression test throughout.
 
 ## 15. Quota and research risks
 

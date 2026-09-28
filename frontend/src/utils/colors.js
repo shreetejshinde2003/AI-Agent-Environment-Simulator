@@ -19,6 +19,7 @@ export const AGENT_ROLE_COLORS = {
   analysis: "#eab308",
   summarizer: "#14b8a6",
   report: "#ec4899",
+  direct: "#60a5fa",
 };
 
 // USER-DEFINED: fallback color for any role not listed above

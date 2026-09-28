@@ -7,7 +7,7 @@ import "./AgentActionForms.css";
 export default function CreateTaskModal({agents, onClose}) {
   const {selectTask, refresh} = useSimulation();
   const [directive, setDirective] = useState("");
-  const [executionMode, setExecutionMode] = useState("full_pipeline");
+  const [executionMode, setExecutionMode] = useState("fixed");
   const [assignedAgentId, setAgent] = useState("research");
   const [uploads, setUploads] = useState([]);
   const [datasets, setDatasets] = useState(null);
@@ -39,8 +39,8 @@ export default function CreateTaskModal({agents, onClose}) {
     event.preventDefault(); setBusy(true); setError(null);
     try {
       const run = await apiClient.createTask({directive: directive.trim(), executionMode,
-        assignedAgentId: executionMode === "full_pipeline" ? "orchestrator" : assignedAgentId,
-        uploadIds: executionMode === "full_pipeline" ? uploads.map(u => u.id) : [],
+        assignedAgentId: executionMode === "fixed" ? "orchestrator" : executionMode === "single" ? "direct" : assignedAgentId,
+        uploadIds: executionMode === "single_agent" ? [] : uploads.map(u => u.id),
         datasetId: datasetId || null, taskType: taskType.trim() || null});
       await refresh(); selectTask(run.id); onClose();
     } catch (err) { setError(err.message); }
@@ -55,18 +55,20 @@ export default function CreateTaskModal({agents, onClose}) {
           placeholder="What should the agents accomplish?"/></div>
       <div className="form-field"><label htmlFor="task-execution-mode">Execution mode</label>
         <select id="task-execution-mode" value={executionMode} onChange={e => setExecutionMode(e.target.value)}>
-          <option value="full_pipeline">Full Multi-Agent Pipeline</option>
-          <option value="single_agent">Individual Agent</option>
+          <option value="fixed">Fixed Multi-Agent Pipeline</option>
+          <option value="single">Single Agent · Direct Baseline</option>
+          <option value="single_agent">Individual Specialist · Legacy</option>
         </select></div>
       {executionMode === "single_agent" ? <div className="form-field">
         <label htmlFor="task-agent">Agent</label><select id="task-agent" value={assignedAgentId} onChange={e => setAgent(e.target.value)}>
-          {agents.filter(a => a.implemented).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+          {agents.filter(a => a.implemented && a.id !== "direct").map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
         </select><p className="muted">Web Search is not implemented. Orchestrator is a coordinator, not an executable agent.</p>
       </div> : <>
-        <p className="muted">Research → Data → Analysis → Summarizer → Report</p>
+        <p className="muted">{executionMode === "fixed" ? "Research → Data → Analysis → Summarizer → Report" :
+          "One direct-answer model call. No specialist handoffs. Adaptive routing is not implemented yet."}</p>
         <div className="form-field"><label htmlFor="context-files">Optional reference data · TXT, CSV, JSON</label>
           <input id="context-files" type="file" accept=".txt,.csv,.json" multiple disabled={busy || uploads.length >= 3} onChange={uploadFiles}/>
-          <p className="muted">Up to 3 files, 256 KiB each. Research and Data receive prepared context: up to 6,000 characters/file and 20 CSV rows.
+          <p className="muted">Up to 3 files, 256 KiB each. {executionMode === "fixed" ? "Research and Data" : "The Direct Agent"} receives prepared context: up to 6,000 characters/file and 20 CSV rows.
             This is a shared workspace—do not upload confidential data or credentials.</p>
         </div>
         {uploads.map(u => <div key={u.id} className="upload-preview">

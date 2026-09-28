@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime, timezone
 from fastapi import APIRouter, Query
 from app.models.schemas import ActivityEvent, Task
+from app.api.routes.agents import EXECUTABLE
 from app.storage.database import repository
 from app.websocket.manager import manager
 
@@ -21,7 +22,7 @@ def aggregate():
                      all(s.total_tokens is not None for s in r.stages if s.started_at)]
     return dict(
         simulationId=None, status="running" if any(r.status.value == "in_progress" for r in runs) else "stopped",
-        startTime=None, durationSeconds=0, totalAgents=5,
+        startTime=None, durationSeconds=0, totalAgents=len(EXECUTABLE),
         activeAgents=len({s.agent_id for s in stages if s.status == "active"}),
         totalTasks=len(runs), completedTasks=completed, failedTasks=len(finished)-completed,
         totalMessages=sum(len(r.messages) for r in runs),

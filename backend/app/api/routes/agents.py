@@ -10,9 +10,10 @@ _ROSTER = [
     ("orchestrator", "Orchestrator", "#8b5cf6"),
     ("research", "Research Agent", "#3b82f6"), ("data", "Data Agent", "#22c55e"),
     ("analysis", "Analysis Agent", "#eab308"), ("summarizer", "Summarizer Agent", "#14b8a6"),
-    ("report", "Report Agent", "#ec4899"), ("web_search", "Web Search Agent", "#f59e0b"),
+    ("report", "Report Agent", "#ec4899"), ("direct", "Direct Agent", "#60a5fa"),
+    ("web_search", "Web Search Agent", "#f59e0b"),
 ]
-EXECUTABLE = {"research", "data", "analysis", "summarizer", "report"}
+EXECUTABLE = {"research", "data", "analysis", "summarizer", "report", "direct"}
 
 @router.get("", response_model=list[Agent])
 async def list_agents():

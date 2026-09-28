@@ -34,6 +34,7 @@ KNOWN_AGENT_IDS = [
     "analysis",
     "summarizer",
     "report",
+    "direct",
 ]
 
 

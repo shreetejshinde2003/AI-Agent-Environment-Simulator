@@ -27,7 +27,7 @@ and isn't necessary.
 from datetime import datetime
 from enum import Enum
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
 
 
@@ -84,8 +84,18 @@ class TaskPriority(str, Enum):
 
 
 class TaskExecutionMode(str, Enum):
+    SINGLE = "single"
+    FIXED = "fixed"
+    ADAPTIVE = "adaptive"
+    # Older /tasks callers selected one specialist. Keep this distinct from
+    # the neutral single-agent experimental baseline.
     SINGLE_AGENT = "single_agent"
-    FULL_PIPELINE = "full_pipeline"
+    FULL_PIPELINE = "fixed"  # Python enum-name compatibility; JSON remains canonical.
+
+
+def normalize_execution_mode(value):
+    # Existing V1/V2 snapshots and clients used this name for the fixed path.
+    return TaskExecutionMode.FIXED if value == "full_pipeline" else value
 
 
 class RelationshipType(str, Enum):
@@ -226,6 +236,11 @@ class Task(CamelModel):
     benchmark_context: str | None = None
     evaluation_scores: dict[str, float] | None = None
 
+    @field_validator("execution_mode", mode="before")
+    @classmethod
+    def legacy_execution_mode(cls, value):
+        return normalize_execution_mode(value)
+
 
 class Message(CamelModel):
     id: str
@@ -272,17 +287,22 @@ class CreateAgentRequest(CamelModel):
 
 class CreateTaskRequest(CamelModel):
     directive: str = Field(min_length=1, max_length=10000)
-    assigned_agent_id: str
+    assigned_agent_id: str | None = None
     priority: TaskPriority = TaskPriority.MEDIUM
     execution_mode: TaskExecutionMode = TaskExecutionMode.SINGLE_AGENT
     upload_ids: list[str] = Field(default_factory=list, max_length=3)
     dataset_id: str | None = None
     task_type: str | None = Field(default=None, max_length=80)
 
+    @field_validator("execution_mode", mode="before")
+    @classmethod
+    def legacy_execution_mode(cls, value):
+        return normalize_execution_mode(value)
+
 
 class CreateSimulationRequest(CreateTaskRequest):
     assigned_agent_id: str = "orchestrator"
-    execution_mode: TaskExecutionMode = TaskExecutionMode.FULL_PIPELINE
+    execution_mode: TaskExecutionMode = TaskExecutionMode.FIXED
 
 
 # ==========================================================================
