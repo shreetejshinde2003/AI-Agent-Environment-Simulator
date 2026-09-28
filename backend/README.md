@@ -9,7 +9,7 @@ Run from this directory so existing `.env` loading and relative SQLite paths wor
 
 ```bash
 python run.py
-python -m unittest discover -s tests -v
+python -m pytest -q
 python -m compileall app
 ```
 
@@ -52,6 +52,7 @@ All paths below are relative to `/api/v1`.
 | GET /messages; /simulation/activity | Optional simulation_id filter |
 | GET /simulation/stats | Legacy aggregate view |
 | POST /simulation/pause,resume,stop | Explicit supported=false; no fake state changes |
+| GET /datasets; GET /datasets/{id} | Registered benchmark metadata; no raw rows |
 
 Uploads support TXT, rectangular CSV, JSON. Maximum 256 KiB per file, three per
 run. Prepared context is limited to 6,000 characters per file and 20 CSV data rows,
@@ -66,12 +67,24 @@ Events: simulation_created/started/completed/failed, agent_started/completed/fai
 message_created, task_created/updated, message_sent, activity_event, stats_updated.
 State is committed before broadcast. REST is authoritative after reconnect.
 
-The stdlib SQLite repository stores versioned run snapshots atomically, plus uploads
-and custom agent metadata. `PRAGMA user_version=1` is the initial migration. No
-SQLAlchemy dependency is needed. Future PostgreSQL support belongs behind this
-repository interface; PostgreSQL URLs are not supported yet.
+The SQLAlchemy repository uses SQLite locally and PostgreSQL via `DATABASE_URL`.
+Version 2 normalizes tasks, stages, handoffs, events, metrics, uploads, dataset
+metadata and roster while retaining a compatible run snapshot. On startup,
+fresh schemas are created automatically. A V1 SQLite file is validated and
+copied to a timestamped `.v1.*.db` backup; legacy tables are retained as
+`*_v1_archive` after migration. Never delete either without a verified backup.
+
+Provision the six authorized benchmark JSON files under `../data/benchmark/`,
+then run `python -m app.datasets.cli register` from this directory. The command
+validates all six before registry writes and stores metadata only. Clients can
+list `GET /api/v1/datasets` and pass `datasetId` plus optional `taskType` in
+`POST /api/v1/tasks` or `/simulations`. Each selected agent receives bounded,
+non-personal aggregates; full rows, names, IDs, protected attributes, and salary
+never enter benchmark context. Registration is explicit; no Drive fetch occurs.
 
 Default database: `./simulator.db`. Start one worker only. In-progress/queued runs
 become failed on restart; finished history survives on the same disk. Use backups
-and a durable disk for long-lived data. No automatic retention, job queue, login,
-ownership enforcement, or confidential-data handling is provided by this local V1.
+and a durable database for long-lived data. PostgreSQL support is implemented but
+requires a separately provisioned Railway PostgreSQL service. No automatic
+retention, job queue, login or ownership enforcement exists yet. See
+`../docs/PHASE2_DATABASE_DEPLOYMENT.md` for setup and migration limits.

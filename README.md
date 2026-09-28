@@ -50,12 +50,23 @@ Vite defaults to port 5173; the API defaults to 8000. Set the frontend build's
 `ws/wss` and `/ws/live`, unless `VITE_WS_URL` is provided. A production build
 does not default to localhost.
 
-## Storage and safety
+## Storage and benchmark data
 
-SQLite schema version 1 stores simulations with nested stage executions, messages,
-events, activities, results, metrics and upload metadata/prepared context. Startup
-initializes the schema idempotently. Interrupted runs are marked failed after a
-restart; they are never silently retried or marked successful.
+The version 2 operational schema stores simulations, one task per simulation,
+stage executions, handoffs, events, metrics, uploads, dataset metadata and the
+agent roster. SQLite remains the local fallback when `DATABASE_URL` is absent;
+a PostgreSQL URL selects PostgreSQL for Railway. Startup initializes schema
+version 2. Existing V1 SQLite records are validated, backed up and migrated
+without deleting the original tables. Interrupted runs are marked failed after
+a restart; they are never silently retried or marked successful.
+
+The six `employee_*` and `hr_*` JSON files are **benchmark/domain inputs**, not
+the operational database. They are privately provisioned under
+`data/benchmark/`, excluded from Git, validated and registered with
+`(cd backend && python -m app.datasets.cli register)`. Raw records stay on disk;
+only metadata and bounded non-personal aggregates enter the application.
+See [dataset audit](docs/PHASE2_DATASET_AUDIT.md) and
+[database/deployment guide](docs/PHASE2_DATABASE_DEPLOYMENT.md).
 
 This is a **shared, unauthenticated workspace**, not a private multi-user service.
 The nullable owner field is an extension point, not authorization. Do not upload
@@ -63,11 +74,10 @@ secrets or sensitive personal/HR data. Uploaded context is sent to Groq during
 execution. Only bounded prepared context is retained; original file bytes are not
 an archival upload facility.
 
-Use one API worker for this local V1. Multiple workers, durable distributed jobs,
-pagination and retention policies are later hardening work. On Railway, an
-ephemeral filesystem cannot guarantee history across deployments: durable storage
-must be provisioned before relying on production persistence. No deployment
-configuration is changed by this milestone.
+Use one API worker: execution remains in-process, and multiple workers are not
+coordinated. PostgreSQL preserves database records across Railway restarts when
+the service is provisioned, but raw benchmark files still need authorized
+provisioning. No Railway service or deployment setting is changed by this code.
 
 ## Validation
 
@@ -94,9 +104,9 @@ fixtures remain reference code only, outside the active runtime.
 ## Repository and team
 
 - `frontend/src/`: workspace pages, dashboard components, hooks and API client.
-- `backend/app/`: FastAPI routes, schemas, agents and SQLite repository.
+- `backend/app/`: FastAPI routes, schemas, agents and relational repository.
 - `backend/tests/`: mocked backend regression tests.
-- `database/`: project datasets; never loaded into prompts automatically.
+- `data/benchmark/`: privately provisioned validated benchmark JSON files.
 
 Shreetej Shinde leads backend, agents, integration and repository management.
 Sumit Jadhav works on datasets and database documentation. Parag Kulkarni works

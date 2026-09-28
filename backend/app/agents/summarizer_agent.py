@@ -20,4 +20,6 @@ class SummarizerAgent(BaseAgent):
         prompt = f"Original user directive:\n{directive}"
         supplied = context.get("insights", "")
         prompt += f"\n\nSupplied insights:\n{supplied}"
+        if context.get("benchmark_context"):
+            prompt += "\n\nValidated benchmark aggregates (not individual records):\n" + context["benchmark_context"]
         return await call_llm(prompt=prompt, system=SYSTEM_PROMPT, model=self.MODEL)

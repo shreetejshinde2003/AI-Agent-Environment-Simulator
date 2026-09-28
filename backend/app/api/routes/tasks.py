@@ -15,6 +15,7 @@ from app.agents.execution_context import current_execution
 from app.api.routes.messages import record_message
 from app.api.routes.simulation import record_activity, register_task_created, register_task_finished
 from app.core.errors import safe_error
+from app.datasets.registry import context_for_dataset
 from app.models.schemas import (
     CreateTaskRequest, MessageKind, Task, TaskExecutionMode,
     TaskProgressStep, TaskStatus, StageExecution, RunEvent,
@@ -75,6 +76,17 @@ async def create_task(payload: CreateTaskRequest, background_tasks: BackgroundTa
         if upload is None:
             raise HTTPException(404, "Uploaded context not found")
         uploads.append(upload)
+    benchmark_context = None
+    dataset_checksum = None
+    if payload.dataset_id:
+        dataset = repository.get_dataset(payload.dataset_id)
+        if dataset is None:
+            raise HTTPException(404, "Benchmark dataset not registered")
+        try:
+            benchmark_context = context_for_dataset(dataset)
+        except (OSError, ValueError) as exc:
+            raise HTTPException(422, str(exc)) from exc
+        dataset_checksum = dataset["checksum"]
     task_id = f"T-{uuid.uuid4().hex[:12]}"
     is_pipeline = payload.execution_mode == TaskExecutionMode.FULL_PIPELINE
     sequence = _PIPELINE_STAGES if is_pipeline else ((payload.assigned_agent_id, "output"),)
@@ -84,6 +96,8 @@ async def create_task(payload: CreateTaskRequest, background_tasks: BackgroundTa
         execution_mode=payload.execution_mode, priority=payload.priority,
         status=TaskStatus.QUEUED, started_at=now(), created_at=now(),
         duration_seconds=0, progress_percent=0, uploads=uploads,
+        dataset_id=payload.dataset_id, dataset_checksum=dataset_checksum,
+        task_type=payload.task_type, benchmark_context=benchmark_context,
         stages=[StageExecution(agent_id=aid, output_key=key) for aid, key in sequence],
     )
     _TASKS[task.id] = task
@@ -141,6 +155,8 @@ async def _run_pipeline(task: Task) -> str:
         context["uploaded_context"] = "\n\n".join(
             f"File: {upload.filename}\n{upload.prepared_context}" for upload in task.uploads
         )
+    if task.benchmark_context:
+        context["benchmark_context"] = task.benchmark_context
     if not task.stages:
         task.stages = [StageExecution(agent_id=aid, output_key=key) for aid, key in _PIPELINE_STAGES]
     for index, (agent_id, output_key) in enumerate(_PIPELINE_STAGES):
@@ -169,6 +185,8 @@ async def _run_task(task_id: str) -> None:
             context = {}
             if task.uploads:
                 context["uploaded_context"] = "\n\n".join(u.prepared_context for u in task.uploads)
+            if task.benchmark_context:
+                context["benchmark_context"] = task.benchmark_context
             result = await _run_stage(task, task.stages[0], context)
         task.output = result
         task.status = TaskStatus.COMPLETED

@@ -21,4 +21,6 @@ class ResearchAgent(BaseAgent):
         prompt = f"Original user directive:\n{directive}"
         if context.get("uploaded_context"):
             prompt += "\n\nUploaded reference context:\n" + context["uploaded_context"]
+        if context.get("benchmark_context"):
+            prompt += "\n\nValidated benchmark aggregates (not individual records):\n" + context["benchmark_context"]
         return await call_llm(prompt=prompt, system=SYSTEM_PROMPT, model=self.MODEL)

@@ -43,3 +43,6 @@ build/
 # Archives
 # ==========================
 *.zip
+
+# Locally provisioned HR benchmark records contain identifying fields.
+data/benchmark/*.json

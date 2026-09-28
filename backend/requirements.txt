@@ -15,10 +15,12 @@ httpx          # transitive dep, also handy for direct calls if ever needed
 # --- LLM (RESERVED — only needed if you fall back to local Ollama) ---
 # ollama
 
-# --- Storage (RESERVED — uncomment when app/storage/ is activated) ---
-# sqlalchemy==2.0.36
-# alembic==1.14.0          # recommended for real migrations once schema stabilizes
-# psycopg2-binary==2.9.10  # only needed once you switch from SQLite to Postgres
+# --- Operational database (SQLite locally, PostgreSQL on Railway) ---
+SQLAlchemy==2.0.36
+psycopg[binary]==3.2.12
+
+# --- Tests ---
+pytest==8.4.2
 
 # --- Agent framework (RESERVED — uncomment if the graph moves to LangGraph) ---
 # langgraph>=0.4

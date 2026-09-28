@@ -21,6 +21,7 @@ export const apiClient = {
   createAgent: payload => request("/agents", {method: "POST", body: JSON.stringify(payload)}),
   getTasks: () => request("/tasks"),
   getTask: id => request("/tasks/" + encodeURIComponent(id)),
+  getDatasets: () => request("/datasets"),
   createTask: payload => request("/tasks", {method: "POST", body: JSON.stringify(payload)}),
   getMetrics: () => request("/simulations/metrics"),
   getMessages: (limit = 50) => request("/messages?limit=" + limit),

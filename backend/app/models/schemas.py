@@ -168,6 +168,27 @@ class UploadedContext(CamelModel):
     columns: list[str] = Field(default_factory=list)
 
 
+class DatasetQuality(CamelModel):
+    manager_id_nan_as_null: int = 0
+    outer_whitespace_by_field: dict[str, int] = Field(default_factory=dict)
+    protected_fields: list[str] = Field(default_factory=list)
+    confidential_fields: list[str] = Field(default_factory=list)
+
+
+class DatasetMetadata(CamelModel):
+    dataset_id: str
+    name: str
+    family: str
+    size_variant: str
+    source_filename: str
+    record_count: int
+    schema_columns: list[dict[str, str]]
+    checksum: str
+    active: bool
+    imported_at: datetime
+    quality: DatasetQuality
+
+
 class Task(CamelModel):
     id: str                        # e.g. "T-1024"
     directive: str                 # instruction given to the agent
@@ -199,6 +220,11 @@ class Task(CamelModel):
     messages: list["Message"] = Field(default_factory=list)
     activities: list["ActivityEvent"] = Field(default_factory=list)
     uploads: list[UploadedContext] = Field(default_factory=list)
+    dataset_id: str | None = None
+    dataset_checksum: str | None = None
+    task_type: str | None = None
+    benchmark_context: str | None = None
+    evaluation_scores: dict[str, float] | None = None
 
 
 class Message(CamelModel):
@@ -250,6 +276,8 @@ class CreateTaskRequest(CamelModel):
     priority: TaskPriority = TaskPriority.MEDIUM
     execution_mode: TaskExecutionMode = TaskExecutionMode.SINGLE_AGENT
     upload_ids: list[str] = Field(default_factory=list, max_length=3)
+    dataset_id: str | None = None
+    task_type: str | None = Field(default=None, max_length=80)
 
 
 class CreateSimulationRequest(CreateTaskRequest):

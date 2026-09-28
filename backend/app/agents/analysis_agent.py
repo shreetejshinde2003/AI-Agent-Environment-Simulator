@@ -21,4 +21,6 @@ class AnalysisAgent(BaseAgent):
         prompt = f"Original user directive:\n{directive}"
         supplied = context.get("structured_data", "")
         prompt += f"\n\nSupplied structured_data:\n{supplied}"
+        if context.get("benchmark_context"):
+            prompt += "\n\nValidated benchmark aggregates (not individual records):\n" + context["benchmark_context"]
         return await call_llm(prompt=prompt, system=SYSTEM_PROMPT, model=self.MODEL)

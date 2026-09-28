@@ -41,11 +41,9 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------
     # USER-DEFINED — Database connection
     # ------------------------------------------------------------------
-    # Local dev default is SQLite (zero setup). Swap to Postgres when the
-    # storage layer (app/storage/) is actually implemented.
-    #   Postgres example:
-    #   DATABASE_URL = "postgresql://<user>:<password>@<host>:<port>/<db_name>"
-    DATABASE_URL: str = "sqlite:///./simulator.db"  # <-- USER-DEFINED: change to your Postgres URL when ready
+    # Local default is SQLite. A supplied PostgreSQL URL activates psycopg;
+    # never put production credentials in this source file.
+    DATABASE_URL: str = "sqlite:///./simulator.db"
 
     # ------------------------------------------------------------------
     # USER-DEFINED — LLM provider

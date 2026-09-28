@@ -108,6 +108,48 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Supplied fact: 42", self.agents["research"].calls[0][1]["uploaded_context"])
         self.assertIn("Supplied fact: 42", self.agents["data"].calls[0][1]["uploaded_context"])
         self.assertEqual(run.uploads[0].id, upload.id)
+    async def test_registered_benchmark_context_enters_real_pipeline(self):
+        from app.datasets.registry import BENCHMARK_DIR, register_all
+        if not (BENCHMARK_DIR / "employee_small.json").is_file():
+            self.skipTest("Private benchmark JSON files are not provisioned")
+        register_all(repository)
+        queued = await tasks.create_task(CreateTaskRequest(
+            directive="Summarize workforce structure", assigned_agent_id="orchestrator",
+            execution_mode="full_pipeline", dataset_id="employee_small",
+            task_type="descriptive_summary"), BackgroundTasks())
+        await tasks._run_task(queued.id)
+        run = repository.get(queued.id)
+        self.assertEqual(run.dataset_id, "employee_small")
+        self.assertEqual(run.task_type, "descriptive_summary")
+        self.assertEqual(run.output, "report actual output")
+        for agent in self.agents.values():
+            self.assertIn("Records: 294", agent.calls[0][1]["benchmark_context"])
+        self.assertNotIn("EmployeeID", self.agents["research"].calls[0][1]["benchmark_context"])
+        self.assertEqual(self.agents["data"].calls[0][1]["research_findings"], "research actual output")
+    async def test_dataset_http_contract_uses_camel_case(self):
+        from app.datasets.registry import BENCHMARK_DIR, register_all
+        if not (BENCHMARK_DIR / "hr_small.json").is_file():
+            self.skipTest("Private benchmark JSON files are not provisioned")
+        register_all(repository)
+        with TestClient(app) as client:
+            listed = client.get("/api/v1/datasets")
+            self.assertEqual(listed.status_code, 200)
+            self.assertEqual(len(listed.json()), 6)
+            self.assertIn("datasetId", listed.json()[0])
+            self.assertIn("recordCount", listed.json()[0])
+            self.assertNotIn("dataset_id", listed.json()[0])
+            response = client.post("/api/v1/tasks", json={
+                "directive": "Summarize workforce structure", "assignedAgentId": "orchestrator",
+                "executionMode": "full_pipeline", "datasetId": "hr_small",
+                "taskType": "descriptive_summary"})
+            self.assertEqual(response.status_code, 201)
+            self.assertEqual(response.json()["datasetId"], "hr_small")
+            self.assertEqual(response.json()["taskType"], "descriptive_summary")
+            self.assertEqual(repository.get(response.json()["id"]).output, "report actual output")
+            missing = client.post("/api/v1/tasks", json={
+                "directive": "No such dataset", "assignedAgentId": "research",
+                "datasetId": "unknown_large"})
+            self.assertEqual(missing.status_code, 404)
     async def test_restart_marks_interrupted_not_successful(self):
         queued = await tasks.create_task(CreateTaskRequest(directive="Interrupted",
             assigned_agent_id="research"), BackgroundTasks())

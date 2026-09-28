@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Modal from "../common/Modal";
 import Button from "../common/Button";
 import { apiClient } from "../../services/apiClient";
@@ -10,8 +10,18 @@ export default function CreateTaskModal({agents, onClose}) {
   const [executionMode, setExecutionMode] = useState("full_pipeline");
   const [assignedAgentId, setAgent] = useState("research");
   const [uploads, setUploads] = useState([]);
+  const [datasets, setDatasets] = useState(null);
+  const [datasetError, setDatasetError] = useState(false);
+  const [datasetId, setDatasetId] = useState("");
+  const [taskType, setTaskType] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  useEffect(() => {
+    let active = true;
+    apiClient.getDatasets().then(items => { if (active) setDatasets(items); })
+      .catch(() => { if (active) setDatasetError(true); });
+    return () => { active = false; };
+  }, []);
   async function uploadFiles(event) {
     const files = [...event.target.files]; event.target.value = "";
     if (files.length + uploads.length > 3) { setError("Maximum three files per simulation."); return; }
@@ -30,7 +40,8 @@ export default function CreateTaskModal({agents, onClose}) {
     try {
       const run = await apiClient.createTask({directive: directive.trim(), executionMode,
         assignedAgentId: executionMode === "full_pipeline" ? "orchestrator" : assignedAgentId,
-        uploadIds: executionMode === "full_pipeline" ? uploads.map(u => u.id) : []});
+        uploadIds: executionMode === "full_pipeline" ? uploads.map(u => u.id) : [],
+        datasetId: datasetId || null, taskType: taskType.trim() || null});
       await refresh(); selectTask(run.id); onClose();
     } catch (err) { setError(err.message); }
     finally { setBusy(false); }
@@ -64,6 +75,25 @@ export default function CreateTaskModal({agents, onClose}) {
           <button type="button" disabled={busy} onClick={() => setUploads(previous => previous.filter(v => v.id !== u.id))}>Detach</button>
         </div>)}
       </>}
+      <div className="form-field"><label htmlFor="benchmark-dataset">Benchmark dataset · optional</label>
+        <select id="benchmark-dataset" value={datasetId} onChange={e => setDatasetId(e.target.value)}
+          disabled={busy || !datasets?.some(item => item.active)}>
+          <option value="">None</option>
+          {datasets?.filter(item => item.active).map(item =>
+            <option key={item.datasetId} value={item.datasetId}>
+              {item.name} · {item.recordCount} records
+            </option>)}
+        </select>
+        <p className="muted">{datasetError ? "Benchmark registry unavailable." : datasets === null ?
+          "Loading registered datasets…" : datasets.length === 0 ?
+          "No benchmark datasets registered on this server." : !datasets.some(item => item.active) ?
+          "No active benchmark datasets on this server." :
+          "Only bounded, non-personal aggregates reach agents; raw records stay on the server."}</p>
+      </div>
+      {datasetId && <div className="form-field"><label htmlFor="task-type">Task type · optional</label>
+        <input id="task-type" maxLength={80} value={taskType} onChange={e => setTaskType(e.target.value)}
+          placeholder="e.g. descriptive_summary"/>
+      </div>}
       <div className="form-actions"><Button type="button" variant="ghost" disabled={busy} onClick={onClose}>Cancel</Button>
         <Button type="submit" variant="primary" disabled={busy || !directive.trim()}>{busy ? "Working…" : "Start Simulation"}</Button></div>
     </form>
