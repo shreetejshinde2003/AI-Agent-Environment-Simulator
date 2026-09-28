@@ -1,60 +1,32 @@
-"""
-app/api/routes/messages.py
-
-Endpoints for the Messages page and the "Message Flow (Live)" card on
-the dashboard.
-"""
-
+"""Persisted, run-scoped agent handoffs."""
 import uuid
 from datetime import datetime, timezone
-
-from fastapi import APIRouter
-
-from app.models.schemas import Message, MessageKind
+from fastapi import APIRouter, Query
+from app.models.schemas import Message, MessageKind, Task
+from app.storage.database import repository
 from app.websocket.manager import manager
 
 router = APIRouter(prefix="/messages", tags=["messages"])
 
 
-# ----------------------------------------------------------------------
-# Real message log — starts empty (not fake pre-populated conversation
-# history). Replace with a DB query once storage is activated.
-# RESERVED: currently nothing calls record_message() yet — wire it into
-# api/routes/tasks.py's _run_task() once multiple agents hand off to
-# each other (right now there's only one real agent, so there's no
-# real agent-to-agent message to log — a single agent completing a
-# task is captured as an ActivityEvent, not a Message).
-# ----------------------------------------------------------------------
-_MESSAGES: list[Message] = []
-
-
-async def record_message(from_agent_id: str, to_agent_id: str, kind: MessageKind, content: str) -> None:
-    """Call this once a real agent hands off to another agent."""
-    message = Message(
-        id=f"m-{uuid.uuid4().hex[:8]}",
-        from_agent_id=from_agent_id,
-        to_agent_id=to_agent_id,
-        kind=kind,
-        content=content,
-        timestamp=datetime.now(timezone.utc),
-    )
-    _MESSAGES.append(message)
+async def record_message(from_agent_id: str, to_agent_id: str, kind: MessageKind,
+                         content: str, *, task: Task, output_key: str):
+    message = Message(id=f"m-{uuid.uuid4().hex}", from_agent_id=from_agent_id,
+                      to_agent_id=to_agent_id, kind=kind, content=content,
+                      timestamp=datetime.now(timezone.utc), simulation_id=task.id,
+                      output_key=output_key)
+    task.messages.append(message)
+    repository.save(task)
     await manager.broadcast("message_sent", message.model_dump(mode="json"))
+    return message
 
 
 @router.get("", response_model=list[Message])
-async def list_messages(limit: int = 50):
-    """GET /api/v1/messages — powers the Messages page and Message Flow card.
-
-    `limit` param: RESERVED for pagination once message volume grows —
-    harmless no-op against in-memory data today, but wire it into the
-    real DB query (ORDER BY timestamp DESC LIMIT :limit) once storage exists.
-    """
-    return _MESSAGES[-limit:]
+async def list_messages(limit: int = Query(50, ge=1, le=1000), simulation_id: str | None = None):
+    runs = [repository.get(simulation_id)] if simulation_id else repository.list()
+    messages = [m for run in runs if run for m in run.messages]
+    return sorted(messages, key=lambda m: m.timestamp)[-limit:]
 
 
-def get_message_count() -> int:
-    """Used by api/routes/simulation.py to compute totalMessages live —
-    kept as a function (not a direct import of _MESSAGES) so this
-    module stays the one source of truth for what counts as a message."""
-    return len(_MESSAGES)
+def get_message_count():
+    return sum(len(run.messages) for run in repository.list())

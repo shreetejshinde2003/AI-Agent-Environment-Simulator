@@ -1,124 +1,82 @@
-import { useMemo } from "react";
-import ReactFlow, { Background, Controls, MarkerType } from "reactflow";
+import { useMemo, useState } from "react";
+import ReactFlow, { Background, Controls, Handle, Position } from "reactflow";
 import "reactflow/dist/style.css";
-import { Network } from "lucide-react";
-import AgentNode from "./AgentNode";
-import GraphLegend from "./GraphLegend";
-import EmptyState from "../common/EmptyState";
 import "./AgentRelationshipGraph.css";
-
-// Tells React Flow "when a node's type is 'agent', render it with our
-// AgentNode component instead of the default box." Defined outside the
-// component so it's not recreated every render (React Flow warns if it is).
-const nodeTypes = { agent: AgentNode };
-
-/**
- * Arranges agents in a simple hub-and-spoke layout: the orchestrator in
- * the center, everyone else in a ring around it. This is a small,
- * readable stand-in for a real force-directed layout — swap for a
- * library like `dagre` or `elkjs` later if the graph grows past ~10 agents.
- */
-function layoutNodes(agents) {
-  const centerAgent = agents.find((a) => a.role === "orchestrator");
-  const ringAgents = agents.filter((a) => a.role !== "orchestrator");
-
-  const centerX = 320;
-  const centerY = 220;
-  const radius = 190;
-
-  const nodes = [];
-
-  if (centerAgent) {
-    nodes.push({
-      id: centerAgent.id,
-      type: "agent",
-      position: { x: centerX - 32, y: centerY - 32 },
-      data: { label: centerAgent.name, status: centerAgent.status, color: centerAgent.color },
-    });
-  }
-
-  ringAgents.forEach((agent, i) => {
-    const angle = (i / ringAgents.length) * 2 * Math.PI - Math.PI / 2;
-    const x = centerX + radius * Math.cos(angle) - 32;
-    const y = centerY + radius * Math.sin(angle) - 32;
-    nodes.push({
-      id: agent.id,
-      type: "agent",
-      position: { x, y },
-      data: { label: agent.name, status: agent.status, color: agent.color },
-    });
-  });
-
-  return nodes;
+const ORDER = ["research", "data", "analysis", "summarizer", "report"];
+function StageNode({data}) {
+  return <button type="button" onClick={data.onInspect} className={"pipeline-node state-" + data.status}>
+    <Handle type="target" position={Position.Top}/>
+    <span className="node-kind">{data.kind}</span><strong>{data.label}</strong>
+    <span className="node-status">{data.status.toUpperCase()}</span>
+    <Handle type="source" position={Position.Bottom}/>
+  </button>;
 }
-
-function buildEdges(relationships, agentsById) {
-  return relationships.map((rel, i) => {
-    const sourceColor = agentsById[rel.sourceAgentId]?.color ?? "#64748b";
-
-    return {
-      id: `e-${i}`,
-      source: rel.sourceAgentId,
-      target: rel.targetAgentId,
-      animated: rel.active,
-      style: {
-        stroke: rel.active ? sourceColor : "var(--border-strong)",
-        strokeWidth: rel.active ? 2 : 1.5,
-        strokeDasharray: rel.type === "data_flow" ? "4 4" : undefined,
-      },
-      markerEnd: { type: MarkerType.ArrowClosed, color: rel.active ? sourceColor : "#475569" },
-    };
-  });
-}
-
-/**
- * AgentRelationshipGraph — live node/edge diagram showing which agents
- * are connected and which connections are currently active.
- *
- * Props:
- *  - agents: Agent[]  (see services/mockData.js for shape)
- *  - relationships: AgentRelationship[]
- */
-export default function AgentRelationshipGraph({ agents, relationships }) {
-  const agentsById = useMemo(
-    () => Object.fromEntries(agents.map((a) => [a.id, a])),
-    [agents]
-  );
-
-  const nodes = useMemo(() => layoutNodes(agents), [agents]);
-  const edges = useMemo(
-    () => buildEdges(relationships, agentsById),
-    [relationships, agentsById]
-  );
-
-  if (agents.length === 0) {
-    return (
-      <EmptyState
-        icon={Network}
-        title="No agents connected"
-        description="Connect the backend and start the orchestrator to see agents and their relationships here."
-      />
-    );
-  }
-
-  return (
-    <div className="agent-graph-wrapper">
-      <div className="agent-graph-canvas">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          nodeTypes={nodeTypes}
-          fitView
-          nodesDraggable
-          nodesConnectable={false}
-          elementsSelectable={false}
-          proOptions={{ hideAttribution: true }}
-        >
-          <Background color="#1f2937" gap={20} />
-          <Controls showInteractive={false} />
-        </ReactFlow>
-      </div>
-      <GraphLegend />
+const NODE_TYPES = {stage: StageNode};
+export default function AgentRelationshipGraph({task, agents = []}) {
+  const [inspectId, setInspectId] = useState(null);
+  const {nodes, edges} = useMemo(() => {
+    const sequence = task?.stages?.map(s => s.agentId) ?? ORDER;
+    const stageMap = Object.fromEntries((task?.stages ?? []).map(s => [s.agentId, s]));
+    const running = task?.status === "in_progress";
+    const orchestration = running ? "active" : task?.status === "completed" ? "completed" :
+      task?.status === "failed" ? "failed" : "waiting";
+    const ids = ["goal", "orchestrator", ...sequence, "result"];
+    const nodes = ids.map((id, i) => ({
+      id, type: "stage", position: {x: 120, y: i * 122},
+      data: {label: id === "goal" ? "User Goal" : id === "result" ? "Final Result" :
+        agents.find(a => a.id === id)?.name ?? id,
+        onInspect: () => setInspectId(id),
+        kind: id === "orchestrator" ? "Sequential coordinator · no LLM" :
+          ["goal", "result"].includes(id) ? "Simulation" : "Agent",
+        status: stageMap[id]?.status ?? (id === "goal" ? task ? "completed" : "waiting" :
+          id === "result" ? task?.status === "completed" ? "completed" : "waiting" : orchestration)},
+    }));
+    const edges = ids.slice(0, -1).map((id, i) => {
+      const next = ids[i+1];
+      const handoff = task?.messages?.find(m => m.fromAgentId === id && m.toAgentId === next);
+      const actual = handoff || (id === "goal" && task?.executionStartedAt) ||
+        (id === "orchestrator" && stageMap[next]?.startedAt) ||
+        (next === "result" && task?.status === "completed");
+      return {id: id + "-" + next, source: id, target: next,
+        label: handoff?.outputKey ?? (stageMap[id]?.outputKey || ""),
+        animated: !!handoff && stageMap[next]?.status === "active",
+        style: {stroke: actual ? "#22c55e" : "#475569", strokeWidth: actual ? 2 : 1},
+        labelStyle: {fill: "#cbd5e1", fontSize: 11}, labelBgStyle: {fill: "#111827"},
+        data: {message: handoff}};
+    });
+    return {nodes, edges};
+  }, [task, agents]);
+  const stage = task?.stages?.find(s => s.agentId === inspectId);
+  const message = task?.messages?.find(m => m.id === inspectId);
+  return <div>
+    <p className="muted">Select a node or handoff to inspect real execution details. Web Search: not implemented.</p>
+    <div className="pipeline-graph" aria-label="Simulation pipeline graph">
+      <ReactFlow nodes={nodes} edges={edges} nodeTypes={NODE_TYPES} fitView
+        fitViewOptions={{padding: 0.12}} minZoom={0.3} maxZoom={1.3}
+        nodesDraggable={false} nodesConnectable={false} nodesFocusable={false}
+        onNodeClick={(_, node) => setInspectId(node.id)}
+        onEdgeClick={(_, edge) => setInspectId(edge.data?.message?.id ?? null)}>
+        <Background color="#253047" gap={20}/><Controls showInteractive={false}/>
+      </ReactFlow>
     </div>
-  );
+    <div className="graph-key"><span>○ Waiting</span><span className="active">● Active</span>
+      <span className="completed">● Completed</span><span className="failed">● Failed</span></div>
+    {inspectId && <div className="inspector">
+      <button className="text-button" onClick={() => setInspectId(null)}>Close details</button>
+      {stage ? <>
+        <h3>{stage.agentId} · {stage.status}</h3>
+        <p>Model: {stage.model ?? "Not recorded"} · Tokens: {stage.totalTokens ?? "Not recorded"} ·
+          Response time: {stage.durationSeconds == null ? "Not recorded" : stage.durationSeconds.toFixed(2) + "s"}</p>
+        <p>Executions in this run: {stage.startedAt ? 1 : 0}</p>
+        <p>Latest activity: {task.activities?.filter(a => a.agentId === stage.agentId).at(-1)?.text ?? "No activity yet"}</p>
+        {stage.error && <p className="run-error">{stage.error}</p>}
+        <details><summary>Stage output ({stage.output?.length ?? 0} characters)</summary><pre>{stage.output || "No output yet"}</pre></details>
+      </> : message ? <>
+        <h3>{message.fromAgentId} → {message.toAgentId}</h3>
+        <p>{message.outputKey} · {message.kind} · {new Date(message.timestamp).toLocaleString()}</p>
+        <pre>{message.content}</pre>
+      </> : <p>{inspectId === "orchestrator" ? "The existing sequential coordinator runs each stage in order and stops on failure. It is not an LLM agent." :
+        inspectId === "result" ? task?.output ?? "No final result yet" : task?.directive ?? "No simulation selected"}</p>}
+    </div>}
+  </div>;
 }

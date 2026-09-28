@@ -8,20 +8,23 @@ or via the convenience script:
     python run.py
 """
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import agents, messages, simulation, tasks
+from app.api.routes import agents, messages, simulation, tasks, simulations, uploads
+from app.storage.database import repository
 from app.core.config import settings
 from app.websocket.manager import manager
 
-# RESERVED — uncomment once app/storage/models.py has real models and
-# app/storage/database.py's engine/Base are uncommented (see the
-# checklist in that file):
-# from app.storage.database import Base, engine
-# Base.metadata.create_all(bind=engine)
+@asynccontextmanager
+async def lifespan(app):
+    repository.initialize()
+    tasks.recover_interrupted()
+    yield
 
-app = FastAPI(title=settings.APP_NAME, debug=settings.DEBUG)
+
+app = FastAPI(title=settings.APP_NAME, debug=False, lifespan=lifespan)
 
 # --------------------------------------------------------------------
 # CORS — allowed origins are defined in app/core/config.py, NOT here.
@@ -43,6 +46,8 @@ app.include_router(agents.router, prefix=settings.API_V1_PREFIX)
 app.include_router(tasks.router, prefix=settings.API_V1_PREFIX)
 app.include_router(messages.router, prefix=settings.API_V1_PREFIX)
 app.include_router(simulation.router, prefix=settings.API_V1_PREFIX)
+app.include_router(simulations.router, prefix=settings.API_V1_PREFIX)
+app.include_router(uploads.router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/health")
@@ -56,7 +61,7 @@ async def websocket_endpoint(websocket: WebSocket):
     """
     Live update stream — the frontend's hooks/useLiveSocket.js connects
     here. Every broadcast from manager.broadcast(...) (called from the
-    route handlers, and later from app/agents/orchestrator.py) gets
+    sequential task coordinator) gets
     pushed to every connected client.
     """
     await manager.connect(websocket)

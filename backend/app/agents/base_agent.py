@@ -13,9 +13,8 @@ IMPORTANT — the split between run() and process():
   process() with timing + stats capture. DO NOT override this in a
   subclass.
 - `process()` is what each agent subclass implements — this is where
-  the actual `call_llm(...)` call goes. RESERVED (raises
-  NotImplementedError) in every agent file until llm_client.py is
-  activated.
+  the actual `call_llm(...)` call goes. Five agents implement it;
+  Web Search intentionally remains unavailable.
 """
 
 import time
@@ -23,6 +22,7 @@ import time
 from app.agents.stats_tracker import stats_tracker
 from app.agents.llm_client import DEFAULT_MODEL
 from app.models.schemas import AgentStatus
+from app.agents.execution_context import current_execution
 
 
 class BaseAgent:
@@ -40,15 +40,14 @@ class BaseAgent:
 
     async def process(self, directive: str, context: dict):
         """
-        RESERVED (for 5 of the 6 agents) — every agent subclass
-        overrides this. Should call `app.agents.llm_client.call_llm(...)`
+        Executable agent subclasses override this. Call `app.agents.llm_client.call_llm(...)`
         and return the resulting LLMResponse object directly (not just
         the text) — see research_agent.py for the working example.
         Left unimplemented here on purpose.
         """
         raise NotImplementedError(
             f"{self.__class__.__name__}.process() is not implemented yet — "
-            f"see the RESERVED block inside it."
+            f"provide an executable process() implementation."
         )
 
     async def run(self, directive: str, context: dict | None = None) -> str:
@@ -68,12 +67,16 @@ class BaseAgent:
             raise
 
         elapsed = time.perf_counter() - start
+        execution = current_execution.get()
+        if execution is not None and hasattr(result, "total_tokens"):
+            execution.model = result.model
+            execution.input_tokens = result.input_tokens
+            execution.output_tokens = result.output_tokens
+            execution.total_tokens = result.total_tokens
 
-        # Agents that call a real LLM (research_agent.py) return the
-        # LLMResponse object directly, so we get genuine token counts.
-        # Agents still RESERVED raise NotImplementedError above and
-        # never reach this line, so there's no risk of this silently
-        # reporting fake numbers for an agent that didn't really run.
+        # Implemented agents return LLMResponse with provider usage.
+        # The request-local stage captures these metrics independently
+        # of global counters, including simultaneous runs.
         if hasattr(result, "text") and hasattr(result, "total_tokens"):
             text = result.text
             tokens_used = result.total_tokens

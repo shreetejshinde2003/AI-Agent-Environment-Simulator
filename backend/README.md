@@ -1,123 +1,77 @@
-# Backend — Multi-Agent AI Environment Simulator
+# FastAPI backend
 
-FastAPI backend. LLM calls go through a local Ollama server
-(gemma2:2b) — see `app/agents/llm_client.py`. The Research Agent is
-fully wired up end to end: create a task, it actually runs, and the
-result (or a real error) shows up on the dashboard, not just the terminal.
+The V1 engine is the existing sequential coordinator in `app/api/routes/tasks.py`.
+It uses FastAPI BackgroundTasks and the existing Groq client, not LangGraph.
 
-## Setup
+## Run and validate
+
+Run from this directory so existing `.env` loading and relative SQLite paths work:
 
 ```bash
-# 1. Ollama, in its own terminal — leave this running
-ollama serve
-ollama pull gemma2:2b   # one-time, if not already pulled
-
-# 2. Backend
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-cp .env.example .env             # then fill in real values, see comments inside
 python run.py
+python -m unittest discover -s tests -v
+python -m compileall app
 ```
 
-Server runs at `http://localhost:8000` by default (change via `.env`, see
-`app/core/config.py`). Interactive API docs at `http://localhost:8000/docs`.
+Install `requirements.txt` into a virtual environment first. Configure credentials
+privately; never print or commit their values. Tests mock agents/providers and use
+temporary databases. No provider credits are required.
 
-## Important fix: camelCase contract (read this if the frontend ever shows "undefined")
+## Contracts
 
-Every schema in `app/models/schemas.py` inherits from `CamelModel`, not
-`BaseModel`. Python fields stay snake_case (`total_agents`), but JSON
-output is automatically camelCase (`totalAgents`) — because the
-frontend is JavaScript and reads camelCase. A plain `BaseModel` sends
-snake_case JSON by default, which silently doesn't match what React
-code reads (`stats.totalAgents` would be `undefined` if the wire format
-was `total_agents`). If you add a new field, keep it snake_case in
-Python — `CamelModel` handles the conversion. Don't name Python fields
-camelCase to "fix" this; that fights the language's own convention and
-isn't the actual problem.
+Python fields are snake_case; `CamelModel` serializes REST/WebSocket JSON camelCase.
+Legacy `/api/v1/tasks` retains `queued/in_progress/completed/failed`. The additive
+`/api/v1/simulations` projection calls `in_progress` **running**.
 
-## Folder map
+Research receives the directive plus optional uploaded reference context.
+Data receives that directive, exact `research_findings`, and uploaded context.
+Analysis receives the directive and `structured_data`; Summarizer receives the
+directive and `insights`; Report receives the directive and `summary`.
+The exact Report text becomes `task.output`. Context is local to each run.
 
-```
-app/
-├── main.py              # FastAPI app, CORS, router registration, WebSocket endpoint
-├── core/
-│   └── config.py         # ALL environment/location-specific values live here (incl. OLLAMA_HOST/MODEL)
-├── models/
-│   └── schemas.py         # Pydantic models — CamelModel base, see the contract note above
-├── api/routes/
-│   ├── agents.py           # GET/POST agents (roster + LIVE status merged from stats_tracker)
-│   ├── tasks.py             # POST actually runs the assigned agent in the background — see below
-│   ├── messages.py           # GET messages
-│   └── simulation.py          # GET stats (live-computed agent counts) /activity, POST pause/resume/stop
-├── websocket/
-│   └── manager.py         # Live-update broadcaster — fully functional
-├── storage/               # RESERVED — SQLAlchemy models + DB session (see database.py checklist)
-│   ├── database.py
-│   └── models.py
-└── agents/
-    ├── llm_client.py         # ACTIVE — calls Ollama (gemma2:2b). Swap to a cloud provider here, one file.
-    ├── base_agent.py          # Shared class: timing + stats + live status capture for every agent
-    ├── stats_tracker.py        # Real per-agent stats + live status, zero/idle by default
-    ├── research_agent.py        # ACTIVE — the first working agent, calls Ollama for real
-    ├── data_agent.py              # RESERVED — same pattern as research_agent.py, not yet activated
-    ├── web_search_agent.py         # RESERVED
-    ├── analysis_agent.py            # RESERVED
-    ├── summarizer_agent.py           # RESERVED
-    ├── report_agent.py                # RESERVED
-    └── orchestrator.py                 # RESERVED — LangGraph wiring across all six agents
-```
+Per-stage metrics are captured from the real LLMResponse via a ContextVar, avoiding
+cross-run contamination from shared counters. Errors are credential-redacted before
+being persisted. On failure, completed stages stay completed, the current stage
+fails, downstream stages remain waiting, and no final success is invented.
 
-## How task execution actually works now (`api/routes/tasks.py`)
+## Endpoints
 
-`POST /api/v1/tasks` creates the task (status `queued`), returns
-immediately, then runs the assigned agent as a FastAPI background task:
+All paths below are relative to `/api/v1`.
 
-1. Task flips to `in_progress`, broadcast over WebSocket.
-2. The agent (currently only `research` is real — see
-   `_IMPLEMENTED_AGENTS` in `tasks.py`) actually runs via `agent.run(...)`.
-3. On success: `task.output` is set to the agent's real response text,
-   status becomes `completed`.
-4. On failure (e.g. Ollama not running): `task.error` is set to the
-   real exception message, status becomes `failed` — this is what
-   surfaces "Ollama not reachable" on the dashboard instead of leaving
-   you staring at a terminal.
-5. Every transition broadcasts over WebSocket, and `hooks/useLiveSocket.js`
-   on the frontend refetches immediately — no polling delay.
-
-Assigning a task to any agent other than `research` right now creates
-the task successfully, then it visibly fails a moment later with
-`"Agent '<id>' is not implemented yet"` — that's the correct, honest
-behavior until more agents are activated, not a bug.
-
-## What's real vs. reserved right now
-
-| Piece | Status |
+| Endpoint | Behavior |
 |---|---|
-| API routes (`agents`, `tasks`, `messages`, `simulation`) | **Working**, all starting from a genuine zero/empty baseline |
-| Task execution (`tasks.py`'s `_run_task`) | **Working** for the Research agent — real Ollama call, real output/error written back |
-| WebSocket broadcast (`websocket/manager.py`) | **Working** |
-| CORS / config (`core/config.py`) | **Working** |
-| Agent stats + live status (`agents/stats_tracker.py`, `agents/base_agent.py`) | **Working** — genuinely zero/idle until an agent actually runs |
-| LLM client (`agents/llm_client.py`) | **Working (Ollama)** — swap to a cloud provider by editing this one file |
-| Research agent (`agents/research_agent.py`) | **Working** |
-| The other five agents (`agents/*_agent.py`) | **Reserved** — same pattern as research_agent.py, `process()` raises `NotImplementedError` until activated |
-| Orchestrator (`agents/orchestrator.py`) | **Reserved** — commented LangGraph skeleton, needed once more than one agent is active and they need to hand off to each other |
-| Storage (`storage/`) | **Reserved** — commented-out SQLAlchemy skeleton |
+| GET/POST /tasks; GET /tasks/{id} | Compatible task creation/read API |
+| GET/POST /simulations; GET /simulations/{id} | Complete run records; POST defaults to full pipeline |
+| GET /simulations/metrics | Persisted aggregate, per-agent and duration history metrics |
+| GET /simulations/{id}/events | Chronological real event list |
+| GET /simulations/{id}/export?format=txt,json,csv | One format per request; terminal runs only |
+| POST /uploads?filename=reference.txt | Raw UTF-8 file body; bounded parser |
+| GET /uploads/{id} | Metadata and prepared preview |
+| GET /agents; /agents/stats; /agents/{id}/stats | Roster and persisted execution statistics |
+| POST /agents | Metadata only; does not create executable code |
+| GET /messages; /simulation/activity | Optional simulation_id filter |
+| GET /simulation/stats | Legacy aggregate view |
+| POST /simulation/pause,resume,stop | Explicit supported=false; no fake state changes |
 
-## Activating the remaining five agents (in order, per agent)
+Uploads support TXT, rectangular CSV, JSON. Maximum 256 KiB per file, three per
+run. Prepared context is limited to 6,000 characters per file and 20 CSV data rows,
+with an explicit truncation marker. File names are sanitized, input is never
+executed, malformed files are rejected, and CSV exports escape formula prefixes.
+Use `uploadIds` in task/simulation creation to actually supply uploaded context.
 
-1. Copy `research_agent.py`'s structure into the target agent file — the prompt and model choice are already written, just uncomment.
-2. Add the agent to `tasks.py`'s `_IMPLEMENTED_AGENTS` dict — one line.
-3. That's it — stats, status, WebSocket broadcast, and dashboard display all already work generically for any agent in `_IMPLEMENTED_AGENTS`.
+## Events and storage
 
-Once more than one agent is active and they need to hand off work to
-each other (not just run independently), that's when `orchestrator.py`
-actually needs to be built out — a single active agent doesn't need
-LangGraph yet.
-## Every place you'll need to change a value
+`/ws/live` keeps the existing `{event,data,timestamp}` envelope.
+Events: simulation_created/started/completed/failed, agent_started/completed/failed,
+message_created, task_created/updated, message_sent, activity_event, stats_updated.
+State is committed before broadcast. REST is authoritative after reconnect.
 
-Search the codebase for `USER-DEFINED` and `LOCATION-CHANGING` comments —
-every environment-specific or deployment-specific line is tagged with one
-of those two markers so nothing is buried. This includes model choices
-and prompts inside `agents/llm_client.py` and each `agents/*_agent.py` file.
+The stdlib SQLite repository stores versioned run snapshots atomically, plus uploads
+and custom agent metadata. `PRAGMA user_version=1` is the initial migration. No
+SQLAlchemy dependency is needed. Future PostgreSQL support belongs behind this
+repository interface; PostgreSQL URLs are not supported yet.
+
+Default database: `./simulator.db`. Start one worker only. In-progress/queued runs
+become failed on restart; finished history survives on the same disk. Use backups
+and a durable disk for long-lived data. No automatic retention, job queue, login,
+ownership enforcement, or confidential-data handling is provided by this local V1.

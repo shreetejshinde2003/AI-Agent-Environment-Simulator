@@ -4,11 +4,11 @@ import "./Sidebar.css";
 
 const NAV_ITEMS = [
   { id: "live", label: "Live Simulation", icon: Activity },
-  { id: "task-summary", label: "Task Summary", icon: ClipboardList },
+  { id: "task-summary", label: "Simulation History", icon: ClipboardList },
   { id: "agents", label: "Agents", icon: Users },
   { id: "messages", label: "Messages", icon: MessageSquare },
   { id: "logs", label: "Logs", icon: ScrollText },
-  { id: "replay", label: "Replay", icon: RotateCcw },
+  { id: "replay", label: "Event History", icon: RotateCcw },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
@@ -45,6 +45,7 @@ export default function Sidebar({ activePage = "live", onNavigate = () => {}, us
               type="button"
               className={`sidebar-nav-item${isActive ? " is-active" : ""}`}
               aria-current={isActive ? "page" : undefined}
+              title={label}
               onClick={() => onNavigate(id)}
             >
               <Icon size={17} strokeWidth={2} />

@@ -1,9 +1,8 @@
 """
 app/models/schemas.py
 
-Pydantic request/response models. These MUST stay in sync with
-frontend/src/services/mockData.js and the TypeScript contracts in the
-planning doc (Project3_TechStack_and_FileStructure.md, Section 2).
+Pydantic request/response models shared by REST, persistence and WebSocket.
+The frontend reads the same camelCase contracts from authoritative REST state.
 
 --------------------------------------------------------------------
 IMPORTANT — camelCase vs snake_case (read this before adding a field):
@@ -118,10 +117,7 @@ class Agent(CamelModel):
     status: AgentStatus
     color: str                     # hex string, should match frontend's utils/colors.js role mapping
     icon: str | None = None
-
-    # RESERVED — filled in once app/agents/ (LangGraph) is wired up:
-    # current_token_usage: int | None = None
-    # model_name: str | None = None
+    implemented: bool = False
 
 
 class AgentRelationship(CamelModel):
@@ -136,6 +132,42 @@ class TaskProgressStep(CamelModel):
     done: bool
 
 
+class StageExecution(CamelModel):
+    agent_id: str
+    output_key: str
+    status: str = "waiting"
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    duration_seconds: float | None = None
+    model: str | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    total_tokens: int | None = None
+    output: str | None = None
+    error: str | None = None
+
+
+class RunEvent(CamelModel):
+    id: str
+    type: str
+    timestamp: datetime
+    agent_id: str | None = None
+    text: str
+
+
+class UploadedContext(CamelModel):
+    id: str
+    filename: str
+    format: str
+    size_bytes: int
+    created_at: datetime
+    preview: str
+    prepared_context: str
+    truncated: bool = False
+    row_count: int | None = None
+    columns: list[str] = Field(default_factory=list)
+
+
 class Task(CamelModel):
     id: str                        # e.g. "T-1024"
     directive: str                 # instruction given to the agent
@@ -146,7 +178,7 @@ class Task(CamelModel):
     started_at: datetime
     duration_seconds: int
     progress_percent: int = Field(ge=0, le=100)
-    progress_steps: list[TaskProgressStep] = []
+    progress_steps: list[TaskProgressStep] = Field(default_factory=list)
 
     # The agent's actual output text once it finishes — this is what
     # was previously only visible in the terminal. Populated by
@@ -156,6 +188,17 @@ class Task(CamelModel):
     # Populated instead of `output` if the agent's run() raised —
     # surfaces real failures to the dashboard instead of a silent hang.
     error: str | None = None
+    simulation_id: str | None = None
+    owner_id: str | None = None  # Shared workspace; no authentication claim.
+    created_at: datetime | None = None
+    execution_started_at: datetime | None = None
+    completed_at: datetime | None = None
+    elapsed_seconds: float | None = None
+    stages: list[StageExecution] = Field(default_factory=list)
+    events: list[RunEvent] = Field(default_factory=list)
+    messages: list["Message"] = Field(default_factory=list)
+    activities: list["ActivityEvent"] = Field(default_factory=list)
+    uploads: list[UploadedContext] = Field(default_factory=list)
 
 
 class Message(CamelModel):
@@ -165,6 +208,8 @@ class Message(CamelModel):
     kind: MessageKind
     content: str
     timestamp: datetime
+    simulation_id: str | None = None
+    output_key: str | None = None
 
 
 class ActivityEvent(CamelModel):
@@ -172,6 +217,7 @@ class ActivityEvent(CamelModel):
     agent_id: str
     text: str                      # e.g. "completed data analysis"
     timestamp: datetime
+    simulation_id: str | None = None
 
 
 class SimulationStats(CamelModel):
@@ -199,10 +245,16 @@ class CreateAgentRequest(CamelModel):
 
 
 class CreateTaskRequest(CamelModel):
-    directive: str
+    directive: str = Field(min_length=1, max_length=10000)
     assigned_agent_id: str
     priority: TaskPriority = TaskPriority.MEDIUM
     execution_mode: TaskExecutionMode = TaskExecutionMode.SINGLE_AGENT
+    upload_ids: list[str] = Field(default_factory=list, max_length=3)
+
+
+class CreateSimulationRequest(CreateTaskRequest):
+    assigned_agent_id: str = "orchestrator"
+    execution_mode: TaskExecutionMode = TaskExecutionMode.FULL_PIPELINE
 
 
 # ==========================================================================
