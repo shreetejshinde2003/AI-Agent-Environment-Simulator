@@ -20,7 +20,7 @@ export default function ConnectionBadge({ connectionStatus, isDemoMode, compact 
   }
 
   if (connectionStatus === "connected") {
-    return <Badge tone="success" pulse>{compact ? "Live" : "Connected"}</Badge>;
+    return <Badge tone="success">{compact ? "Live" : "Connected"}</Badge>;
   }
 
   if (connectionStatus === "connecting") {

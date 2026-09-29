@@ -8,6 +8,7 @@ export function useSimulationData() {
   const health = useBackendConnection();
   const [data, setData] = useState(EMPTY);
   const [error, setError] = useState(null);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const busy = useRef(false), pending = useRef(false), mounted = useRef(true);
   const refresh = useCallback(async () => {
     if (busy.current) { pending.current = true; return; }
@@ -17,7 +18,7 @@ export function useSimulationData() {
       try {
         const [agents, tasks, metrics] = await Promise.all([
           apiClient.getAgents(), apiClient.getTasks(), apiClient.getMetrics()]);
-        if (mounted.current) { setData(previous => ({agents, tasks: mergeRuns(tasks, previous.tasks), metrics})); setError(null); }
+        if (mounted.current) { setData(previous => ({agents, tasks: mergeRuns(tasks, previous.tasks), metrics})); setError(null); setHasLoaded(true); }
       } catch (err) { if (mounted.current) setError(err); }
     } while (pending.current && mounted.current);
     busy.current = false;
@@ -30,7 +31,7 @@ export function useSimulationData() {
   }, [refresh]);
   const socketStatus = useLiveSocket(refresh, health === "connected");
   const acceptRun = useCallback(run => setData(previous => ({...previous, tasks: mergeRuns([run], previous.tasks)})), []);
-  return {...data, stats: data.metrics.summary, refresh, acceptRun, error, socketStatus,
+  return {...data, stats: data.metrics.summary, refresh, acceptRun, error, socketStatus, hasLoaded,
     connectionStatus: error ? "disconnected" : health, isDemoMode: false,
-    isLoading: health === "connecting"};
+    isLoading: !hasLoaded && !error};
 }

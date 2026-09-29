@@ -8,6 +8,14 @@ database schema, deployment setting, or execution behavior changes in this phase
 No model calls were made. This document is the design authority for the next UI
 checkpoints, not a claim that the proposed interface already exists.
 
+**Checkpoint 3.4.1 COMPLETED (2026-09-29):** Native labelled modal/focus
+containment and return, keyboard picker/graph inspection, reduced-motion rules,
+static recorded handoffs, truthful status and loading copy, and small presentation
+improvements. The audit table below records the pre-checkpoint baseline.
+**PARTIAL:** automated DOM accessibility coverage, screen-reader/zoom and
+full contrast verification. **NOT IMPLEMENTED:** workbench shell, contextual
+inspector, full replay, Compare, or major visual redesign.
+
 The team reports production verification of Single, Fixed, Adaptive
 (Analysis → Report), and PostgreSQL restart durability. This review inspected
 source and public reference documentation; it did not repeat those production
@@ -530,9 +538,11 @@ only graph/data regions may pan with an equivalent text view. Test 320/375px,
 
 ## 28. Accessibility
 
-**PARTIAL today:** focus outlines, reduced-motion CSS, labelled inputs, native
-disclosure/button interactions exist. Modal semantics/focus containment remain
-incomplete in `common/Modal.jsx`; the historical issue is still present.
+**COMPLETED in 3.4.1:** visible focus styling, labelled native dialog with inert
+background, initial focus, trapped Tab / Shift+Tab, Escape, focus return,
+keyboard picker/graph inspection, status labels, and reduced-motion support.
+**PARTIAL:** screen-reader, contrast, narrow-screen/zoom and automated DOM
+interaction coverage still need dedicated verification.
 
 Use a labelled modal dialog with inert background, initial focus, trapped Tab /
 Shift+Tab, Escape and focus return. After successful creation move focus to the
@@ -702,7 +712,7 @@ workflow before claiming that contribution.
 
 ## 35. Safe implementation roadmap
 
-All checkpoints below are **PLANNED**, individually testable, deployable and
+Checkpoints below are individually testable, deployable and
 reversible. No execution changes are required for the core workspace. Preserve
 the old composition until each replacement has parity; remove duplicate navigation
 only after its content is reachable. Each checkpoint needs relevant tests,
@@ -710,6 +720,12 @@ frontend build/lint, diff review and a narrow production verification using save
 runs. No paid call is required for these UI checks.
 
 ### 3.4.1 — Accessibility and presentation foundations
+
+**COMPLETED:** frontend-only foundation; no execution or API changes. The
+recorded-handoff edge is static even when its receiver is running; status is
+communicated with text and styling. Unsupported Pause/Stop controls were removed.
+Native dialog and picker/graph keyboard behavior were checked locally against a
+read-only fixture. Further screen-reader and zoom checks remain **PARTIAL**.
 
 - **Goal/files:** repair `common/Modal.jsx`, focus behavior and shared tokens;
   correct Agents/Settings copy, remove primary unsupported Pause/Stop controls.
@@ -862,12 +878,15 @@ For later implementation acceptance:
     backend limitations are named accurately.
 
 **COMPLETED in this phase:** source audit, information/component/state architecture,
-API gap analysis, reference review and staged acceptance plan. **PLANNED:** all
-new interface composition. **PARTIAL:** production benchmark provisioning and
-data readiness for detailed replay/formal comparisons. **NOT IMPLEMENTED:** the
-redesign, comparison/evaluation system and full replay. **NOT RECOMMENDED:**
+API gap analysis, reference review, staged acceptance plan and checkpoint 3.4.1.
+**PLANNED:** the remaining interface composition. **PARTIAL:** production benchmark
+provisioning, full accessibility verification and data readiness for detailed
+replay/formal comparisons. **NOT IMPLEMENTED:** the workbench redesign,
+contextual inspector, comparison/evaluation system and full replay. **NOT RECOMMENDED:**
 WebGL/no-code workflow/HR decision-product scope.
 
-Architecture-only validation: `git diff --check` and `git status --short`.
-Application code, AGENTS.md, environment values and deployment configuration are
-outside this change. No Groq call, commit or push is part of Phase 3.4.
+The original architecture-only checkpoint used `git diff --check` and
+`git status --short`. Checkpoint 3.4.1 also validates frontend tests, build,
+lint, backend tests and compile. AGENTS.md, environment values, backend logic
+and deployment configuration remain outside this checkpoint. No Groq call,
+commit or push is part of Phase 3.4.1.

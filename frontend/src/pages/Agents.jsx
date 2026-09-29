@@ -3,14 +3,14 @@ import Card from "../components/common/Card";
 export default function Agents() {
   const {agents, metrics} = useSimulation();
   return <div className="workspace-stack"><h1>Agent directory</h1>
-    <p className="muted">Five executable agents, one sequential coordinator. Metrics come from saved stage executions.</p>
+    <p className="muted">Five specialist agents and one Direct baseline agent are executable. The coordinator makes no model call. Status is across the shared workspace; metrics come from saved stage attempts.</p>
     <div className="run-grid equal">{agents.map(agent => {
       const stats = metrics.agents.find(a => a.agentId === agent.id);
       return <Card key={agent.id} title={agent.name}>
         <p>{agent.id === "orchestrator" ? "Coordinates the pipeline · no LLM call" :
           !agent.implemented ? "Not implemented · unavailable for execution" : agent.status}</p>
         {stats && <dl className="metadata">
-          <dt>Calls / success / failed</dt><dd>{stats.calls} / {stats.completed} / {stats.failed}</dd>
+          <dt>Stage attempts / completed / failed</dt><dd>{stats.calls} / {stats.completed} / {stats.failed}</dd>
           <dt>Model</dt><dd>{stats.lastExecution?.model ?? "No model recorded yet"}</dd>
           <dt>Total / average tokens</dt><dd>{stats.measuredCalls ? stats.totalTokens + " / " + stats.averageTokens.toFixed(1) : "Not recorded"}</dd>
           <dt>Average response</dt><dd>{stats.averageLatency == null ? "Not recorded" : stats.averageLatency.toFixed(2) + "s"}</dd>

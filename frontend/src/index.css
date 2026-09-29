@@ -8,6 +8,8 @@
   --bg-app: #0a0e17;          /* page background, near-black navy */
   --bg-panel: #0f1420;        /* card/panel background */
   --bg-panel-raised: #141a29; /* slightly raised surfaces (topbar, sidebar) */
+  --bg-card: #141c2d;
+  --bg-elevated: #172033;
   --bg-hover: #1a2233;        /* hover state on interactive rows */
   --border-subtle: #1f2937;   /* hairline card borders */
   --border-strong: #2a3448;   /* emphasized borders (active nav item) */
@@ -15,7 +17,7 @@
   /* --- Text colors --- */
   --text-primary: #e8ecf4;
   --text-secondary: #8b94a7;
-  --text-tertiary: #5b6478;
+  --text-tertiary: #98a4b8;
 
   /* --- Brand / accent --- */
   --accent-primary: #6366f1;     /* indigo — orchestrator, primary actions */
@@ -119,9 +121,12 @@ a {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto !important; }
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+  .badge-pulse .badge-dot { animation: none !important; opacity: 1; }
+  .react-flow__edge.animated path { animation: none !important; }
 }

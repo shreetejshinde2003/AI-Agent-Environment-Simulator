@@ -40,7 +40,7 @@ export default function AddAgentModal({ onClose }) {
   };
 
   return (
-    <Modal title="Add Agent" onClose={onClose}>
+    <Modal title="Add Agent" onClose={onClose} canDismiss={!isSubmitting}>
       <form onSubmit={handleSubmit}>
         {error && <div className="form-error">{error}</div>}
 
@@ -66,7 +66,7 @@ export default function AddAgentModal({ onClose }) {
         </div>
 
         <div className="form-actions">
-          <Button variant="ghost" onClick={onClose} type="button">Cancel</Button>
+          <Button variant="ghost" onClick={onClose} type="button" disabled={isSubmitting}>Cancel</Button>
           <Button variant="primary" type="submit" disabled={isSubmitting || !name.trim()}>
             {isSubmitting ? "Adding…" : "Add Agent"}
           </Button>

@@ -47,8 +47,8 @@ export default function CreateTaskModal({agents, onClose}) {
     } catch (err) { setError(err.message); }
     finally { setBusy(false); }
   }
-  return <Modal title="Create Simulation" onClose={busy ? () => {} : onClose}>
-    <form onSubmit={submit}>
+  return <Modal title="Create Simulation" onClose={onClose} canDismiss={!busy}>
+    <form onSubmit={submit} aria-busy={busy}>
       {error && <p className="form-error" role="alert">{error}</p>}
       <div className="form-field"><label htmlFor="task-directive">Goal / directive</label>
         <textarea id="task-directive" required maxLength={10000} value={directive}
@@ -107,7 +107,7 @@ export default function CreateTaskModal({agents, onClose}) {
           placeholder="e.g. descriptive_summary"/>
       </div>}
       <div className="form-actions"><Button type="button" variant="ghost" disabled={busy} onClick={onClose}>Cancel</Button>
-        <Button type="submit" variant="primary" disabled={busy || !directive.trim()}>{busy ? "Working…" : "Start Simulation"}</Button></div>
+        <Button type="submit" variant="primary" disabled={busy || !directive.trim()}>{busy ? "Submitting…" : "Start Simulation"}</Button></div>
     </form>
   </Modal>;
 }

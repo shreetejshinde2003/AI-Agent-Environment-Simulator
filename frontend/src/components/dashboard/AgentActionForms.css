@@ -25,10 +25,11 @@
   padding: var(--space-3);
 }
 
-.form-field textarea:focus,
-.form-field select:focus,
-.form-field input:focus {
-  outline: none;
+.form-field textarea:focus-visible,
+.form-field select:focus-visible,
+.form-field input:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
   border-color: var(--accent-primary);
 }
 

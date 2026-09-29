@@ -1,4 +1,4 @@
-import { Target, RotateCcw, Pause, Square } from "lucide-react";
+import { Target, RotateCcw } from "lucide-react";
 import ConnectionBadge from "../components/common/ConnectionBadge";
 import "./Topbar.css";
 export default function Topbar({goal, connectionStatus, onToggleReplay}) {
@@ -11,8 +11,6 @@ export default function Topbar({goal, connectionStatus, onToggleReplay}) {
     <div className="topbar-actions">
       <ConnectionBadge connectionStatus={connectionStatus}/>
       <button className="topbar-btn" onClick={onToggleReplay}><RotateCcw size={15}/> Event history</button>
-      <button className="topbar-btn" disabled title="Pausing an active model request is not supported"><Pause size={15}/> Pause</button>
-      <button className="topbar-btn" disabled title="Cancellation is not supported in V1"><Square size={15}/> Stop</button>
     </div>
   </header>;
 }

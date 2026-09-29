@@ -34,7 +34,7 @@ export default function AppShell({
       <Sidebar activePage={activePage} onNavigate={onNavigate} user={user} stats={stats} />
       <div className="app-shell-main">
         <Topbar {...topbarProps} connectionStatus={connectionStatus} isDemoMode={isDemoMode} />
-        <main className="app-shell-content">{children}</main>
+        <main className="app-shell-content" tabIndex={-1}>{children}</main>
       </div>
     </div>
   );

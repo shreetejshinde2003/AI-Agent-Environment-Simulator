@@ -34,15 +34,19 @@
 .pipeline-node strong { font-size: 16px; }
 .pipeline-node { text-align: left; font-family: inherit; cursor: pointer; }
 .pipeline-node:focus-visible { outline: 3px solid #a5b4fc; outline-offset: 3px; }
-.node-kind { font-size: 10px; color: #94a3b8; }
-.node-status { font-size: 10px; letter-spacing: 1.2px; }
+.node-kind { font-size: 12px; color: #a5aec0; }
+.node-status { font-size: 12px; letter-spacing: 0.04em; }
 .state-active, .state-in_progress { border-color: #60a5fa; box-shadow: 0 0 0 2px #3b82f633; }
 .state-completed { border-color: #22c55e; }
 .state-failed { border-color: #f87171; }
+.state-not-executed { border-style: dashed; border-color: #94a3b8; }
 .state-active .node-status, .active { color: #60a5fa; }
 .state-completed .node-status, .completed { color: #4ade80; }
 .state-failed .node-status, .failed { color: #f87171; }
+.state-not-executed .node-status { color: #cbd5e1; }
 .graph-key { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; font-size: 12px; color: #94a3b8; }
+.graph-handoffs { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-top: 14px; font-size: 13px; }
+.graph-handoffs .text-button { padding: 4px 2px; }
 .inspector { border-top: 1px solid #334155; margin-top: 16px; padding-top: 12px; font-size: 13px; }
 .run-details { display: flex; flex-direction: column; gap: 16px; }
 .run-status { align-self: start; border: 1px solid; border-radius: 30px; padding: 4px 12px; font-size: 12px; text-transform: uppercase; }
@@ -80,7 +84,6 @@ summary { cursor: pointer; line-height: 1.6; }
 .bar-track { height: 12px; background: #273449; border-radius: 3px; }
 .bar-track > div { height: 100%; background: #60a5fa; border-radius: 3px; }
 .upload-preview { margin: 12px 0; padding: 12px; border: 1px solid #334155; border-radius: 8px; }
-.modal-panel { max-height: 90vh; overflow-y: auto; }
 #history-position { width: 100%; margin: 16px 0; }
 @media (max-width: 1150px) { .metrics-grid { grid-template-columns: repeat(3, 1fr); } .run-grid, .run-grid.equal { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .metrics-grid { grid-template-columns: repeat(2, 1fr); } .page-heading { align-items: flex-start; flex-direction: column; } }

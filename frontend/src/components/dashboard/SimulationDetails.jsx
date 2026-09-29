@@ -9,7 +9,7 @@ export default function SimulationDetails({task}) {
   const {agents} = useSimulation();
   return <div className="workspace-stack">
     <div className="run-grid">
-      <Card title={task ? "Execution graph · " + runTitle(task) : "Pipeline preview · no execution yet"}>
+      <Card title={task ? "Execution graph · " + runTitle(task) : "Execution graph"}>
         <AgentRelationshipGraph key={task?.id ?? "preview"} task={task} agents={agents}/>
       </Card>
       <Card title="Simulation details & final result"><TaskDetailsPanel task={task}/></Card>
