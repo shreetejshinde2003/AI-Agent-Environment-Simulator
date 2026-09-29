@@ -9,6 +9,7 @@ from sqlalchemy import update
 from app.api.routes import tasks
 from app.agents.direct_agent import DirectAgent
 from app.agents.llm_client import LLMResponse
+from app.agents.execution_context import ExecutionContext
 from app.main import app
 from app.models.schemas import CreateTaskRequest, TaskExecutionMode
 from app.storage.database import repository, Repository
@@ -20,7 +21,16 @@ class FakeAgent:
         self.calls = []
     async def run(self, directive, context=None):
         self.order.append(self.name)
-        self.calls.append((directive, dict(context or {})))
+        # Keep the regression assertions about exact flat handoffs while the
+        # production boundary now supplies a typed, immutable context.
+        if isinstance(context, ExecutionContext):
+            assert context.original_directive == directive
+            captured = {output.name: output.text for output in context.prior_outputs}
+            captured.update({name: getattr(context, name) for name in
+                             ("uploaded_context", "benchmark_context") if getattr(context, name) is not None})
+        else:
+            captured = dict(context or {})
+        self.calls.append((directive, captured))
         if self.failure:
             raise RuntimeError(self.failure)
         return self.name + " actual output"
@@ -89,6 +99,29 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(run.progress_percent, index*20)
                 self.assertEqual(run.events[-1].type, "simulation_failed")
                 self.agents[aid].failure = None
+    async def test_input_contract_failure_is_persisted_without_provider_call(self):
+        from app.agents import summarizer_agent
+        tasks._IMPLEMENTED_AGENTS["summarizer"] = summarizer_agent.SummarizerAgent()
+        queued = await tasks.create_task(CreateTaskRequest(
+            directive="Original goal", assigned_agent_id="summarizer",
+            execution_mode="single_agent"), BackgroundTasks())
+        # Simulate a future selected route with no source; no adaptive route
+        # is exposed through the HTTP API in this phase.
+        missing_source = ExecutionContext(original_directive="Original goal",
+                                          execution_mode=TaskExecutionMode.ADAPTIVE)
+        with patch.object(tasks, "_prepared_context", return_value=missing_source), \
+                patch.object(summarizer_agent, "call_llm", new_callable=AsyncMock) as llm:
+            await tasks._run_task(queued.id)
+        llm.assert_not_awaited()
+        run = repository.get(queued.id)
+        self.assertEqual(run.status.value, "failed")
+        self.assertIsNone(run.output)
+        self.assertEqual(run.stages[0].status, "failed")
+        self.assertEqual(run.input_error.code, "missing_required_input")
+        self.assertEqual(run.stages[0].input_error.agent_id, "summarizer")
+        self.assertFalse(any(event.type == "message_created" for event in run.events))
+        self.assertEqual(Repository("sqlite:///" + self.path).get(run.id).input_error.code,
+                         "missing_required_input")
     async def test_direct_mode(self):
         # Historical specialist execution remains separate from the new baseline.
         run = await self.run_task("analysis", "single_agent")
@@ -158,9 +191,10 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(actual, response.text)
         llm.assert_awaited_once()
         prompt = llm.await_args.kwargs["prompt"]
-        self.assertIn("Original goal", prompt)
-        self.assertIn("Safe note", prompt)
-        self.assertIn("Records: 294", prompt)
+        self.assertEqual(prompt, "Original user directive:\nOriginal goal"
+                         "\n\nPrepared uploaded reference context:\nFile: reference.txt\nSafe note"
+                         "\n\nValidated benchmark aggregates (not individual records):\n"
+                         "Records: 294; Department: Engineering")
     async def test_single_coordinator_records_real_model_usage(self):
         from app.agents import direct_agent
         tasks._IMPLEMENTED_AGENTS["direct"] = DirectAgent()

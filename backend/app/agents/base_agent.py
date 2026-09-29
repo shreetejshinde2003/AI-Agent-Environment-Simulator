@@ -22,7 +22,7 @@ import time
 from app.agents.stats_tracker import stats_tracker
 from app.agents.llm_client import DEFAULT_MODEL
 from app.models.schemas import AgentStatus
-from app.agents.execution_context import current_execution
+from app.agents.execution_context import ExecutionContext, current_execution
 
 
 class BaseAgent:
@@ -38,7 +38,7 @@ class BaseAgent:
     def __init__(self) -> None:
         stats_tracker.register(self.AGENT_ID)
 
-    async def process(self, directive: str, context: dict):
+    async def process(self, directive: str, context: ExecutionContext | dict):
         """
         Executable agent subclasses override this. Call `app.agents.llm_client.call_llm(...)`
         and return the resulting LLMResponse object directly (not just
@@ -50,13 +50,13 @@ class BaseAgent:
             f"provide an executable process() implementation."
         )
 
-    async def run(self, directive: str, context: dict | None = None) -> str:
+    async def run(self, directive: str, context: ExecutionContext | dict | None = None) -> str:
         """
         Public entrypoint — the orchestrator calls THIS, not process().
         Times the call and reports real stats to stats_tracker
         regardless of which agent subclass is running.
         """
-        context = context or {}
+        context = {} if context is None else context
         stats_tracker.set_status(self.AGENT_ID, AgentStatus.ACTIVE)
         start = time.perf_counter()
 

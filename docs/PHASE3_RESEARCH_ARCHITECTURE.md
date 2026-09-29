@@ -1,10 +1,10 @@
 # Phase 3 research architecture
 
-Status: Phase 3.1 execution-mode foundation **COMPLETED** locally; remaining
-research work **PLANNED**. Design baseline: `cc181e6` (Phase 2 implementation
-`ef27951`). The production five-stage pipeline and PostgreSQL restart durability
-are **COMPLETED**; this Phase 3.1 change has not been deployed or live-tested.
-Adaptive routing and formal evaluation are **NOT IMPLEMENTED**.
+Status: Phase 3.1 **COMPLETED** and production-verified at `8f0a489`.
+Phase 3.2 specialist contracts are **COMPLETED locally** pending deployment
+verification. Design baseline: `cc181e6` (Phase 2 implementation `ef27951`).
+Single/fixed execution and PostgreSQL restart durability are production-verified;
+adaptive routing and formal evaluation are **NOT IMPLEMENTED**.
 
 Phase 3.1 uses one `executionMode` field: `single` (neutral Direct Agent),
 `fixed` (the unchanged five-stage sequence), or `adaptive` (explicitly rejected
@@ -20,8 +20,8 @@ responses, run events and metric history. No scores or routing plans exist yet.
 |---|---|---|
 | Creation/mode | `backend/app/api/routes/tasks.py:create_task` handles `/tasks`; `/simulations` delegates to it. `executionMode` accepts `single`, `fixed`, `adaptive` and legacy `single_agent`; legacy `full_pipeline` maps to `fixed`. The UI defaults to fixed. | Existing `single_agent` means one selected specialist, **not** a controlled direct-answer baseline. |
 | Execution | `_run_task` uses FastAPI `BackgroundTasks`; `_run_pipeline` loops over the fixed five-stage tuple; `_run_stage` calls `agent.run(directive, context)` and stops on failure. | Reuse this lifecycle and stage executor with a validated plan; do not create three disconnected engines. One worker remains a constraint. |
-| Prompt/handoff | Each `agents/*_agent.py:process` builds its own prompt. The coordinator retains the original directive and exact outputs in `research_findings`, `structured_data`, `insights`, `summary`, `final_report`. Handoffs become persisted messages. | Skipping is **not** safe by merely omitting stages: Analysis reads only `structured_data`, Summarizer only `insights`, Report only `summary`. Add explicit, tested input contracts/adapters later; never relabel missing material as if an agent produced it. |
-| Measurements | `BaseAgent.run` and `llm_client.call_llm` capture model/usage; a request-local `ContextVar` writes tokens/model into `StageExecution`. `_run_stage` measures stage duration; `_run_task` measures wall time. `simulations.py` aggregates persisted runs. | Separate stage attempts from confirmed provider calls. `call_llm` currently substitutes zero when a successful response has no usage block; `simulations.py` also sums missing stage usage as zero in history. Treat those as unknown before a formal token comparison. `call_llm` passes no temperature/seed, so repeatability is not controlled yet. |
+| Prompt/handoff | `ExecutionContext` now carries the original directive, bounded reference context and real prior outputs with producer IDs. `contracts.py` binds each specialist to its preferred available artifact; the coordinator still records the fixed path's exact handoffs. | An agent may consume a supported alternative without inventing a skipped output. Route selection and execution remain future work. |
+| Measurements | `BaseAgent.run` and `llm_client.call_llm` capture model/usage; a request-local `ContextVar` writes tokens/model into `StageExecution`. `_run_stage` measures stage duration; `_run_task` measures wall time. `simulations.py` aggregates persisted runs. | Separate stage attempts from confirmed provider calls. `call_llm` currently substitutes zero when a successful response has no usage block; treat that as unknown before a formal token comparison. `call_llm` passes no temperature/seed, so repeatability is not controlled yet. |
 | Persistence/events | `storage/database.py` transactionally saves a compatible Task JSON snapshot plus v2 relational projections. `storage/models.py` has simulations, tasks, stages, messages, events, metrics, uploads and dataset registry. `emit`, `record_message`, `record_activity` persist before `manager.broadcast`; `/ws/live` sends `{event,data,timestamp}`. | Keep one authoritative run record and event stream; new experiment metadata needs versioned storage, not a second hidden store. REST remains authoritative after reconnect. |
 | Graph/UI | `AgentRelationshipGraph.jsx` uses persisted stages and omits the coordinator for single/legacy specialist runs; the no-task preview still shows the fixed path. Task details/history label the stored mode. Per-agent metrics include Direct Agent; run history includes invocation count. | Adaptive selected/skipped topology remains future work. |
 | Datasets | `dataset_id`, checksum, `task_type` and bounded aggregate `benchmark_context` are attached at creation. `datasets/registry.py` validates six Git-ignored JSON inputs and excludes individual/protected fields from agent context. | Current HR experiments are aggregate-level. Raw-row extraction, full-dataset reasoning and context-size experiments are **not** supported by this bounded context. Production provisioning of the six files is **PARTIAL**. |
@@ -29,6 +29,55 @@ responses, run events and metric history. No scores or routing plans exist yet.
 `agents/orchestrator.py` is an inactive LangGraph prototype, not the execution
 path; `web_search_agent.py` is unavailable. Neither should be activated by this
 design. The current graph is a visualization, not evidence of LangGraph runtime.
+
+## Phase 3.2: shared context and specialist contracts
+
+Before Phase 3.2, Research and Direct used the directive plus optional prepared
+uploads/benchmark aggregates. Data appended `research_findings` even when empty;
+Analysis did the same for `structured_data`, Summarizer for `insights`, and Report
+for `summary`. Those last three ignored alternative upstream artifacts. All five
+specialists could previously run from a directive alone, but an empty upstream
+section could invite an unsupported answer. The new contracts are:
+
+| Agent | Capability; output | Required input | Optional input; preferred artifact | Missing-input behavior |
+|---|---|---|---|---|
+| Research | knowledge research; `research_findings` | Original directive | Prepared upload, safe benchmark aggregates, internal source text | Works from directive; no browsing claim. |
+| Data | structure/extract; `structured_data` | Original directive | `research_findings`, prepared upload, benchmark aggregates, source text; prefer findings | Works from facts in directive or supplied data; does not invent findings. |
+| Analysis | analyze/compare/reason; `insights` | Original directive | `structured_data`, `research_findings`, prepared upload, benchmark aggregates, source text; prefer structured data, then findings | May reason from directive; states evidence limits when needed. |
+| Summarizer | summarize; `summary` | Original directive **and one actual source** | `insights`, `structured_data`, `research_findings`, prepared upload, benchmark aggregates, source text; prefer in that order | A future adaptive context without a source fails before a model call. Legacy individual-specialist mode still permits source material embedded in its directive. |
+| Report | report/synthesize; `final_report` | Original directive | `summary`, `insights`, `structured_data`, `research_findings`, prepared upload, benchmark aggregates, source text; prefer in that order | May answer from directive when evidence permits; cannot claim skipped work. |
+| Direct baseline | direct answer; `final_answer` | Original directive | Prepared upload, benchmark aggregates | Remains a single model invocation; never calls specialists. |
+
+`backend/app/agents/execution_context.py` defines a frozen, validated internal
+`ExecutionContext`: original directive, mode, optional task type, bounded upload
+and benchmark text, optional internal source text, ordered `AgentOutput` entries,
+and optional `RouteSelection` metadata. Available and missing inputs are derived
+from actual values. Successful coordinator output is appended with its producer
+ID and exact text; absent stages produce no artifact. The strict legacy-dict
+adapter supports existing Python agent callers but rejects unknown, blank,
+oversized or malformed values. Normal task execution uses the typed form.
+
+`backend/app/agents/contracts.py` is a small immutable registry of capabilities,
+required inputs, optional alternatives, output names and predecessor preference.
+It performs **input binding, not route selection**. For fixed mode, Data still
+prefers Research, Analysis prefers Data, Summarizer prefers Analysis, and Report
+prefers Summarizer. Raw uploaded text remains available in the typed context;
+when an immediate artifact exists, Analysis/Summarizer/Report keep their former
+prompt focus on that artifact plus benchmark aggregates. Missing optional
+sections are omitted rather than rendered as empty upstream work.
+
+Missing required material raises `AgentInputError` with safe code, agent ID and
+missing input names. The task/stage snapshots persist this detail in optional
+`inputError` fields alongside the existing failure status and message. No SQL
+schema migration was needed; old snapshots load with null `inputError`. The
+optional `RouteSelection` can distinguish selected from skipped agents, while
+actual stage rows identify executed/failed work. It is not persisted or exposed
+as a runnable route yet, and current fixed/single runs create no skipped rows.
+Validated examples such as Data → Analysis → Report, Research → Analysis →
+Report, and Summarizer → Report are **structurally ready** when their required
+source exists. Phase 3.3 still needs a validated plan, selected/skipped reasons,
+persistent experiment metadata and a runner that executes that plan. The
+`adaptive` API continues to return HTTP 501.
 
 ## 2. Research question and three execution modes
 
@@ -53,12 +102,10 @@ same result/error shape. Only an executed agent produces a stage result; skipped
 agents are plan decisions, not successful `StageExecution` rows. Keep the
 original directive and identical allowed dataset/upload context across arms.
 
-The first adapter/contract milestone must define how a selected agent consumes
-an available predecessor artifact. For example, a route ending Analysis → Report
-requires Report to explicitly accept `insights`; its current `summary`-only
-prompt would ignore that output. Contract tests must assert exact bytes passed
-and reject a plan with an unsatisfied input requirement. Do not solve this by
-injecting fabricated `summary` or `structured_data` values.
+Phase 3.2 now binds available alternative artifacts: a future Analysis → Report
+path may pass actual `insights` without fabricating `summary`. The future plan
+validator must still reject unsatisfied requirements before execution and
+persist the selected/skipped decisions.
 
 ## 3. Adaptive routing choices and recommendation
 
@@ -287,7 +334,8 @@ PostgreSQL or hosting platforms.
 
 | Checkpoint | Purpose and likely files | Dependency / tests / deliverable / risk / live calls |
 |---|---|---|
-| 3.1 Execution-mode foundation + direct baseline — **COMPLETED locally** | Canonical mode values and minimal `_execute_mode` dispatch in `models/schemas.py` and `api/routes/tasks.py`; neutral Direct Agent. | Mocked call, context, legacy-read, API, failure and fixed-path tests. No live Groq call; production integration is **PARTIAL** until deployed/verified. Full adaptive plan/artifact validation is not included. |
+| 3.1 Execution-mode foundation + direct baseline — **COMPLETED** | Canonical mode values, `_execute_mode` dispatch and neutral Direct Agent. | Mocked tests and production single/fixed runs with PostgreSQL restart persistence were verified at `8f0a489`. |
+| 3.2 Typed context + specialist contracts — **COMPLETED locally** | Validated context, artifact provenance and small capability registry; alternative input binding without a router. | Mocked contract/failure tests plus fixed/single regressions. No Groq calls. Production rollout is **PARTIAL** until separately verified. |
 | 3.3 Experiment identity/storage | Versioned migration in `storage/models.py`, `database.py`; additive API fields. | 3.1–3.2. SQLite/PostgreSQL migration and restart tests; deliver queryable experiment IDs and immutable metadata. Risk: historic rows. **Groq: no.** |
 | 3.4 Rule-adaptive router | Capability tags, task features, contract adapters, reasons; no Web Search. | 3.1–3.3. Table-driven routing/handoff/failure tests; deliver honest rule-adaptive paths. Risk: ambiguous tasks or silent context loss. **Groq: small gated smoke set only.** |
 | 3.5 Dynamic visualization | Update modal, graph, details and events to show actual path/skips. | 3.4. Frontend build/lint plus UI tests for all modes/failures/reconnect; deliver true topology. Risk: stale fixed assumptions. **Groq: no.** |

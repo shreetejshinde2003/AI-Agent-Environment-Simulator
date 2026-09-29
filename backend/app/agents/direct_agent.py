@@ -2,6 +2,7 @@
 
 from app.agents.base_agent import BaseAgent
 from app.agents.llm_client import call_llm
+from app.agents.execution_context import ExecutionContext, coerce_context
 
 
 SYSTEM_PROMPT = """Answer the user's directive directly using only available knowledge and supplied context.
@@ -16,10 +17,11 @@ class DirectAgent(BaseAgent):
     ROLE = "direct"
     MODEL = None
 
-    async def process(self, directive: str, context: dict):
+    async def process(self, directive: str, context: ExecutionContext | dict):
+        context = coerce_context(directive, context, self.AGENT_ID)
         prompt = f"Original user directive:\n{directive}"
-        if context.get("uploaded_context"):
-            prompt += "\n\nPrepared uploaded reference context:\n" + context["uploaded_context"]
-        if context.get("benchmark_context"):
-            prompt += "\n\nValidated benchmark aggregates (not individual records):\n" + context["benchmark_context"]
+        if context.uploaded_context:
+            prompt += "\n\nPrepared uploaded reference context:\n" + context.uploaded_context
+        if context.benchmark_context:
+            prompt += "\n\nValidated benchmark aggregates (not individual records):\n" + context.benchmark_context
         return await call_llm(prompt=prompt, system=SYSTEM_PROMPT, model=self.MODEL)

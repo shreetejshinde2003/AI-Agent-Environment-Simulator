@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
+from pydantic import ValidationError
 
 from app.agents.research_agent import ResearchAgent
 from app.agents.data_agent import DataAgent
@@ -12,7 +13,7 @@ from app.agents.analysis_agent import AnalysisAgent
 from app.agents.summarizer_agent import SummarizerAgent
 from app.agents.report_agent import ReportAgent
 from app.agents.direct_agent import DirectAgent
-from app.agents.execution_context import current_execution
+from app.agents.execution_context import AgentInputError, ExecutionContext, current_execution
 from app.api.routes.messages import record_message
 from app.api.routes.simulation import record_activity, register_task_created, register_task_finished
 from app.core.errors import safe_error
@@ -125,7 +126,7 @@ async def create_task(payload: CreateTaskRequest, background_tasks: BackgroundTa
     return response
 
 
-async def _run_stage(task: Task, stage: StageExecution, context: dict):
+async def _run_stage(task: Task, stage: StageExecution, context: ExecutionContext):
     agent = _IMPLEMENTED_AGENTS.get(stage.agent_id)
     stage.status = "active"
     stage.started_at = now()
@@ -144,6 +145,8 @@ async def _run_stage(task: Task, stage: StageExecution, context: dict):
     except (Exception, asyncio.CancelledError) as exc:
         stage.status = "failed"
         stage.error = safe_error(exc)
+        if isinstance(exc, AgentInputError):
+            stage.input_error = exc.detail
         raise
     finally:
         current_execution.reset(token)
@@ -168,25 +171,29 @@ async def _run_pipeline(task: Task) -> str:
         task.stages = [StageExecution(agent_id=aid, output_key=key) for aid, key in _PIPELINE_STAGES]
     for index, (agent_id, output_key) in enumerate(_PIPELINE_STAGES):
         result = await _run_stage(task, task.stages[index], context)
-        context[output_key] = result
+        context = context.with_output(agent_id, result)
         if index < len(_PIPELINE_STAGES) - 1:
             next_agent = _PIPELINE_STAGES[index + 1][0]
             await record_message(agent_id, next_agent, MessageKind.RESPONSE, result,
                                  task=task, output_key=output_key)
             await emit(task, "message_created", f"{agent_id} → {next_agent}: {output_key}", agent_id)
-    return context["final_report"]
+    return context.output("final_report").text
 
 
-def _prepared_context(task: Task) -> dict:
+def _prepared_context(task: Task) -> ExecutionContext:
     """Identical bounded inputs for the fixed path and direct baseline."""
-    context = {}
+    uploaded_context = None
     if task.uploads:
-        context["uploaded_context"] = "\n\n".join(
-            f"File: {upload.filename}\n{upload.prepared_context}" for upload in task.uploads
+        uploaded_context = "\n\n".join(
+            upload.prepared_context if task.execution_mode == TaskExecutionMode.SINGLE_AGENT
+            else f"File: {upload.filename}\n{upload.prepared_context}" for upload in task.uploads
         )
-    if task.benchmark_context:
-        context["benchmark_context"] = task.benchmark_context
-    return context
+    try:
+        return ExecutionContext(original_directive=task.directive, execution_mode=task.execution_mode,
+                                task_type=task.task_type, uploaded_context=uploaded_context,
+                                benchmark_context=task.benchmark_context)
+    except ValidationError as exc:
+        raise AgentInputError("invalid_context") from exc
 
 
 async def _execute_mode(task: Task) -> str:
@@ -200,12 +207,7 @@ async def _execute_mode(task: Task) -> str:
     if task.execution_mode == TaskExecutionMode.SINGLE_AGENT:
         if not task.stages:
             task.stages = [StageExecution(agent_id=task.assigned_agent_id, output_key="output")]
-        context = {}
-        if task.uploads:
-            context["uploaded_context"] = "\n\n".join(u.prepared_context for u in task.uploads)
-        if task.benchmark_context:
-            context["benchmark_context"] = task.benchmark_context
-        return await _run_stage(task, task.stages[0], context)
+        return await _run_stage(task, task.stages[0], _prepared_context(task))
     raise NotImplementedError("Adaptive execution is not implemented yet")
 
 
@@ -224,6 +226,8 @@ async def _run_task(task_id: str) -> None:
     except (Exception, asyncio.CancelledError) as exc:
         task.status = TaskStatus.FAILED
         task.error = safe_error(exc)
+        if isinstance(exc, AgentInputError):
+            task.input_error = exc.detail
         task.output = None
     finally:
         task.completed_at = now()

@@ -142,6 +142,12 @@ class TaskProgressStep(CamelModel):
     done: bool
 
 
+class InputContractFailure(CamelModel):
+    code: str
+    agent_id: str | None = None
+    missing_inputs: list[str] = Field(default_factory=list)
+
+
 class StageExecution(CamelModel):
     agent_id: str
     output_key: str
@@ -155,6 +161,7 @@ class StageExecution(CamelModel):
     total_tokens: int | None = None
     output: str | None = None
     error: str | None = None
+    input_error: InputContractFailure | None = None
 
 
 class RunEvent(CamelModel):
@@ -235,6 +242,7 @@ class Task(CamelModel):
     task_type: str | None = None
     benchmark_context: str | None = None
     evaluation_scores: dict[str, float] | None = None
+    input_error: InputContractFailure | None = None
 
     @field_validator("execution_mode", mode="before")
     @classmethod

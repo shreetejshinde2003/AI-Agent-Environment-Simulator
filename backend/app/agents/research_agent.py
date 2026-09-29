@@ -2,6 +2,8 @@
 
 from app.agents.base_agent import BaseAgent
 from app.agents.llm_client import call_llm
+from app.agents.contracts import specialist_prompt
+from app.agents.execution_context import ExecutionContext
 
 SYSTEM_PROMPT = """You are the Research Agent in a multi-agent simulation.
 
@@ -17,10 +19,6 @@ class ResearchAgent(BaseAgent):
     ROLE = "research"
     MODEL = None  # Use the configured default model.
 
-    async def process(self, directive: str, context: dict):
-        prompt = f"Original user directive:\n{directive}"
-        if context.get("uploaded_context"):
-            prompt += "\n\nUploaded reference context:\n" + context["uploaded_context"]
-        if context.get("benchmark_context"):
-            prompt += "\n\nValidated benchmark aggregates (not individual records):\n" + context["benchmark_context"]
+    async def process(self, directive: str, context: ExecutionContext | dict):
+        prompt = specialist_prompt(self.AGENT_ID, directive, context)
         return await call_llm(prompt=prompt, system=SYSTEM_PROMPT, model=self.MODEL)
