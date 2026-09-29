@@ -30,7 +30,10 @@ export default function TaskDetailsPanel({task}) {
     <dl className="metadata">
       <dt>Simulation ID</dt><dd>{task.id}</dd>
       <dt>Execution</dt><dd>{modeLabel(task)}</dd>
-      <dt>Agent invocations</dt><dd>{task.stages.filter(s => s.startedAt).length}</dd>
+      <dt>Stage attempts</dt><dd>{task.stages.filter(s => s.startedAt).length}</dd>
+      <dt>Handoffs</dt><dd>{task.messages.length}</dd>
+      {task.taskType && <><dt>Task type</dt><dd>{task.taskType.replaceAll("_", " ")}</dd></>}
+      {task.datasetId && <><dt>Benchmark dataset</dt><dd>{task.datasetId}</dd></>}
       <dt>Created</dt><dd>{date(task.createdAt)}</dd>
       <dt>Started</dt><dd>{date(task.executionStartedAt)}</dd>
       <dt>Completed</dt><dd>{date(task.completedAt)}</dd>

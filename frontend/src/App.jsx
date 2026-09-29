@@ -12,20 +12,22 @@ import "./components/dashboard/SimulationWorkspace.css";
 const PAGES = {live: LiveSimulation, "task-summary": TaskSummary, agents: Agents,
   messages: Messages, logs: Logs, replay: Replay, settings: Settings};
 function AppContent() {
-  const {activePage, setActivePage, selectedTask, tasks, selectTask, error, socketStatus, isLoading} = useSimulation();
+  const {activePage, setActivePage, selectedTask, tasks, selectTask, error, socketStatus, isLoading, lastRefreshedAt} = useSimulation();
   const Page = PAGES[activePage] ?? LiveSimulation;
   return <AppShell activePage={activePage} onNavigate={setActivePage}
     user={{name: "Shared workspace", role: "No authentication"}}
-    topbarProps={{goal: selectedTask?.directive ?? "Create a simulation to get started",
+    topbarProps={{goal: activePage === "live" ? null : selectedTask?.directive ?? "Create a simulation to get started",
       onToggleReplay: () => setActivePage("replay")}}>
-    <div className="run-toolbar">
+    {activePage !== "live" && <div className="run-toolbar">
       <RunPicker tasks={tasks} selectedTask={selectedTask} onSelect={selectTask}
         isLoading={isLoading} loadError={!!error && !tasks.length}/>
       <span className="muted" role="status">{socketStatus === "connected" ? "Live events connected" :
         socketStatus === "connecting" ? "Connecting live events… REST refresh remains available." :
         "Live events offline · REST refresh every 5s"}</span>
-    </div>
-    {error && <p className="run-error" role="alert">Cannot refresh backend data. Displayed records may be stale. {error.message}</p>}
+    </div>}
+    {error && <p className="run-error" role="alert">{lastRefreshedAt ?
+      `Cannot refresh backend data. Last successful refresh: ${new Date(lastRefreshedAt).toLocaleString()}. Displayed records may be stale.` :
+      "Cannot load backend data."} {error.message}</p>}
     <Page />
   </AppShell>;
 }

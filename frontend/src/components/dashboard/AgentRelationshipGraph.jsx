@@ -1,12 +1,14 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import ReactFlow, { Background, Controls, Handle, Position } from "reactflow";
 import "reactflow/dist/style.css";
 import "./AgentRelationshipGraph.css";
 import { graphPath } from "../../utils/runs";
 import { edgeView, stageView } from "../../utils/graphPresentation";
+import { graphTarget } from "../../utils/workspaceSelection";
 function StageNode({data}) {
-  return <button type="button" onClick={data.onInspect} className={"pipeline-node state-" + data.status}
-    aria-label={`${data.label}, ${data.statusText}, ${data.kind}`}>
+  return <button type="button" onClick={data.onInspect}
+    className={"pipeline-node state-" + data.status + (data.selected ? " is-selected" : "")}
+    aria-pressed={data.selected} aria-label={`${data.label}, ${data.statusText}, ${data.kind}`}>
     <Handle type="target" position={Position.Top} isConnectable={false} aria-hidden="true"/>
     <span className="node-kind">{data.kind}</span><strong>{data.label}</strong>
     <span className="node-status">{data.statusText}</span>
@@ -14,8 +16,7 @@ function StageNode({data}) {
   </button>;
 }
 const NODE_TYPES = {stage: StageNode};
-export default function AgentRelationshipGraph({task, agents = []}) {
-  const [inspectId, setInspectId] = useState(null);
+export default function AgentRelationshipGraph({task, agents = [], selectedTarget = null, onInspect = () => {}}) {
   const {nodes, edges} = useMemo(() => {
     const stageMap = Object.fromEntries((task?.stages ?? []).map(s => [s.agentId, s]));
     const running = task?.status === "in_progress";
@@ -33,10 +34,11 @@ export default function AgentRelationshipGraph({task, agents = []}) {
       id, type: "stage", position: {x: 120, y: i * 122},
       data: {label: id === "goal" ? "User Goal" : id === "result" ? "Final Result" :
         agents.find(a => a.id === id)?.name ?? id,
-        onInspect: () => setInspectId(id),
+        onInspect: () => onInspect(graphTarget(id)),
         kind: id === "orchestrator" ? "Sequential coordinator · no LLM" :
           ["goal", "result"].includes(id) ? "Simulation" : "Agent",
-        status: view.status, statusText: view.text},
+        status: view.status, statusText: view.text,
+        selected: selectedTarget?.kind === "stage" ? selectedTarget.id === id : selectedTarget?.kind === id},
       };
     });
     const edges = ids.slice(0, -1).map((id, i) => {
@@ -50,9 +52,7 @@ export default function AgentRelationshipGraph({task, agents = []}) {
         data: {message: handoff}};
     });
     return {nodes, edges};
-  }, [task, agents]);
-  const stage = task?.stages?.find(s => s.agentId === inspectId);
-  const message = task?.messages?.find(m => m.id === inspectId);
+  }, [task, agents, selectedTarget, onInspect]);
   if (!task) return <p className="empty-note">No run selected. Create or choose a simulation to see its recorded execution path.</p>;
   return <div>
     <p className="muted">Select a node or a recorded handoff to inspect execution details. Web Search is unavailable.</p>
@@ -60,8 +60,8 @@ export default function AgentRelationshipGraph({task, agents = []}) {
       <ReactFlow nodes={nodes} edges={edges} nodeTypes={NODE_TYPES} fitView
         fitViewOptions={{padding: 0.12}} minZoom={0.3} maxZoom={1.3}
         nodesDraggable={false} nodesConnectable={false} nodesFocusable={false} edgesFocusable={false}
-        onNodeClick={(_, node) => setInspectId(node.id)}
-        onEdgeClick={(_, edge) => setInspectId(edge.data?.message?.id ?? null)}>
+        onNodeClick={(_, node) => onInspect(graphTarget(node.id))}
+        onEdgeClick={(_, edge) => { if (edge.data?.message?.id) onInspect({kind: "handoff", id: edge.data.message.id}); }}>
         <Background color="#253047" gap={20}/><Controls showInteractive={false}/>
       </ReactFlow>
     </div>
@@ -71,27 +71,11 @@ export default function AgentRelationshipGraph({task, agents = []}) {
     {!!task.messages?.length && <div className="graph-handoffs" aria-label="Recorded handoffs">
       <strong>Recorded handoffs</strong>
       {task.messages.map(handoff => <button type="button" className="text-button" key={handoff.id}
-        onClick={() => setInspectId(handoff.id)}
+        onClick={() => onInspect({kind: "handoff", id: handoff.id})}
+        aria-pressed={selectedTarget?.kind === "handoff" && selectedTarget.id === handoff.id}
         aria-label={`Inspect ${handoff.fromAgentId} to ${handoff.toAgentId} handoff, ${handoff.outputKey}`}>
         {handoff.fromAgentId} → {handoff.toAgentId} · {handoff.outputKey}
       </button>)}
-    </div>}
-    {inspectId && <div className="inspector">
-      <button className="text-button" onClick={() => setInspectId(null)}>Close details</button>
-      {stage ? <>
-        <h3>{stage.agentId} · {stageView(task, stage).text}</h3>
-        <p>Model: {stage.model ?? "Not recorded"} · Tokens: {stage.totalTokens ?? "Not recorded"} ·
-          Response time: {stage.durationSeconds == null ? "Not recorded" : stage.durationSeconds.toFixed(2) + "s"}</p>
-        <p>Executions in this run: {stage.startedAt ? 1 : 0}</p>
-        <p>Latest activity: {task.activities?.filter(a => a.agentId === stage.agentId).at(-1)?.text ?? "No activity yet"}</p>
-        {stage.error && <p className="run-error">{stage.error}</p>}
-        <details><summary>Stage output ({stage.output?.length ?? 0} characters)</summary><pre>{stage.output || "No output yet"}</pre></details>
-      </> : message ? <>
-        <h3>{message.fromAgentId} → {message.toAgentId}</h3>
-        <p>{message.outputKey} · {message.kind} · {new Date(message.timestamp).toLocaleString()}</p>
-        <pre>{message.content}</pre>
-      </> : <p>{inspectId === "orchestrator" ? "The existing sequential coordinator runs each stage in order and stops on failure. It is not an LLM agent." :
-        inspectId === "result" ? task?.output ?? "No final result yet" : task?.directive ?? "No simulation selected"}</p>}
     </div>}
   </div>;
 }

@@ -3,18 +3,26 @@
 Date: 2026-09-29. Code baseline: `48ece6d` — deterministic adaptive routing and run UX.
 
 **COMPLETED:** repository UI/data-contract audit and this design specification.
-**PLANNED:** the workbench implementation described below. No application code,
-database schema, deployment setting, or execution behavior changes in this phase.
-No model calls were made. This document is the design authority for the next UI
-checkpoints, not a claim that the proposed interface already exists.
+The original architecture-only checkpoint planned the workbench below without
+application or execution changes. This document remains the design authority;
+checkpoint status notes distinguish what has since been implemented. No model
+calls are part of these UI checkpoints.
 
 **Checkpoint 3.4.1 COMPLETED (2026-09-29):** Native labelled modal/focus
 containment and return, keyboard picker/graph inspection, reduced-motion rules,
 static recorded handoffs, truthful status and loading copy, and small presentation
 improvements. The audit table below records the pre-checkpoint baseline.
 **PARTIAL:** automated DOM accessibility coverage, screen-reader/zoom and
-full contrast verification. **NOT IMPLEMENTED:** workbench shell, contextual
-inspector, full replay, Compare, or major visual redesign.
+full contrast verification. The workbench shell and contextual inspector were
+subsequently started in 3.4.2; full replay, Compare and major redesign remain
+**NOT IMPLEMENTED**.
+
+**Checkpoint 3.4.2 COMPLETED locally (2026-09-29):** A selected-run workspace
+now composes the existing RunPicker, actual graph, contextual run/stage/route/
+handoff inspector, and a short persisted-event area. Selection targets are
+run-scoped UI IDs; REST snapshots remain the execution source of truth. History
+opens that same workspace and retains aggregate charts. **PARTIAL:** full Runs
+browser, inspector depth, timeline, responsive and page consolidation work.
 
 The team reports production verification of Single, Fixed, Adaptive
 (Analysis → Report), and PostgreSQL restart durability. This review inspected
@@ -739,6 +747,16 @@ read-only fixture. Further screen-reader and zoom checks remain **PARTIAL**.
 
 ### 3.4.2 — Run workspace shell and state ownership
 
+**COMPLETED locally:** selected-run header and Runs/Flow/Inspector/Events shell;
+one existing picker, run-scoped UI target state, truthful graph and persisted
+events, run-level default inspector, keyboard-selectable stage/handoff/route
+inspection, and basic responsive stacking. Aggregate charts moved to History;
+History selection opens the same workspace. REST remains authoritative and the
+socket still invalidates/refetches it. No backend, schema or execution change.
+**PARTIAL:** the Runs area is still the compact picker, the inspector is an
+initial data view, Events shows recent records rather than a full timeline,
+legacy pages remain, and narrow-screen/zoom verification is incomplete.
+
 - **Goal/files:** `App.jsx`, `AppShell`, `Sidebar`, `Topbar`, `LiveSimulation`,
   `SimulationDetails`, context/data hooks; introduce RunWorkspace/header and
   explicit loading/freshness UI. Keep data fetching/execution contracts intact.
@@ -878,15 +896,16 @@ For later implementation acceptance:
     backend limitations are named accurately.
 
 **COMPLETED in this phase:** source audit, information/component/state architecture,
-API gap analysis, reference review, staged acceptance plan and checkpoint 3.4.1.
-**PLANNED:** the remaining interface composition. **PARTIAL:** production benchmark
-provisioning, full accessibility verification and data readiness for detailed
-replay/formal comparisons. **NOT IMPLEMENTED:** the workbench redesign,
-contextual inspector, comparison/evaluation system and full replay. **NOT RECOMMENDED:**
+API gap analysis, reference review, staged acceptance plan and checkpoints 3.4.1
+and 3.4.2. **PLANNED:** the remaining interface composition. **PARTIAL:** final
+Runs/Inspector/Events design, page consolidation, responsive verification,
+production benchmark provisioning and formal comparison data readiness.
+**NOT IMPLEMENTED:** Compare, evaluation UI, full replay or the final polished
+workbench. **NOT RECOMMENDED:**
 WebGL/no-code workflow/HR decision-product scope.
 
 The original architecture-only checkpoint used `git diff --check` and
-`git status --short`. Checkpoint 3.4.1 also validates frontend tests, build,
-lint, backend tests and compile. AGENTS.md, environment values, backend logic
-and deployment configuration remain outside this checkpoint. No Groq call,
-commit or push is part of Phase 3.4.1.
+`git status --short`. Checkpoints 3.4.1 and 3.4.2 additionally validate frontend
+tests/build/lint and backend tests/compile. AGENTS.md, environment values,
+backend logic and deployment configuration remain outside 3.4.2. No Groq call,
+commit or push is part of this checkpoint.
