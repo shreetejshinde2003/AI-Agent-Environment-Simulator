@@ -3,7 +3,8 @@
 The V1 engine is the existing sequential coordinator in `app/api/routes/tasks.py`.
 It uses FastAPI BackgroundTasks and the existing Groq client, not LangGraph.
 Phase 3.1 adds `single` (one neutral Direct Agent call) and names the existing
-five-agent pipeline `fixed`; `adaptive` returns HTTP 501 until implemented.
+five-agent pipeline `fixed`. Phase 3.3 implements `adaptive` with versioned,
+deterministic capability rules and input validation, not an LLM router.
 
 ## Run and validate
 
@@ -32,9 +33,23 @@ Data receives that directive, exact `research_findings`, and uploaded context.
 Analysis receives the directive and `structured_data`; Summarizer receives the
 directive and `insights`; Report receives the directive and `summary`.
 The exact Report text becomes `task.output`. Context is local to each run.
+These are Fixed handoffs. Adaptive uses only the selected path and the existing
+flexible specialist contracts; no skipped artifact is synthesized.
 In `single` mode the Direct Agent receives the original directive and the same
 bounded prepared uploads and safe benchmark aggregates, makes one Groq request,
 and stores its answer as `task.output`. It records one stage and no handoffs.
+
+Adaptive `taskType` may be omitted for inference, or be `summarization`,
+`transformation`, `analysis`, `reporting`, `research_synthesis`,
+`structured_data_analysis`, or `mixed`. Unknown adaptive types or unsatisfied
+contracts return HTTP 422 with `detail.code=invalid_route` and a safe message.
+Pure summarization requires a real upload/benchmark or explicit inline material
+after a new-line `Source:`/`Text:` delimiter. There is no silent Fixed fallback.
+Clients cannot submit their own route. `routePlan` records `rules-v1`, task type,
+ordered selected IDs, skipped IDs, capabilities, available inputs, reasons and
+validation. Task `title` is an optional supplied title or deterministic excerpt;
+`agentInvocationCount` counts started stage attempts, `handoffCount` real messages.
+Model/tokens/latency remain on real stages. See the Phase 3 architecture for rules.
 
 Per-stage metrics are captured from the real LLMResponse via a ContextVar, avoiding
 cross-run contamination from shared counters. Errors are credential-redacted before
@@ -71,17 +86,23 @@ Use `uploadIds` in task/simulation creation to actually supply uploaded context.
 
 `/ws/live` keeps the existing `{event,data,timestamp}` envelope.
 Events: simulation_created/started/completed/failed, agent_started/completed/failed,
-message_created, task_created/updated, message_sent, activity_event, stats_updated.
+message_created, task_created/updated, message_sent, activity_event, stats_updated,
+and `route_planned` for a validated Adaptive plan. The full plan travels with
+`task_created`/`task_updated`; no skipped-agent execution events are emitted.
 State is committed before broadcast. REST is authoritative after reconnect.
 
 The SQLAlchemy repository uses SQLite locally and PostgreSQL via `DATABASE_URL`.
 Version 2 normalizes tasks, stages, handoffs, events, metrics, uploads, dataset
-metadata and roster while retaining a compatible run snapshot. On startup,
+metadata and roster while retaining a compatible run snapshot.
+Phase 3.3 title/route metadata uses that JSON/JSONB snapshot; no SQL migration or
+schema-version change is needed. Existing records default to a directive title
+and null route; no historic route is fabricated. On startup,
 fresh schemas are created automatically. A V1 SQLite file is validated and
 copied to a timestamped `.v1.*.db` backup; legacy tables are retained as
 `*_v1_archive` after migration. Never delete either without a verified backup.
 
-Provision the six authorized benchmark JSON files under `../data/benchmark/`,
+Provision the six authorized benchmark JSON files under `../data/benchmark/`
+or set server-only `BENCHMARK_DATA_DIR` to their private absolute directory,
 then run `python -m app.datasets.cli register` from this directory. The command
 validates all six before registry writes and stores metadata only. Clients can
 list `GET /api/v1/datasets` and pass `datasetId` plus optional `taskType` in

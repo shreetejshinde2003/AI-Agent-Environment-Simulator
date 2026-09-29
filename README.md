@@ -7,7 +7,7 @@ LLM responses are generated through the existing server-side Groq client.
 ## What works
 
 Create a simulation, optionally attach TXT/CSV/JSON reference data, and choose
-`fixed` (default) or `single`:
+`fixed` (default), `single`, or rule-based `adaptive`:
 
 ```text
 Original goal → Sequential coordinator → Research → Data → Analysis → Summarizer → Report
@@ -18,14 +18,20 @@ Every stage receives the original goal. Each output becomes the next agent's con
 The direct-answer `single` baseline makes one model call with the same bounded
 permitted input and records one stage, without handoffs. The five specialist
 agents can still execute individually through legacy `single_agent` mode; that
-is not the research baseline. `adaptive` is recognized but returns HTTP 501,
-not a simulated route. The coordinator remains in
+is not the research baseline. `adaptive` selects specialist capabilities using
+versioned deterministic rules, validates their input contracts, and executes only
+that route. No routing model call is made. Selected/skipped agents and concise
+reasons are saved and displayed; this is not learned or LLM-based routing.
+The coordinator remains in
 `backend/app/api/routes/tasks.py`; LangGraph is not a runtime dependency.
 
 The workspace shows a live React Flow graph, stage details, handoffs, timestamped
 events, real metrics/charts, final results, saved history, and TXT/JSON/CSV exports.
 No execution data is seeded or silently replaced with a demo. Missing measurements
 are labeled as unavailable.
+New runs open automatically. A searchable run picker uses deterministic directive
+excerpts as titles; immutable IDs remain in details/API/exports. Adaptive graphs
+show only selected stages, not the skipped five-agent chain.
 
 ## Local development
 
@@ -69,7 +75,7 @@ mode values without a schema change; old `full_pipeline` records read as `fixed`
 
 The six `employee_*` and `hr_*` JSON files are **benchmark/domain inputs**, not
 the operational database. For local benchmark use, place them under
-`data/benchmark/`; they are excluded from Git, validated and registered with
+`data/benchmark/` (or private `BENCHMARK_DATA_DIR`); they are excluded from Git, validated and registered with
 `(cd backend && python -m app.datasets.cli register)`. Raw records stay on disk;
 only metadata and bounded non-personal aggregates enter the application.
 See [dataset audit](docs/PHASE2_DATASET_AUDIT.md) and
@@ -94,7 +100,8 @@ unverified; they are separate from operational storage. See the
 
 ```bash
 python -m compileall backend/app
-(cd backend && python -m unittest discover -s tests -v)
+python -m pytest -q
+npm --prefix frontend test
 npm --prefix frontend run lint
 npm --prefix frontend run build
 git diff --check
@@ -108,8 +115,10 @@ limits, schema/API changes, and real integration results.
 
 Web Search, PDF extraction, authentication, custom executable agents,
 pause/cancel of active model requests, and automatic retry/resume remain unavailable.
-Adaptive routing, evaluation scoring and a LangGraph execution runtime are also
-not implemented. Phase 3.1 has no measured benchmark or superiority result.
+LLM-based routing, evaluation scoring and a LangGraph execution runtime are also
+not implemented. Rule-based adaptive execution is implemented and tested locally;
+production verification of Phase 3.3 remains **PARTIAL**. No comparative study
+has established superiority over Single or Fixed.
 Event History inspects recorded events; it does not pretend to replay execution.
 The old `agents/orchestrator.py` LangGraph prototype and unused frontend demo
 fixtures remain reference code only, outside the active runtime.

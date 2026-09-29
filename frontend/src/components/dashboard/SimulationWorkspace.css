@@ -5,6 +5,18 @@
 .muted, .empty-note { color: var(--text-secondary, #94a3b8); font-size: 13px; line-height: 1.6; }
 .empty-note { padding: 20px 4px; }
 .run-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 22px; }
+.run-picker { position: relative; flex: 1; min-width: 220px; max-width: 680px; }
+.run-picker > summary { padding: 12px; border: 1px solid #334155; border-radius: 8px; background: var(--bg-elevated, #172033); overflow-wrap: anywhere; }
+.run-picker-panel { position: absolute; z-index: 20; width: 100%; padding: 16px; border: 1px solid #475569; border-radius: 8px; background: var(--bg-card, #141c2d); box-shadow: 0 16px 40px #0008; }
+.run-picker-panel label { display: block; margin-bottom: 8px; }
+.run-picker-panel input { width: 100%; padding: 10px; color: inherit; border: 1px solid #475569; border-radius: 6px; background: #0e1523; }
+.run-picker ul { list-style: none; margin: 12px 0 0; padding: 0; max-height: 340px; overflow-y: auto; }
+.run-picker li button { width: 100%; text-align: left; display: flex; flex-direction: column; gap: 5px; padding: 12px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: inherit; cursor: pointer; overflow-wrap: anywhere; }
+.run-picker li button:hover, .run-picker li button[aria-current] { background: #3b82f615; border-color: #475569; }
+.run-picker span, .run-picker small { color: #94a3b8; }
+.run-picker :focus-visible { outline: 2px solid #a5b4fc; outline-offset: 2px; }
+.routing-trace { padding: 14px; border: 1px solid #334155; border-radius: 8px; font-size: 13px; line-height: 1.6; }
+.routing-trace h3 { margin-bottom: 12px; }
 .run-toolbar select { flex: 1; min-width: 180px; max-width: 620px; }
 .run-toolbar select, .export-controls button, .upload-preview button {
   background: var(--bg-elevated, #172033); color: #e2e8f0; border: 1px solid #334155; border-radius: 6px; padding: 9px 12px;

@@ -4,12 +4,13 @@ import AgentRelationshipGraph from "./AgentRelationshipGraph";
 import SimulationTimeline from "./SimulationTimeline";
 import MessageFlowFeed from "./MessageFlowFeed";
 import TaskDetailsPanel from "./TaskDetailsPanel";
+import { runTitle } from "../../utils/runs";
 export default function SimulationDetails({task}) {
   const {agents} = useSimulation();
   return <div className="workspace-stack">
     <div className="run-grid">
-      <Card title={task ? "Execution graph · " + task.id : "Pipeline preview · no execution yet"}>
-        <AgentRelationshipGraph task={task} agents={agents}/>
+      <Card title={task ? "Execution graph · " + runTitle(task) : "Pipeline preview · no execution yet"}>
+        <AgentRelationshipGraph key={task?.id ?? "preview"} task={task} agents={agents}/>
       </Card>
       <Card title="Simulation details & final result"><TaskDetailsPanel task={task}/></Card>
     </div>

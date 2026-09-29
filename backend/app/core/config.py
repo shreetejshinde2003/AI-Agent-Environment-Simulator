@@ -44,6 +44,8 @@ class Settings(BaseSettings):
     # Local default is SQLite. A supplied PostgreSQL URL activates psycopg;
     # never put production credentials in this source file.
     DATABASE_URL: str = "sqlite:///./simulator.db"
+    # Optional private runtime directory containing the six benchmark JSON files.
+    BENCHMARK_DATA_DIR: str | None = None
 
     # ------------------------------------------------------------------
     # USER-DEFINED — LLM provider

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import ReactFlow, { Background, Controls, Handle, Position } from "reactflow";
 import "reactflow/dist/style.css";
 import "./AgentRelationshipGraph.css";
-const ORDER = ["research", "data", "analysis", "summarizer", "report"];
+import { graphPath } from "../../utils/runs";
 function StageNode({data}) {
   return <button type="button" onClick={data.onInspect} className={"pipeline-node state-" + data.status}>
     <Handle type="target" position={Position.Top}/>
@@ -15,13 +15,11 @@ const NODE_TYPES = {stage: StageNode};
 export default function AgentRelationshipGraph({task, agents = []}) {
   const [inspectId, setInspectId] = useState(null);
   const {nodes, edges} = useMemo(() => {
-    const sequence = task?.stages?.map(s => s.agentId) ?? ORDER;
     const stageMap = Object.fromEntries((task?.stages ?? []).map(s => [s.agentId, s]));
     const running = task?.status === "in_progress";
     const orchestration = running ? "active" : task?.status === "completed" ? "completed" :
       task?.status === "failed" ? "failed" : "waiting";
-    const isFixed = !task || ["fixed", "full_pipeline"].includes(task.executionMode);
-    const ids = ["goal", ...(isFixed ? ["orchestrator"] : []), ...sequence, "result"];
+    const ids = graphPath(task);
     const nodes = ids.map((id, i) => ({
       id, type: "stage", position: {x: 120, y: i * 122},
       data: {label: id === "goal" ? "User Goal" : id === "result" ? "Final Result" :

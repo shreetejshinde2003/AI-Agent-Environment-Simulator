@@ -48,8 +48,12 @@ async def metrics():
             lastExecution=stages[-1].model_dump(mode="json") if stages else None,
         ))
     return {"summary": aggregate(), "agents": by_agent, "history": [
-        dict(id=r.id, createdAt=(r.created_at or r.started_at).isoformat(), status=r.status.value,
+        dict(id=r.id, title=r.title, createdAt=(r.created_at or r.started_at).isoformat(), status=r.status.value,
              executionMode=r.execution_mode.value, invocationCount=sum(s.started_at is not None for s in r.stages),
+             taskType=r.task_type, datasetId=r.dataset_id, handoffCount=r.handoff_count,
+             selectedAgentIds=[s.agent_id for s in r.stages],
+             skippedAgentIds=list(r.route_plan.skipped_agent_ids) if r.route_plan else [],
+             models=sorted({s.model for s in r.stages if s.model}),
              duration=r.elapsed_seconds,
              tokens=sum(s.total_tokens for s in r.stages if s.total_tokens is not None)
              if any(s.total_tokens is not None for s in r.stages) else None)
@@ -81,7 +85,7 @@ async def export_simulation(simulation_id: str, format: str = "json"):
         content = json.dumps(view(task), ensure_ascii=False, indent=2)
         media = "application/json"
     elif format == "txt":
-        content = f"Simulation {task.id}\nDirective: {task.directive}\nStatus: {task.status.value}\n\n"
+        content = f"Simulation {task.id}\nTitle: {task.title}\nDirective: {task.directive}\nStatus: {task.status.value}\n\n"
         content += task.output or task.error or ""
         media = "text/plain"
     elif format == "csv":

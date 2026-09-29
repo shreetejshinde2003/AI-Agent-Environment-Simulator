@@ -50,6 +50,44 @@ does not establish survival of deletion or loss of the PostgreSQL service itself
 The six benchmark JSON files have not been verified as provisioned in production.
 They remain separate from the operational PostgreSQL database.
 
+## Private benchmark provisioning — Phase 3.3
+
+**COMPLETED locally:** the existing registration CLI and runtime context loader
+both honor server-only `BENCHMARK_DATA_DIR`. If absent, they use the repository's
+`data/benchmark/` directory. This setting does not change `DATABASE_URL` or Groq.
+**PARTIAL:** production file provisioning; no Railway settings were changed by
+this implementation. PostgreSQL registry metadata alone does not contain the raw
+files. Creation revalidates the selected local file and checksum before bounded,
+non-personal aggregates enter the pipeline. Missing/changed files fail honestly.
+
+Later deployment-admin procedure:
+
+1. On the backend service, attach a private persistent volume at a dedicated path
+   such as `/app-benchmarks` (not the code directory). This is for benchmark files,
+   not operational PostgreSQL records. Restrict access to authorized team members.
+2. Privately transfer the six approved `employee_small/medium/large.json` and
+   `hr_small/medium/large.json` files into that mounted directory using the team's
+   authorized container/volume access. Do not put them in public Git, build logs,
+   a public download URL, frontend assets or an unauthenticated upload endpoint.
+   If no secure transfer channel is available, stop provisioning; this app does
+   not supply one or download from Drive automatically.
+3. Set backend `BENCHMARK_DATA_DIR=/app-benchmarks`. Retain the private PostgreSQL
+   `DATABASE_URL` binding; do not print credentials. Redeploy to apply the setting.
+4. In the **running backend container**, from its backend working directory, run
+   `python -m app.datasets.cli register`. Use the same environment/database as
+   the service. A local shell with production variables does not gain access to
+   the container's mounted files. All six files and prefix relations are validated
+   before the metadata transaction; registration is idempotent for unchanged files.
+5. Verify `GET /api/v1/datasets` lists six active metadata entries and the UI lists
+   Employee/HR · Small/Medium/Large. No raw values belong in labels or API results.
+   Verify file availability again after backend redeploy. Re-register intentionally
+   changed approved files; do not bypass checksum validation.
+
+The frontend explicitly explains an empty registry instead of showing unusable
+grey choices. A volume is required only for private files (or a future private
+object-source loader), not for PostgreSQL run durability. No new infrastructure
+or public registration endpoint was added.
+
 ## Switching and limitations
 
 Changing `DATABASE_URL` switches databases; it does not automatically copy

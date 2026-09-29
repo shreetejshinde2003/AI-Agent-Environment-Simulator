@@ -90,8 +90,14 @@ def validate_dataset(path: Path, dataset_id: str):
     }
 
 
-def register_all(repository, base_dir: Path = BENCHMARK_DIR):
+def benchmark_directory() -> Path:
+    from app.core.config import settings
+    return Path(settings.BENCHMARK_DATA_DIR).expanduser().resolve() if settings.BENCHMARK_DATA_DIR else BENCHMARK_DIR
+
+
+def register_all(repository, base_dir: Path | None = None):
     """Validate all inputs before changing registry state; raw rows stay on disk."""
+    base_dir = base_dir if base_dir is not None else benchmark_directory()
     validated = []
     family_rows = {}
     for family in FAMILIES:
@@ -114,7 +120,8 @@ def register_all(repository, base_dir: Path = BENCHMARK_DIR):
     return validated
 
 
-def context_for_dataset(record: dict, base_dir: Path = BENCHMARK_DIR):
+def context_for_dataset(record: dict, base_dir: Path | None = None):
+    base_dir = base_dir if base_dir is not None else benchmark_directory()
     if not record["active"]:
         raise ValueError("Benchmark dataset is inactive")
     dataset_id = record["dataset_id"]

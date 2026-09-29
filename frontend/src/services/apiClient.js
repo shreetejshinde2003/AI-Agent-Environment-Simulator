@@ -11,7 +11,7 @@ async function request(path, options = {}) {
   if (!response.ok) {
     let detail;
     try { detail = (await response.json()).detail; } catch { /* generic safe error */ }
-    throw new Error(typeof detail === "string" ? detail : "Request failed (" + response.status + ")");
+    throw new Error(typeof detail === "string" ? detail : detail?.message || "Request failed (" + response.status + ")");
   }
   return response.json();
 }

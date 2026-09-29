@@ -26,8 +26,9 @@ and isn't necessary.
 
 from datetime import datetime
 from enum import Enum
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator, computed_field
 from pydantic.alias_generators import to_camel
 
 
@@ -206,6 +207,27 @@ class DatasetMetadata(CamelModel):
     quality: DatasetQuality
 
 
+class RoutePlan(CamelModel):
+    """Versioned deterministic routing metadata, never model reasoning."""
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    router_version: Literal["rules-v1"] = "rules-v1"
+    execution_mode: Literal["adaptive"] = "adaptive"
+    task_type: str
+    selected_agent_ids: tuple[str, ...]
+    skipped_agent_ids: tuple[str, ...]
+    required_capabilities: tuple[str, ...]
+    available_inputs: tuple[str, ...]
+    reasons: tuple[str, ...]
+    validation_status: Literal["valid", "invalid"]
+    validation_error: str | None = None
+
+
+def display_title(directive: str, title: str | None = None) -> str:
+    """Stable literal excerpt, not a claim of semantic summarization."""
+    text = " ".join((title or "").split()) or " ".join(directive.split()) or "Untitled simulation"
+    return text if len(text) <= 80 else text[:77].rstrip() + "…"
+
+
 class Task(CamelModel):
     id: str                        # e.g. "T-1024"
     directive: str                 # instruction given to the agent
@@ -243,6 +265,24 @@ class Task(CamelModel):
     benchmark_context: str | None = None
     evaluation_scores: dict[str, float] | None = None
     input_error: InputContractFailure | None = None
+    title: str | None = None
+    route_plan: RoutePlan | None = None
+
+    @model_validator(mode="after")
+    def readable_title(self):
+        self.title = display_title(self.directive, self.title)
+        return self
+
+    @computed_field
+    @property
+    def agent_invocation_count(self) -> int:
+        # Started stage attempts, not proof a provider request reached Groq.
+        return sum(stage.started_at is not None for stage in self.stages)
+
+    @computed_field
+    @property
+    def handoff_count(self) -> int:
+        return len(self.messages)
 
     @field_validator("execution_mode", mode="before")
     @classmethod
@@ -295,6 +335,7 @@ class CreateAgentRequest(CamelModel):
 
 class CreateTaskRequest(CamelModel):
     directive: str = Field(min_length=1, max_length=10000)
+    title: str | None = Field(default=None, max_length=120)
     assigned_agent_id: str | None = None
     priority: TaskPriority = TaskPriority.MEDIUM
     execution_mode: TaskExecutionMode = TaskExecutionMode.SINGLE_AGENT

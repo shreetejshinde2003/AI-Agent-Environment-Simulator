@@ -3,9 +3,10 @@ import Modal from "../common/Modal";
 import Button from "../common/Button";
 import { apiClient } from "../../services/apiClient";
 import { useSimulation } from "../../context/SimulationContext";
+import { datasetOptions, DATASET_EMPTY } from "../../utils/runs";
 import "./AgentActionForms.css";
 export default function CreateTaskModal({agents, onClose}) {
-  const {selectTask, refresh} = useSimulation();
+  const {openCreatedRun} = useSimulation();
   const [directive, setDirective] = useState("");
   const [executionMode, setExecutionMode] = useState("fixed");
   const [assignedAgentId, setAgent] = useState("research");
@@ -39,10 +40,10 @@ export default function CreateTaskModal({agents, onClose}) {
     event.preventDefault(); setBusy(true); setError(null);
     try {
       const run = await apiClient.createTask({directive: directive.trim(), executionMode,
-        assignedAgentId: executionMode === "fixed" ? "orchestrator" : executionMode === "single" ? "direct" : assignedAgentId,
+        assignedAgentId: ["fixed", "adaptive"].includes(executionMode) ? "orchestrator" : executionMode === "single" ? "direct" : assignedAgentId,
         uploadIds: executionMode === "single_agent" ? [] : uploads.map(u => u.id),
         datasetId: datasetId || null, taskType: taskType.trim() || null});
-      await refresh(); selectTask(run.id); onClose();
+      openCreatedRun(run); onClose();
     } catch (err) { setError(err.message); }
     finally { setBusy(false); }
   }
@@ -54,9 +55,10 @@ export default function CreateTaskModal({agents, onClose}) {
           onChange={e => setDirective(e.target.value)} autoFocus
           placeholder="What should the agents accomplish?"/></div>
       <div className="form-field"><label htmlFor="task-execution-mode">Execution mode</label>
-        <select id="task-execution-mode" value={executionMode} onChange={e => setExecutionMode(e.target.value)}>
+        <select id="task-execution-mode" value={executionMode} onChange={e => { setExecutionMode(e.target.value); setTaskType(""); }}>
           <option value="fixed">Fixed Multi-Agent Pipeline</option>
           <option value="single">Single Agent · Direct Baseline</option>
+          <option value="adaptive">Adaptive Multi-Agent · Rule-based</option>
           <option value="single_agent">Individual Specialist · Legacy</option>
         </select></div>
       {executionMode === "single_agent" ? <div className="form-field">
@@ -65,10 +67,11 @@ export default function CreateTaskModal({agents, onClose}) {
         </select><p className="muted">Web Search is not implemented. Orchestrator is a coordinator, not an executable agent.</p>
       </div> : <>
         <p className="muted">{executionMode === "fixed" ? "Research → Data → Analysis → Summarizer → Report" :
-          "One direct-answer model call. No specialist handoffs. Adaptive routing is not implemented yet."}</p>
+          executionMode === "adaptive" ? "Deterministic capability selection. Only selected specialists execute; no routing model call." :
+          "One direct-answer model call. No specialist handoffs."}</p>
         <div className="form-field"><label htmlFor="context-files">Optional reference data · TXT, CSV, JSON</label>
           <input id="context-files" type="file" accept=".txt,.csv,.json" multiple disabled={busy || uploads.length >= 3} onChange={uploadFiles}/>
-          <p className="muted">Up to 3 files, 256 KiB each. {executionMode === "fixed" ? "Research and Data" : "The Direct Agent"} receives prepared context: up to 6,000 characters/file and 20 CSV rows.
+          <p className="muted">Up to 3 files, 256 KiB each. Selected agents receive prepared context: up to 6,000 characters/file and 20 CSV rows.
             This is a shared workspace—do not upload confidential data or credentials.</p>
         </div>
         {uploads.map(u => <div key={u.id} className="upload-preview">
@@ -77,22 +80,29 @@ export default function CreateTaskModal({agents, onClose}) {
           <button type="button" disabled={busy} onClick={() => setUploads(previous => previous.filter(v => v.id !== u.id))}>Detach</button>
         </div>)}
       </>}
-      <div className="form-field"><label htmlFor="benchmark-dataset">Benchmark dataset · optional</label>
-        <select id="benchmark-dataset" value={datasetId} onChange={e => setDatasetId(e.target.value)}
+      <div className="form-field"><p>Benchmark dataset · optional</p>
+        {!!datasetOptions(datasets).length && <label htmlFor="benchmark-dataset">Registered datasets</label>}
+        {!!datasetOptions(datasets).length && <select id="benchmark-dataset" value={datasetId} onChange={e => setDatasetId(e.target.value)}
           disabled={busy || !datasets?.some(item => item.active)}>
           <option value="">None</option>
-          {datasets?.filter(item => item.active).map(item =>
-            <option key={item.datasetId} value={item.datasetId}>
-              {item.name} · {item.recordCount} records
+          {datasetOptions(datasets).map(item =>
+            <option key={item.id} value={item.id}>
+              {item.label}
             </option>)}
-        </select>
+        </select>}
         <p className="muted">{datasetError ? "Benchmark registry unavailable." : datasets === null ?
           "Loading registered datasets…" : datasets.length === 0 ?
-          "No benchmark datasets registered on this server." : !datasets.some(item => item.active) ?
+          DATASET_EMPTY : !datasets.some(item => item.active) ?
           "No active benchmark datasets on this server." :
           "Only bounded, non-personal aggregates reach agents; raw records stay on the server."}</p>
       </div>
-      {datasetId && <div className="form-field"><label htmlFor="task-type">Task type · optional</label>
+      {executionMode === "adaptive" ? <div className="form-field"><label htmlFor="task-type">Task category</label>
+        <select id="task-type" value={taskType} onChange={e => setTaskType(e.target.value)}>
+          <option value="">Infer from goal and supplied context</option>
+          {["summarization", "transformation", "analysis", "reporting", "research_synthesis", "structured_data_analysis", "mixed"].map(type =>
+            <option key={type} value={type}>{type.replaceAll("_", " ")}</option>)}
+        </select><p className="muted">An explicit category overrides keyword inference. Summarization needs an attachment, benchmark, or a new line beginning “Source:” followed by the material.</p>
+      </div> : datasetId && <div className="form-field"><label htmlFor="task-type">Task type · optional</label>
         <input id="task-type" maxLength={80} value={taskType} onChange={e => setTaskType(e.target.value)}
           placeholder="e.g. descriptive_summary"/>
       </div>}

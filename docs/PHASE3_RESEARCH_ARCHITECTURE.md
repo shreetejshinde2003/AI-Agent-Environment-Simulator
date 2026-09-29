@@ -1,18 +1,21 @@
 # Phase 3 research architecture
 
 Status: Phase 3.1 **COMPLETED** and production-verified at `8f0a489`.
-Phase 3.2 specialist contracts are **COMPLETED locally** pending deployment
-verification. Design baseline: `cc181e6` (Phase 2 implementation `ef27951`).
-Single/fixed execution and PostgreSQL restart durability are production-verified;
-adaptive routing and formal evaluation are **NOT IMPLEMENTED**.
+Phase 3.2 contracts are **COMPLETED**, production-verified at `2c80606` as reported
+by the project team. Phase 3.3 rule-based Adaptive execution and focused run UX
+are **COMPLETED locally**; their production rollout remains **PARTIAL**.
+Formal evaluation and LLM-based routing are **NOT IMPLEMENTED**.
 
 Phase 3.1 uses one `executionMode` field: `single` (neutral Direct Agent),
-`fixed` (the unchanged five-stage sequence), or `adaptive` (explicitly rejected
-with HTTP 501). Legacy `full_pipeline` inputs and snapshots normalize to `fixed`;
+`fixed` (the unchanged five-stage sequence), or `adaptive` (now operational with
+the deterministic `rules-v1` planner). Legacy `full_pipeline` inputs and snapshots normalize to `fixed`;
 legacy `single_agent` remains a separate individual-specialist compatibility
 action, never a research baseline. Existing v2 string/JSON storage accepts these
 values without a schema migration. The mode is persisted and included in task
-responses, run events and metric history. No scores or routing plans exist yet.
+responses, run events and metric history. Adaptive route plans now exist; scores
+remain unset. The later research/evaluation sections below are a design, not
+claims of completed experiments. The Phase 3.3 implementation section supersedes
+earlier prospective planner/UI wording.
 
 ## 1. Current architecture: code-level findings
 
@@ -20,10 +23,10 @@ responses, run events and metric history. No scores or routing plans exist yet.
 |---|---|---|
 | Creation/mode | `backend/app/api/routes/tasks.py:create_task` handles `/tasks`; `/simulations` delegates to it. `executionMode` accepts `single`, `fixed`, `adaptive` and legacy `single_agent`; legacy `full_pipeline` maps to `fixed`. The UI defaults to fixed. | Existing `single_agent` means one selected specialist, **not** a controlled direct-answer baseline. |
 | Execution | `_run_task` uses FastAPI `BackgroundTasks`; `_run_pipeline` loops over the fixed five-stage tuple; `_run_stage` calls `agent.run(directive, context)` and stops on failure. | Reuse this lifecycle and stage executor with a validated plan; do not create three disconnected engines. One worker remains a constraint. |
-| Prompt/handoff | `ExecutionContext` now carries the original directive, bounded reference context and real prior outputs with producer IDs. `contracts.py` binds each specialist to its preferred available artifact; the coordinator still records the fixed path's exact handoffs. | An agent may consume a supported alternative without inventing a skipped output. Route selection and execution remain future work. |
+| Prompt/handoff | `ExecutionContext` carries the original directive, bounded reference context and real prior outputs with producer IDs. `contracts.py` binds each specialist to its preferred available artifact. | Fixed exact handoffs are preserved; Adaptive now uses supported alternatives without inventing skipped outputs. |
 | Measurements | `BaseAgent.run` and `llm_client.call_llm` capture model/usage; a request-local `ContextVar` writes tokens/model into `StageExecution`. `_run_stage` measures stage duration; `_run_task` measures wall time. `simulations.py` aggregates persisted runs. | Separate stage attempts from confirmed provider calls. `call_llm` currently substitutes zero when a successful response has no usage block; treat that as unknown before a formal token comparison. `call_llm` passes no temperature/seed, so repeatability is not controlled yet. |
 | Persistence/events | `storage/database.py` transactionally saves a compatible Task JSON snapshot plus v2 relational projections. `storage/models.py` has simulations, tasks, stages, messages, events, metrics, uploads and dataset registry. `emit`, `record_message`, `record_activity` persist before `manager.broadcast`; `/ws/live` sends `{event,data,timestamp}`. | Keep one authoritative run record and event stream; new experiment metadata needs versioned storage, not a second hidden store. REST remains authoritative after reconnect. |
-| Graph/UI | `AgentRelationshipGraph.jsx` uses persisted stages and omits the coordinator for single/legacy specialist runs; the no-task preview still shows the fixed path. Task details/history label the stored mode. Per-agent metrics include Direct Agent; run history includes invocation count. | Adaptive selected/skipped topology remains future work. |
+| Graph/UI | `AgentRelationshipGraph.jsx` uses persisted stages; the no-task preview still shows the fixed path. Task details/history label the stored mode. | Adaptive now renders only selected stages and a separate routing trace; new-run selection and readable run picker are implemented. |
 | Datasets | `dataset_id`, checksum, `task_type` and bounded aggregate `benchmark_context` are attached at creation. `datasets/registry.py` validates six Git-ignored JSON inputs and excludes individual/protected fields from agent context. | Current HR experiments are aggregate-level. Raw-row extraction, full-dataset reasoning and context-size experiments are **not** supported by this bounded context. Production provisioning of the six files is **PARTIAL**. |
 
 `agents/orchestrator.py` is an inactive LangGraph prototype, not the execution
@@ -44,7 +47,7 @@ section could invite an unsupported answer. The new contracts are:
 | Research | knowledge research; `research_findings` | Original directive | Prepared upload, safe benchmark aggregates, internal source text | Works from directive; no browsing claim. |
 | Data | structure/extract; `structured_data` | Original directive | `research_findings`, prepared upload, benchmark aggregates, source text; prefer findings | Works from facts in directive or supplied data; does not invent findings. |
 | Analysis | analyze/compare/reason; `insights` | Original directive | `structured_data`, `research_findings`, prepared upload, benchmark aggregates, source text; prefer structured data, then findings | May reason from directive; states evidence limits when needed. |
-| Summarizer | summarize; `summary` | Original directive **and one actual source** | `insights`, `structured_data`, `research_findings`, prepared upload, benchmark aggregates, source text; prefer in that order | A future adaptive context without a source fails before a model call. Legacy individual-specialist mode still permits source material embedded in its directive. |
+| Summarizer | summarize; `summary` | Original directive **and one actual source** | `insights`, `structured_data`, `research_findings`, prepared upload, benchmark aggregates, source text; prefer in that order | Adaptive context without a source fails before a model call. Legacy individual-specialist mode still permits source material embedded in its directive. |
 | Report | report/synthesize; `final_report` | Original directive | `summary`, `insights`, `structured_data`, `research_findings`, prepared upload, benchmark aggregates, source text; prefer in that order | May answer from directive when evidence permits; cannot claim skipped work. |
 | Direct baseline | direct answer; `final_answer` | Original directive | Prepared upload, benchmark aggregates | Remains a single model invocation; never calls specialists. |
 
@@ -70,14 +73,178 @@ Missing required material raises `AgentInputError` with safe code, agent ID and
 missing input names. The task/stage snapshots persist this detail in optional
 `inputError` fields alongside the existing failure status and message. No SQL
 schema migration was needed; old snapshots load with null `inputError`. The
-optional `RouteSelection` can distinguish selected from skipped agents, while
-actual stage rows identify executed/failed work. It is not persisted or exposed
-as a runnable route yet, and current fixed/single runs create no skipped rows.
+optional `RouteSelection` distinguishes selected from skipped agents, while
+actual stage rows identify executed/failed work. Phase 3.3 derives it from the
+persisted `RoutePlan`; fixed/single runs still create no skipped rows.
 Validated examples such as Data → Analysis → Report, Research → Analysis →
 Report, and Summarizer → Report are **structurally ready** when their required
-source exists. Phase 3.3 still needs a validated plan, selected/skipped reasons,
-persistent experiment metadata and a runner that executes that plan. The
-`adaptive` API continues to return HTTP 501.
+source exists. Phase 3.3 adds a validated plan and reuses the stage runner;
+`adaptive` no longer returns the not-implemented response.
+
+## Phase 3.3 implementation: deterministic Adaptive and run UX
+
+### Audit findings and execution boundary
+
+`tasks.py` already centralizes creation, bounded context preparation, stage
+execution, failure handling, persistence and WebSocket broadcasts. Fixed's five
+tuples remain unchanged; `_run_sequence` is the shared actual-output/handoff loop
+for Fixed and Adaptive. Single and legacy specialists retain `_run_stage`.
+No agent prompts, provider settings or deployment architecture changed.
+
+`routing.py` is a pure, versioned planner. It inspects normalized directive
+instructions, explicit task category, attachment formats and benchmark presence.
+Uploaded prose is not searched for routing instructions. Inline source material
+is recognized only after a line-start `Source:`/`Text:` delimiter and excluded
+from keyword inference. It remains the same original directive for all modes.
+
+### Taxonomy and deterministic rules (`rules-v1`)
+
+| Category | Required capabilities, in addition to final `report` |
+|---|---|
+| `summarization` | summarize |
+| `transformation` | structure (Data also declares extract) |
+| `analysis` | analyze (Analysis also declares compare/reason) |
+| `structured_data_analysis` | structure + analyze |
+| `research_synthesis` | knowledge_research; no browsing |
+| `reporting` | final report only |
+| `mixed` | union of detected requirements; if none, analyze + summarize |
+
+An explicit documented `taskType` overrides inferred intent; unknown adaptive
+types return 422. Otherwise whole-word signal groups detect summary/compression,
+extraction/transformation, analysis/comparison/reasoning, and research/explanation.
+Multiple groups produce `mixed`. CSV/JSON attachments or benchmark aggregates
+add structure to analysis; absent intent signals they default to structured-data
+analysis. Without structured data, report/draft/write defaults to reporting;
+other unknown requests default to research synthesis. These fallbacks are
+recorded category decisions, not a fallback to Fixed. A pure supplied-material
+summary selects Summarizer → Report without Data just because the source is JSON.
+
+Required capabilities select their providers from the existing contract registry,
+in Research/Data/Analysis/Summarizer/Report dependency order. Report is always
+selected for final presentation. This constructs ordered subsets, not a lookup
+table of three canned routes. For example Analysis → Report, Data → Report,
+Research → Summarizer → Report, and Report alone are possible. No Direct or
+Web Search route is allowed. Rules are English keyword heuristics, not semantic
+understanding, learned routing, or autonomous planning. Negation, indirect goals,
+and multilingual requests can be misclassified; explicit categories provide a
+documented override, not proof of routing accuracy.
+
+### Plan, validation and truthful state
+
+The frozen camelCase `RoutePlan` records `routerVersion`, `executionMode`,
+`taskType`, `selectedAgentIds`, `skippedAgentIds`, `requiredCapabilities`,
+`availableInputs`, `reasons`, `validationStatus`, and `validationError`.
+The enclosing immutable simulation ID identifies the run/plan; no second plan
+database is needed. Available input names come from prepared, validated context.
+Reasons are short system rule explanations, not hidden model chain-of-thought.
+
+Validation tracks input/output **names only**, checking unique implemented
+specialists, supported order, exact selected/skipped partition, final Report,
+required capabilities and each contract's required/all-or-any source conditions.
+It never fabricates placeholder artifact text. Missing Summarizer source with
+no earlier producer is rejected before persistence/model execution using
+`422 detail={code: invalid_route, message, routePlan}`. Unsupported explicit
+categories return the same code/message without a plan. There is no automatic
+repair or silent full-chain fallback. Execution revalidates the stored plan
+and exact stage list before invoking agents; corruption fails truthfully.
+
+Only selected specialists have stage rows: waiting means selected/not yet run;
+active/completed/failed describe actual execution. Skipped IDs live only in the
+plan and do not count as calls, tokens or progress. Real outputs enter immutable
+`ExecutionContext.with_output` with producer IDs; neighbor handoffs carry those
+exact outputs. The actual Report output becomes `task.output`. On failure,
+downstream selected stages remain waiting; completed ones stay completed.
+
+`route_planned` follows `simulation_created`, before execution. Existing
+task_created/task_updated carry the complete plan; stage/message/activity and
+terminal events keep their existing envelope and persistence-before-broadcast
+behavior. Graph topology comes from backend stages; skipped agents appear only
+in the trace, never as successful nodes. Adaptive has Goal → selected stages →
+Result, with the non-LLM planner described in the trace rather than a fake stage.
+
+### Persistence, metrics and compatibility
+
+`Task.title` and optional `routePlan` use the existing version-2 JSON/JSONB run
+snapshot; normalized stages/messages/events still hold actual execution state.
+No migration or table change is necessary. Old records derive a title from the
+directive and have no invented route. IDs and execution-mode semantics remain
+unchanged, including legacy Individual Specialist as a non-research utility.
+Existing JSON export includes the plan; TXT adds title; CSV remains real stages.
+
+Task/API updates expose `agentInvocationCount` (started stage attempts, not
+confirmed HTTP calls) and `handoffCount`. Metrics history also includes title,
+task type, dataset ID, selected/skipped IDs and actual recorded model names.
+Tokens/latency remain measured stage/run fields; skipped work adds nothing.
+No cost estimates or quality scores are introduced. Experiment groups, repeat
+numbers, evaluator provenance and comparative analysis remain future work.
+
+### Simulation-run UX and benchmark path
+
+The old modal awaited `refresh()`, but an already-busy refresh returned early;
+selection could then be replaced by an older task list. Creation now immediately
+accepts the actual server response into run state, selects its ID, and opens the
+workspace, before refreshing. Merging retains acknowledged runs omitted by stale
+responses and rejects snapshots with fewer recorded events. This assumes the
+current no-delete API; a future deletion API needs explicit removal handling.
+
+Titles are literal normalized directive excerpts (80 characters maximum), or an
+optional user-supplied API title; no semantic/title model call. IDs remain in
+details, picker secondary text, API and exports. The native disclosure-based run
+picker supports search, newest-first ordering, mode/status/time labels, keyboard
+selection/Escape and a scrollable list. Workspace subtitles are mode-aware.
+
+Benchmark flow remains: private six JSON files → strict family/schema/prefix
+validation → operational registry metadata → checksum-verified bounded aggregate
+context at run creation → real agent inputs. The directory is now configurable
+through server-only `BENCHMARK_DATA_DIR`, defaulting to `data/benchmark/`.
+Both the existing registration CLI and context loader use it. No second registry,
+raw-row ingestion or public registration API was introduced. Empty deployments
+explain that an administrator must provision/register files; active options use
+Employee/HR · Small/Medium/Large labels. Private production file provisioning is
+still **PARTIAL**; see [exact setup steps](PHASE2_DATABASE_DEPLOYMENT.md#private-benchmark-provisioning--phase-33).
+
+### Research/product references (reviewed 2026-09-29)
+
+These are general patterns, not copied interfaces or implemented feature claims:
+
+- [FutureAGI simulation overview](https://docs.futureagi.com/docs/simulation/):
+  keep simulation runs and evaluation distinct; a saved trace is evidence, not
+  an invented quality score. Search-indexed documentation was available; direct
+  overview retrieval timed out during review.
+- [LangWatch Scenario blackbox testing](https://scenario-docs.langwatch.ai/testing-guides/blackbox-testing/):
+  inspect actual trajectories as well as final text; retain API-level integration
+  tests separately from cheap deterministic unit tests.
+- [Talkdesk Simulator](https://support.talkdesk.com/hc/en-us/articles/52487140094875-AI-Agent-Platform-Simulator):
+  test orchestration before publishing and retain inspectable run identifiers.
+  We expose concise rules and real handoffs, not private model reasoning.
+- [OpenTrain agent simulations](https://www.opentrain.ai/solutions/agent-simulations/):
+  scenario design and trajectory review are explicit research tasks. This is a
+  service/talent reference, not a hidden execution backend; our team owns both.
+- [UCP Tools simulator workflow](https://ucptools.dev/guides/fastucp): validate
+  declared capabilities before exercising the actual path. Commerce is not scope.
+- [Oracle HR agents](https://www.oracle.com/human-capital-management/human-resources/)
+  and [Workforce Next HR/recruiting](https://wfnext.com/ai-agent-hr-recruiting/):
+  illustrate domain-context/workflow integration, not a reason to copy recruiting
+  automation. This project remains developer/research-facing. HR is an aggregate
+  benchmark domain; individual hiring, rejection or employee ranking is excluded.
+
+### Validation and remaining gates
+
+Deterministic backend tests cover category/rule normalization, explicit overrides,
+contract rejection, selected order, real artifact propagation, skipped zero calls,
+failure stop/persistence, route reload, API/exports/events, real specialist prompt
+binding with mocked provider responses, private-directory registry and protected
+field exclusions. Existing Single/Fixed/legacy and SQLite/PostgreSQL-compatibility
+tests remain. Frontend tests cover stale refresh merges, labels, actual topology
+and dataset options/empty state. An isolated localhost browser smoke uses a
+temporary database and conspicuously labeled mock outputs, never production data.
+
+**PARTIAL:** production Adaptive verification, private benchmark provisioning,
+scientific route accuracy/quality evidence. No live PostgreSQL or Groq call was
+made for Phase 3.3; deterministic tests do not establish deployed integration or
+answer quality. **NOT IMPLEMENTED:** LLM router, evaluation engine, adaptive
+branching/replanning, LangGraph execution, auth, Web Search, pause/cancel, retries.
+One worker/in-process BackgroundTasks and existing input limits remain.
 
 ## 2. Research question and three execution modes
 
@@ -90,9 +257,9 @@ Treat these as hypotheses to test, not expected improvements.
 |---|---|---|
 | Single baseline | Goal → one neutral direct-answer model call → Result | **COMPLETED** as `single`, using the Direct Agent and the same bounded uploaded/benchmark context as fixed mode. Legacy `single_agent` remains a specialist action, not this baseline. |
 | Fixed | Goal → Research → Data → Analysis → Summarizer → Report → Result | **COMPLETED** as `fixed` (legacy input `full_pipeline` accepted); exact handoffs and failure semantics preserved. |
-| Adaptive | Goal → explicit planner → selected valid specialist stages → Result | **NOT IMPLEMENTED**. Planner is non-executable metadata until a real router and contract-safe runner exist. |
+| Adaptive | Goal → explicit planner → selected valid specialist stages → Result | **COMPLETED locally** with `rules-v1`; planner is deterministic metadata, not an LLM stage. Production verification is **PARTIAL**. |
 
-Future shared interface: `plan(request) -> ExecutionPlan` then
+Shared conceptual interface: `plan(request) -> RoutePlan` then
 `execute(plan, directive, prepared_input) -> persisted Task`. A plan should
 carry mode, ordered stage IDs, each stage's required/produced artifact, selected
 and skipped agents with reasons, router strategy/version, and a final-result
@@ -102,10 +269,9 @@ same result/error shape. Only an executed agent produces a stage result; skipped
 agents are plan decisions, not successful `StageExecution` rows. Keep the
 original directive and identical allowed dataset/upload context across arms.
 
-Phase 3.2 now binds available alternative artifacts: a future Analysis → Report
-path may pass actual `insights` without fabricating `summary`. The future plan
-validator must still reject unsatisfied requirements before execution and
-persist the selected/skipped decisions.
+Phase 3.2 binds available alternative artifacts: Analysis → Report passes actual
+`insights` without fabricating `summary`. Phase 3.3 validates required inputs
+before execution and persists the selected/skipped decisions.
 
 ## 3. Adaptive routing choices and recommendation
 
@@ -263,8 +429,8 @@ actual state transitions. No separate simulated event source.
 Offer clear labels: Direct-answer baseline, Fixed five-agent pipeline,
 Rule-adaptive plan; keep “Individual specialist” as a distinct legacy action.
 For a selected run, render Goal → actual stage(s) → Result in single mode;
-Goal → Coordinator (non-LLM) → all five in fixed mode; and Goal → Coordinator
-→ only selected stages → Result in adaptive mode. Show skipped agents in a
+Goal → Coordinator (non-LLM) → all five in fixed mode; and Goal
+→ only selected stages → Result in adaptive mode (planner in the trace). Show skipped agents in a
 separate explanation panel, never as completed nodes. Draw edges from the
 validated plan and persisted handoff messages, not the static roster endpoint.
 During execution, status comes from real stage rows; after reconnect, reload
@@ -335,10 +501,10 @@ PostgreSQL or hosting platforms.
 | Checkpoint | Purpose and likely files | Dependency / tests / deliverable / risk / live calls |
 |---|---|---|
 | 3.1 Execution-mode foundation + direct baseline — **COMPLETED** | Canonical mode values, `_execute_mode` dispatch and neutral Direct Agent. | Mocked tests and production single/fixed runs with PostgreSQL restart persistence were verified at `8f0a489`. |
-| 3.2 Typed context + specialist contracts — **COMPLETED locally** | Validated context, artifact provenance and small capability registry; alternative input binding without a router. | Mocked contract/failure tests plus fixed/single regressions. No Groq calls. Production rollout is **PARTIAL** until separately verified. |
-| 3.3 Experiment identity/storage | Versioned migration in `storage/models.py`, `database.py`; additive API fields. | 3.1–3.2. SQLite/PostgreSQL migration and restart tests; deliver queryable experiment IDs and immutable metadata. Risk: historic rows. **Groq: no.** |
-| 3.4 Rule-adaptive router | Capability tags, task features, contract adapters, reasons; no Web Search. | 3.1–3.3. Table-driven routing/handoff/failure tests; deliver honest rule-adaptive paths. Risk: ambiguous tasks or silent context loss. **Groq: small gated smoke set only.** |
-| 3.5 Dynamic visualization | Update modal, graph, details and events to show actual path/skips. | 3.4. Frontend build/lint plus UI tests for all modes/failures/reconnect; deliver true topology. Risk: stale fixed assumptions. **Groq: no.** |
+| 3.2 Typed context + specialist contracts — **COMPLETED** | Validated context, artifact provenance and small capability registry. | Production-regression verified at `2c80606` per team report. |
+| 3.3 Rule-adaptive execution + run UX — **COMPLETED locally** | Capability planner/validator, persisted route, actual selected graph, run picker and private benchmark directory. | Mocked provider/backend tests, frontend tests/build/lint and isolated browser smoke. No Groq calls. Production rollout **PARTIAL**. |
+| 3.4 Experiment identity/storage — future | Add experiment groups/repeats/input hashes only after agreeing the protocol. | 3.3. Safe additive migration if needed; preserve old snapshots. **Groq: no.** |
+| 3.5 Experiment protocol preparation — future | Freeze task cards, route annotations, dataset inputs and bounded quota plan. | 3.4. Deterministic fixture/metadata checks; no invented metrics. **Groq: no.** |
 | 3.6 Evaluation protocol/store | Predeclare task cards, fact references and rubric; implement metric capture/evaluation records and comparison API. | 3.3–3.5. Golden-fixture and blinded-human workflow tests; deliver no fabricated scores. Risk: subjective labels. **Groq: not for unit tests; pilot later.** |
 | 3.7 Failure experiments | Gated deterministic injection and labeled outcomes. | 3.4, 3.6. Mock failures at every boundary; deliver reliable failure evidence without retries. Risk: accidental production exposure. **Groq: no by default.** |
 | 3.8 Comparative dashboard/pilot | Paired mode views and bounded approved live experiment. | All prior gates. End-to-end checks, then explicit quota-limited runs; deliver raw results and limitations. Risk: API budget/provider drift. **Groq: yes, with approval/budget cap.** |

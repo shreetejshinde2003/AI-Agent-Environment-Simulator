@@ -13,7 +13,9 @@ from app.agents.analysis_agent import AnalysisAgent
 from app.agents.summarizer_agent import SummarizerAgent
 from app.agents.report_agent import ReportAgent
 from app.agents.direct_agent import DirectAgent
-from app.agents.execution_context import AgentInputError, ExecutionContext, current_execution
+from app.agents.execution_context import AgentInputError, ExecutionContext, RouteSelection, current_execution
+from app.agents.contracts import CONTRACTS
+from app.agents.routing import inline_source, plan_route, validate_route
 from app.api.routes.messages import record_message
 from app.api.routes.simulation import record_activity, register_task_created, register_task_finished
 from app.core.errors import safe_error
@@ -74,10 +76,6 @@ async def get_task(task_id: str):
 async def create_task(payload: CreateTaskRequest, background_tasks: BackgroundTasks):
     if not payload.directive.strip():
         raise HTTPException(422, "Directive must not be blank")
-    if payload.execution_mode == TaskExecutionMode.ADAPTIVE:
-        raise HTTPException(501, detail={"code": "execution_mode_not_implemented",
-                                         "executionMode": "adaptive",
-                                         "message": "Adaptive execution is not implemented yet."})
     if payload.execution_mode == TaskExecutionMode.SINGLE_AGENT and not payload.assigned_agent_id:
         raise HTTPException(422, "Individual specialist execution requires assignedAgentId")
     uploads = []
@@ -100,21 +98,36 @@ async def create_task(payload: CreateTaskRequest, background_tasks: BackgroundTa
     task_id = f"T-{uuid.uuid4().hex[:12]}"
     is_pipeline = payload.execution_mode == TaskExecutionMode.FIXED
     is_single = payload.execution_mode == TaskExecutionMode.SINGLE
+    is_adaptive = payload.execution_mode == TaskExecutionMode.ADAPTIVE
     sequence = _PIPELINE_STAGES if is_pipeline else (
         ("direct", "final_answer") if is_single else (payload.assigned_agent_id, "output"),
     )
     task = Task(
-        id=task_id, simulation_id=task_id, directive=payload.directive.strip(),
-        assigned_agent_id="orchestrator" if is_pipeline else "direct" if is_single else payload.assigned_agent_id,
+        id=task_id, simulation_id=task_id, directive=payload.directive.strip(), title=payload.title,
+        assigned_agent_id="orchestrator" if is_pipeline or is_adaptive else "direct" if is_single else payload.assigned_agent_id,
         execution_mode=payload.execution_mode, priority=payload.priority,
         status=TaskStatus.QUEUED, started_at=now(), created_at=now(),
         duration_seconds=0, progress_percent=0, uploads=uploads,
         dataset_id=payload.dataset_id, dataset_checksum=dataset_checksum,
         task_type=payload.task_type, benchmark_context=benchmark_context,
-        stages=[StageExecution(agent_id=aid, output_key=key) for aid, key in sequence],
+        stages=[] if is_adaptive else [StageExecution(agent_id=aid, output_key=key) for aid, key in sequence],
     )
+    if is_adaptive:
+        try:
+            plan = plan_route(_prepared_context(task), [u.format for u in uploads])
+            if plan.validation_status != "valid":
+                raise HTTPException(422, detail={"code": "invalid_route", "message": plan.validation_error,
+                                                "routePlan": plan.model_dump(mode="json")})
+        except (ValueError, AgentInputError) as exc:
+            raise HTTPException(422, detail={"code": "invalid_route", "message": str(exc)}) from exc
+        task.route_plan = plan
+        task.task_type = plan.task_type
+        task.stages = [StageExecution(agent_id=aid, output_key=CONTRACTS[aid].output)
+                       for aid in plan.selected_agent_ids]
     _TASKS[task.id] = task
     await emit(task, "simulation_created", "Simulation queued")
+    if task.route_plan:
+        await emit(task, "route_planned", " ".join(task.route_plan.reasons), "orchestrator")
     await manager.broadcast("task_created", task.model_dump(mode="json"))
     await register_task_created()
     await record_activity("orchestrator" if is_pipeline else "simulation",
@@ -169,11 +182,16 @@ async def _run_pipeline(task: Task) -> str:
     context = _prepared_context(task)
     if not task.stages:
         task.stages = [StageExecution(agent_id=aid, output_key=key) for aid, key in _PIPELINE_STAGES]
-    for index, (agent_id, output_key) in enumerate(_PIPELINE_STAGES):
+    return await _run_sequence(task, context, _PIPELINE_STAGES)
+
+
+async def _run_sequence(task: Task, context: ExecutionContext, sequence) -> str:
+    """Shared real handoffs for Fixed and validated Adaptive routes."""
+    for index, (agent_id, output_key) in enumerate(sequence):
         result = await _run_stage(task, task.stages[index], context)
         context = context.with_output(agent_id, result)
-        if index < len(_PIPELINE_STAGES) - 1:
-            next_agent = _PIPELINE_STAGES[index + 1][0]
+        if index < len(sequence) - 1:
+            next_agent = sequence[index + 1][0]
             await record_message(agent_id, next_agent, MessageKind.RESPONSE, result,
                                  task=task, output_key=output_key)
             await emit(task, "message_created", f"{agent_id} → {next_agent}: {output_key}", agent_id)
@@ -191,7 +209,10 @@ def _prepared_context(task: Task) -> ExecutionContext:
     try:
         return ExecutionContext(original_directive=task.directive, execution_mode=task.execution_mode,
                                 task_type=task.task_type, uploaded_context=uploaded_context,
-                                benchmark_context=task.benchmark_context)
+                                benchmark_context=task.benchmark_context,
+                                source_text=inline_source(task.directive) if task.execution_mode == TaskExecutionMode.ADAPTIVE else None,
+                                route=RouteSelection(selected_agents=task.route_plan.selected_agent_ids,
+                                    skipped_agents=task.route_plan.skipped_agent_ids) if task.route_plan else None)
     except ValidationError as exc:
         raise AgentInputError("invalid_context") from exc
 
@@ -208,7 +229,18 @@ async def _execute_mode(task: Task) -> str:
         if not task.stages:
             task.stages = [StageExecution(agent_id=task.assigned_agent_id, output_key="output")]
         return await _run_stage(task, task.stages[0], _prepared_context(task))
-    raise NotImplementedError("Adaptive execution is not implemented yet")
+    if task.execution_mode == TaskExecutionMode.ADAPTIVE:
+        context = _prepared_context(task)
+        if task.route_plan is None:
+            raise ValueError("Adaptive route plan is missing")
+        checked = validate_route(task.route_plan, context)
+        if checked.validation_status != "valid":
+            raise ValueError(checked.validation_error)
+        sequence = tuple((aid, CONTRACTS[aid].output) for aid in checked.selected_agent_ids)
+        if tuple((s.agent_id, s.output_key) for s in task.stages) != sequence:
+            raise ValueError("Adaptive stages do not match the validated route")
+        return await _run_sequence(task, context, sequence)
+    raise ValueError("Unsupported execution mode")
 
 
 async def _run_task(task_id: str) -> None:
@@ -216,7 +248,7 @@ async def _run_task(task_id: str) -> None:
     started = time.perf_counter()
     task.execution_started_at = now()
     task.status = TaskStatus.IN_PROGRESS
-    coordinator = "orchestrator" if task.execution_mode == TaskExecutionMode.FIXED else None
+    coordinator = "orchestrator" if task.execution_mode in (TaskExecutionMode.FIXED, TaskExecutionMode.ADAPTIVE) else None
     await emit(task, "simulation_started", "Simulation started", coordinator)
     try:
         result = await _execute_mode(task)

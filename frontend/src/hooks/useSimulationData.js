@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { apiClient } from "../services/apiClient";
 import { useBackendConnection } from "./useBackendConnection";
 import { useLiveSocket } from "./useLiveSocket";
+import { mergeRuns } from "../utils/runs";
 const EMPTY = {agents: [], tasks: [], metrics: {summary: {}, agents: [], history: []}};
 export function useSimulationData() {
   const health = useBackendConnection();
@@ -16,7 +17,7 @@ export function useSimulationData() {
       try {
         const [agents, tasks, metrics] = await Promise.all([
           apiClient.getAgents(), apiClient.getTasks(), apiClient.getMetrics()]);
-        if (mounted.current) { setData({agents, tasks, metrics}); setError(null); }
+        if (mounted.current) { setData(previous => ({agents, tasks: mergeRuns(tasks, previous.tasks), metrics})); setError(null); }
       } catch (err) { if (mounted.current) setError(err); }
     } while (pending.current && mounted.current);
     busy.current = false;
@@ -28,7 +29,8 @@ export function useSimulationData() {
     return () => { mounted.current = false; clearInterval(timer); };
   }, [refresh]);
   const socketStatus = useLiveSocket(refresh, health === "connected");
-  return {...data, stats: data.metrics.summary, refresh, error, socketStatus,
+  const acceptRun = useCallback(run => setData(previous => ({...previous, tasks: mergeRuns([run], previous.tasks)})), []);
+  return {...data, stats: data.metrics.summary, refresh, acceptRun, error, socketStatus,
     connectionStatus: error ? "disconnected" : health, isDemoMode: false,
     isLoading: health === "connecting"};
 }

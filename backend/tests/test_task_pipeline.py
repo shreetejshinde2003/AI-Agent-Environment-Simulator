@@ -233,12 +233,12 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Records: 294", context)
         for excluded in ("EmployeeID", "Age", "Gender", "Salary", "PerformanceRating"):
             self.assertNotIn(excluded, context)
-    async def test_api_mode_contract_and_adaptive_guard(self):
+    async def test_api_mode_contract_and_invalid_adaptive_guard(self):
         with TestClient(app) as client:
             adaptive = client.post("/api/v1/simulations", json={
-                "directive": "Original goal", "executionMode": "adaptive"})
-            self.assertEqual(adaptive.status_code, 501)
-            self.assertEqual(adaptive.json()["detail"]["code"], "execution_mode_not_implemented")
+                "directive": "Summarize", "executionMode": "adaptive"})
+            self.assertEqual(adaptive.status_code, 422)
+            self.assertEqual(adaptive.json()["detail"]["code"], "invalid_route")
             self.assertEqual(repository.list(), [])
             malformed = client.post("/api/v1/simulations", json={
                 "directive": "Original goal", "executionMode": "other"})
