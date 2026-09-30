@@ -1,14 +1,20 @@
 import { graphPath } from "./runs.js";
+import { recordTarget, selectedRecord, workspaceRecords } from "./eventRecords.js";
 
 // UI targets contain identities only. Run content always comes from the latest
 // authoritative Task snapshot; switching runs cannot carry an old object over.
-export function resolveInspectorTarget(task, selection) {
+export function resolveInspectorTarget(task, selection, records) {
   if (!task || selection?.runId !== task.id) return null;
+  if (selection.recordKey) {
+    const row = selectedRecord(task, selection, records ?? workspaceRecords(task));
+    return row ? recordTarget(task, row) : null;
+  }
   const target = selection.target;
   if (!target) return null;
   if (target.kind === "stage" && task.stages?.some(stage => stage.agentId === target.id)) return target;
   if (target.kind === "handoff" && task.messages?.some(message => message.id === target.id)) return target;
   if (target.kind === "route" && task.executionMode === "adaptive" && task.routePlan) return target;
+  if (target.kind === "event" && (target.source === "activity" ? task.activities : task.events)?.some(record => record.id === target.id)) return target;
   if (["goal", "result", "orchestrator"].includes(target.kind) && graphPath(task).includes(target.kind)) return target;
   return null;
 }

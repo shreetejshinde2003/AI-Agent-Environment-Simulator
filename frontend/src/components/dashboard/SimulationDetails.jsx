@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSimulation } from "../../context/SimulationContext";
 import AgentRelationshipGraph from "./AgentRelationshipGraph";
 import RunPicker from "./RunPicker";
-import SimulationTimeline from "./SimulationTimeline";
+import ContextualEvents from "./ContextualEvents";
 import WorkspaceInspector from "./WorkspaceInspector";
 import { modeLabel, runTitle } from "../../utils/runs";
 import { canvasPath } from "../../utils/graphPresentation";
-import { graphTarget, hasRecordedTopology, recentRecordedEvents, resolveInspectorTarget } from "../../utils/workspaceSelection";
+import { graphTarget, hasRecordedTopology, resolveInspectorTarget } from "../../utils/workspaceSelection";
+import { selectedRecord, workspaceRecords } from "../../utils/eventRecords";
 import "./WorkspaceShell.css";
 
 // UI selection is scoped to a run ID. The graph and inspector read the current
@@ -15,9 +16,15 @@ export default function SimulationDetails({task}) {
   const {agents, tasks, selectTask, setActivePage, isLoading, error, socketStatus} = useSimulation();
   const [selection, setSelection] = useState({runId: null, target: null});
   useEffect(() => { setSelection({runId: task?.id ?? null, target: null}); }, [task?.id]);
-  const target = resolveInspectorTarget(task, selection);
+  const records = useMemo(() => workspaceRecords(task), [task]);
+  const record = selectedRecord(task, selection, records);
+  useEffect(() => {
+    if (selection.runId === task?.id && selection.recordKey && !record)
+      setSelection({runId: task?.id ?? null, target: null});
+  }, [task?.id, selection.runId, selection.recordKey, record]);
+  const target = resolveInspectorTarget(task, selection, records);
   const inspect = useCallback(next => setSelection({runId: task?.id ?? null, target: next}), [task?.id]);
-  const recentEvents = recentRecordedEvents(task);
+  const inspectRecord = useCallback(key => setSelection({runId: task?.id ?? null, recordKey: key}), [task?.id]);
   return <div className="workbench-shell">
     <div className="workbench-grid">
       <aside className="workbench-runs" aria-labelledby="workbench-runs-title">
@@ -48,14 +55,10 @@ export default function SimulationDetails({task}) {
             </button></li>)}</ol>
         </div>}
       </section>
-      <WorkspaceInspector task={task} target={target} agents={agents} onShowRun={() => inspect(null)} onInspect={inspect}/>
+      <WorkspaceInspector task={task} target={target} agents={agents} selectedRecord={record}
+        onShowRun={() => inspect(null)} onInspect={inspect} onInspectRecord={inspectRecord}/>
     </div>
-    <section className="workbench-events" aria-labelledby="workbench-events-title">
-      <div className="workbench-pane-heading"><h2 id="workbench-events-title">Recent recorded events</h2>
-        {task && <button type="button" className="text-button" onClick={() => setActivePage("logs")}>Open full execution log</button>}</div>
-      <SimulationTimeline timeline={recentEvents}/>
-      {task && <p className="muted">{task.events.length} recorded events · {task.messages.length} handoffs · {task.activities.length} activities.
-        Events are saved backend records, not simulated playback.</p>}
-    </section>
+    <ContextualEvents key={task?.id ?? "empty"} task={task} records={records} target={target}
+      selectedKey={record?.key} onSelect={inspectRecord} onShowAll={() => setActivePage("logs")}/>
   </div>;
 }

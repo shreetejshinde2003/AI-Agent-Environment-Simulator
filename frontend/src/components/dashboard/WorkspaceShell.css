@@ -43,6 +43,19 @@
 .workbench-path .text-button[aria-pressed="true"] { text-decoration: underline; text-decoration-thickness: 2px; }
 .workbench-events .event-timeline { max-height: 220px; }
 .workbench-events > .muted { margin-top: var(--space-3); }
+.event-filters { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-3); }
+.event-filters button[aria-pressed="true"] { border-color: var(--accent-primary); text-decoration: underline; }
+.contextual-events { list-style: none; padding: 0; margin: 0; max-height: 360px; overflow-y: auto; }
+.contextual-events li { border-left: 3px solid transparent; margin-bottom: var(--space-2); }
+.contextual-events li.is-selected { border-color: var(--accent-primary); background: var(--bg-app); }
+.contextual-events li.is-related { border-color: var(--text-secondary); border-left-style: dashed; }
+.contextual-events li.is-failure strong { color: #f87171; }
+.contextual-events button { width: 100%; display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: var(--space-3); text-align: left; background: transparent; padding: var(--space-3); border: 0; }
+.contextual-events button time { font: 12px var(--font-mono); }
+.contextual-events small { color: var(--text-secondary); margin-left: var(--space-2); }
+.event-detail { display: block; overflow-wrap: anywhere; line-height: 1.6; }
+.inspector-event-record { padding-bottom: var(--space-3); margin-bottom: var(--space-3); border-bottom: 1px solid var(--border-subtle); overflow-wrap: anywhere; }
+.inspected-handoff .react-flow__edge-path { stroke-dasharray: 6 3; }
 @media (max-width: 1450px) {
   .workbench-grid { grid-template-columns: minmax(0, 1fr) minmax(300px, 340px); }
   .workbench-runs { grid-column: 1 / -1; }
@@ -57,4 +70,5 @@
   .workbench-grid > *, .workbench-events { padding: var(--space-3); }
   .workbench-flow .pipeline-graph { height: 480px; min-height: 0; }
   .workbench-runs .run-picker-panel { min-width: 0; }
+  .contextual-events button { grid-template-columns: minmax(0, 1fr); gap: var(--space-1); }
 }

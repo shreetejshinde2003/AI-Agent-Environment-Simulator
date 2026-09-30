@@ -14,7 +14,7 @@ function Metadata({items}) {
     <div className="inspector-metadata-row" key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>;
 }
 
-function StageInspector({task, evidence, agents, onInspect}) {
+function StageInspector({task, evidence, agents, onInspect, onInspectRecord}) {
   const {stage, incoming, outgoing, latestEvent, latestActivity, unstartedDownstream} = evidence;
   const roster = agents.find(agent => agent.id === stage.agentId);
   return <div className="workbench-inspector-content">
@@ -27,7 +27,8 @@ function StageInspector({task, evidence, agents, onInspect}) {
         ["Output tokens", recorded(stage.outputTokens)], ["Total tokens", recorded(stage.totalTokens)],
         ["Output key", <code key="output-key">{stage.outputKey}</code>]]}/>
       {latestEvent && <p className="inspector-event"><strong>Latest recorded event</strong><br/>
-        <time dateTime={latestEvent.timestamp}>{time(latestEvent.timestamp)}</time> · {latestEvent.text}</p>}
+        <time dateTime={latestEvent.timestamp}>{time(latestEvent.timestamp)}</time> · {latestEvent.text}
+        {onInspectRecord && <><br/><button type="button" className="text-button" onClick={() => onInspectRecord(`event:${latestEvent.id}`)}>Inspect latest event</button></>}</p>}
       {latestActivity && <p className="muted">Latest activity: {latestActivity.text}</p>}</section>
     <section aria-labelledby="inspector-input-heading"><h4 id="inspector-input-heading">Available run context</h4>
       <p className="muted">The exact model prompt and consumed input binding are not stored. These are recorded sources available to the run, not proof of what this stage consumed.</p>
@@ -89,28 +90,53 @@ function RouteInspector({task, route, agents}) {
   </div>;
 }
 
-export default function WorkspaceInspector({task, target, agents = [], onShowRun, onInspect = () => {}}) {
+function EventInspector({task, row, agents, onInspect}) {
+  const {record, source} = row;
+  const relatedStage = task.stages?.find(stage => stage.agentId === record.agentId);
+  return <section className="inspector-event-record" aria-label="Recorded event details">
+    <Metadata items={[["Record type", source === "event" ? record.type : "Agent activity"],
+      ["Timestamp", time(record.timestamp)], ["Run ID", <code key="run-id">{task.id}</code>],
+      ["Record ID", <code key="record-id">{record.id}</code>], ["Agent", record.agentId ? name(record.agentId, agents) : null]]}/>
+    <RecordedText text={record.text} label="event detail"/>
+    {source === "event" && record.type === "message_created" && <p className="muted">This event does not store a message ID. Its exact handoff cannot be identified from this record.</p>}
+    {relatedStage && <button type="button" className="text-button" onClick={() => onInspect({kind: "stage", id: relatedStage.agentId})}>Inspect related agent: {name(relatedStage.agentId, agents)}</button>}
+  </section>;
+}
+
+export default function WorkspaceInspector({task, target, agents = [], selectedRecord, onShowRun, onInspect = () => {}, onInspectRecord}) {
   const panel = useRef(null), heading = useRef(null), focusOnChange = useRef(false);
   useEffect(() => {
     if (panel.current) panel.current.scrollTop = 0;
     if (focusOnChange.current) heading.current?.focus({preventScroll: true});
     focusOnChange.current = false;
-  }, [task?.id, target?.kind, target?.id]);
+  }, [task?.id, target?.kind, target?.source, target?.id]);
+  useEffect(() => {
+    if (selectedRecord?.key) heading.current?.focus();
+  }, [selectedRecord?.key]);
   function inspectRelated(next) { focusOnChange.current = true; onInspect(next); }
+  function inspectRecord(key) { focusOnChange.current = true; onInspectRecord?.(key); }
   const evidence = target?.kind === "stage" ? stageEvidence(task, target.id) : null;
   const handoff = target?.kind === "handoff" ? handoffEvidence(task, target.id) : null;
   const route = target?.kind === "route" && task?.executionMode === "adaptive" ? task.routePlan : null;
+  const eventRecord = target?.kind === "event" ? (target.source === "activity" ? task?.activities : task?.events)?.find(record => record.id === target.id) : null;
   const title = evidence ? `${name(evidence.stage.agentId, agents)} · ${stageView(task, evidence.stage).text}` :
     handoff ? `${name(handoff.fromAgentId, agents)} → ${name(handoff.toAgentId, agents)}` :
       route ? "Route decision · rule-based" : target?.kind === "goal" ? "User goal" :
         target?.kind === "orchestrator" ? "Sequential coordinator" :
-          target?.kind === "result" ? "Final result" : "Run overview";
+          target?.kind === "result" ? "Final result" : eventRecord ? "Recorded event" : "Run overview";
   return <section ref={panel} className="workbench-inspector" aria-labelledby="workbench-inspector-title">
     <div className="workbench-pane-heading"><h2 id="workbench-inspector-title">Inspector</h2>
       {target && <button type="button" className="text-button" onClick={() => { focusOnChange.current = true; onShowRun(); }}>Run overview</button>}</div>
     <h3 ref={heading} tabIndex={-1} className="workbench-inspector-subtitle" aria-live="polite">{title}</h3>
+    {selectedRecord && target?.kind !== "event" && <section className="inspector-event-record" aria-label="Selected record context">
+      <h4>Selected record · {selectedRecord.label}</h4>
+      <p><code>{selectedRecord.record.type ?? selectedRecord.record.kind ?? selectedRecord.source}</code> · <time dateTime={selectedRecord.record.timestamp}>{time(selectedRecord.record.timestamp)}</time> · <code>{selectedRecord.record.id}</code></p>
+      <p className="muted">Run: <code>{task.id}</code></p>
+      <p>{selectedRecord.record.text ?? `${selectedRecord.record.fromAgentId} → ${selectedRecord.record.toAgentId}`}</p>
+    </section>}
     {!task ? <p className="empty-note">Choose a run to inspect its recorded execution.</p> :
-      evidence ? <StageInspector key={`${task.id}:${evidence.stage.agentId}`} task={task} evidence={evidence} agents={agents} onInspect={inspectRelated}/> :
+      eventRecord ? <EventInspector task={task} row={{record: eventRecord, source: target.source}} agents={agents} onInspect={inspectRelated}/> :
+      evidence ? <StageInspector key={`${task.id}:${evidence.stage.agentId}`} task={task} evidence={evidence} agents={agents} onInspect={inspectRelated} onInspectRecord={onInspectRecord ? inspectRecord : null}/> :
         handoff ? <HandoffInspector key={handoff.id} handoff={handoff} agents={agents}/> :
           route ? <RouteInspector task={task} route={route} agents={agents}/> :
             target?.kind === "goal" ? <RecordedText text={task.directive} label="user directive"/> :

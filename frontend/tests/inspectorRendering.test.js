@@ -5,10 +5,12 @@ import {createElement} from "react";
 import {renderToStaticMarkup} from "react-dom/server";
 import {createServer} from "vite";
 import {adaptiveRun, singleRun, fixedRun, legacyRun, failedRun, longRun, fixtureAgents, unsafeLookingText} from "./fixtures/inspectorRuns.js";
+import {workspaceRecords} from "../src/utils/eventRecords.js";
 
 let server;
 let WorkspaceInspector;
 let RecordedText;
+let ContextualEvents;
 
 before(async () => {
   // Transform the real JSX with the already-installed Vite tooling. No browser,
@@ -19,6 +21,7 @@ before(async () => {
   });
   ({default: WorkspaceInspector} = await server.ssrLoadModule("/src/components/dashboard/WorkspaceInspector.jsx"));
   ({default: RecordedText} = await server.ssrLoadModule("/src/components/dashboard/RecordedText.jsx"));
+  ({default: ContextualEvents} = await server.ssrLoadModule("/src/components/dashboard/ContextualEvents.jsx"));
 });
 after(async () => {await server?.close();});
 
@@ -166,4 +169,50 @@ test("empty inspector and missing text do not invent output or telemetry", () =>
   assert.doesNotMatch(html, /fixture-model|Recorded tokens|Final result/);
   const noText = renderToStaticMarkup(createElement(RecordedText, {text: null, label: "stage output"}));
   assert.match(noText, /No stage output recorded/);
+});
+
+test("unlinked message event exposes its own record without fabricating a handoff", () => {
+  const task = structuredClone(adaptiveRun);
+  task.events.push({id: "unlinked-message", type: "message_created", agentId: "analysis",
+    timestamp: "2026-09-30T10:00:06Z", text: "analysis → report: insights"});
+  const html = inspect(task, {kind: "event", source: "event", id: "unlinked-message"});
+  assert.match(html, /Recorded event details/);
+  assert.match(html, /unlinked-message/);
+  assert.match(html, /does not store a message ID/);
+  assert.match(html, /Inspect related agent: Analysis Agent/);
+  assert.doesNotMatch(html, /Recorded handoff|Message ID/);
+});
+
+test("contextual entries are keyboard buttons with explicit selected and related semantics", () => {
+  const records = workspaceRecords(adaptiveRun);
+  const stageRow = records.find(row => row.record.type === "agent_completed" && row.record.agentId === "analysis");
+  const html = renderToStaticMarkup(createElement(ContextualEvents, {task: adaptiveRun, records,
+    target: {kind: "stage", id: "analysis"}, selectedKey: stageRow.key, onSelect() {}, onShowAll() {}}));
+  assert.match(html, /aria-label="Inspect Stage completed/);
+  assert.match(html, /aria-pressed="true"/);
+  assert.match(html, /Selected record/);
+  assert.match(html, /Related to inspected object/);
+  assert.match(html, /All records|Run events|Handoffs|Activity/);
+  assert.match(html, /View full execution log/);
+});
+
+test("selected event context retains its timestamp and ID alongside the stage inspector", () => {
+  const selected = workspaceRecords(adaptiveRun).find(row => row.record.type === "agent_completed" && row.record.agentId === "analysis");
+  const html = renderToStaticMarkup(createElement(WorkspaceInspector, {task: adaptiveRun,
+    agents: fixtureAgents, target: {kind: "stage", id: "analysis"}, selectedRecord: selected,
+    onShowRun() {}, onInspect() {}, onInspectRecord() {}}));
+  assert.match(html, /Selected record context/);
+  assert.match(html, /fixture-adaptive-complete-1/);
+  assert.match(html, /dateTime="2026-09-30T10:00:06Z"/);
+  assert.match(html, /Inspect latest event/);
+});
+
+test("empty contextual stream remains honest and bounded even with large histories", () => {
+  const empty = renderToStaticMarkup(createElement(ContextualEvents, {task: null, records: [], onSelect() {}, onShowAll() {}}));
+  assert.match(empty, /Choose a run to inspect recorded events/);
+  const records = Array.from({length: 100}, (_, i) => ({source: "event", key: `event:${i}`, label: "Run started", record: {
+    id: String(i), type: "simulation_started", timestamp: "2026-09-30T10:00:00Z", text: "Recorded fixture event"}}));
+  const html = renderToStaticMarkup(createElement(ContextualEvents, {task: adaptiveRun, records, onSelect() {}, onShowAll() {}}));
+  assert.equal((html.match(/aria-label="Inspect Run started/g) ?? []).length, 12);
+  assert.match(html, /Showing 12 of 100/);
 });

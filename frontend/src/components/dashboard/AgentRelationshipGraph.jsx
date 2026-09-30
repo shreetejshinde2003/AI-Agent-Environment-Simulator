@@ -1,8 +1,8 @@
-import { useMemo } from "react";
-import ReactFlow, { Background, Controls, Handle, Position } from "reactflow";
+import { useEffect, useMemo } from "react";
+import ReactFlow, { Background, Controls, Handle, Position, useNodesInitialized, useReactFlow, useStore } from "reactflow";
 import "reactflow/dist/style.css";
 import "./AgentRelationshipGraph.css";
-import { canvasPath, edgeView, stageView } from "../../utils/graphPresentation";
+import { canvasPath, edgeView, graphFitKey, GRAPH_FIT_OPTIONS, stageView } from "../../utils/graphPresentation";
 import { graphTarget } from "../../utils/workspaceSelection";
 function StageNode({data}) {
   return <button type="button" onClick={data.onInspect}
@@ -15,6 +15,15 @@ function StageNode({data}) {
   </button>;
 }
 const NODE_TYPES = {stage: StageNode};
+function GraphViewport({fitKey}) {
+  const initialized = useNodesInitialized();
+  const width = useStore(state => state.width), height = useStore(state => state.height);
+  const {fitView} = useReactFlow();
+  useEffect(() => {
+    if (initialized && width && height) fitView(GRAPH_FIT_OPTIONS);
+  }, [initialized, width, height, fitKey, fitView]);
+  return null;
+}
 export default function AgentRelationshipGraph({task, agents = [], selectedTarget = null, onInspect = () => {}}) {
   const {nodes, edges} = useMemo(() => {
     const stageMap = Object.fromEntries((task?.stages ?? []).map(s => [s.agentId, s]));
@@ -48,9 +57,11 @@ export default function AgentRelationshipGraph({task, agents = [], selectedTarge
       const next = ids[i+1];
       const handoff = task?.messages?.find(m => m.fromAgentId === id && m.toAgentId === next);
       const view = task ? edgeView(task, id, next, stageMap, handoff) : {recorded: false, animated: false, label: ""};
+      const selected = !!handoff && selectedTarget?.kind === "handoff" && selectedTarget.id === handoff.id;
       return {id: id + "-" + next, source: id, target: next,
         label: view.label, animated: view.animated,
-        style: {stroke: view.recorded ? "#22c55e" : "#475569", strokeWidth: view.recorded ? 2 : 1},
+        className: selected ? "inspected-handoff" : undefined,
+        style: {stroke: selected ? "#a5b4fc" : view.recorded ? "#22c55e" : "#475569", strokeWidth: selected ? 4 : view.recorded ? 2 : 1},
         labelStyle: {fill: "#cbd5e1", fontSize: 11}, labelBgStyle: {fill: "#111827"},
         data: {message: handoff}};
     });
@@ -61,10 +72,11 @@ export default function AgentRelationshipGraph({task, agents = [], selectedTarge
     <p className="muted">Select a node or a recorded handoff to inspect execution details. Web Search is unavailable.</p>
     <div className="pipeline-graph" role="group" aria-label="Simulation pipeline graph">
       <ReactFlow nodes={nodes} edges={edges} nodeTypes={NODE_TYPES} fitView
-        fitViewOptions={{padding: 0.12}} minZoom={0.3} maxZoom={1.3}
+        fitViewOptions={GRAPH_FIT_OPTIONS} minZoom={0.15} maxZoom={1.3}
         nodesDraggable={false} nodesConnectable={false} nodesFocusable={false} edgesFocusable={false}
         onNodeClick={(_, node) => onInspect(graphTarget(node.id))}
         onEdgeClick={(_, edge) => { if (edge.data?.message?.id) onInspect({kind: "handoff", id: edge.data.message.id}); }}>
+        <GraphViewport fitKey={graphFitKey(task)}/>
         <Background color="#253047" gap={20}/><Controls showInteractive={false}/>
       </ReactFlow>
     </div>

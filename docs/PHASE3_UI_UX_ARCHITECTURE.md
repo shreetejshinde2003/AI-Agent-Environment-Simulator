@@ -36,12 +36,30 @@ No backend/API/schema change or model call was required. Local read-only fixture
 verified all five inspector views, keyboard and pointer node/handoff inspection,
 run switching and reload, picker search, safe long-output keyboard scrolling,
 failure evidence, existing navigation, and stacked layout at 1024 × 900 without
-horizontal overflow. No task was submitted. Production verification of 3.4.3
-remains **PARTIAL**; these are local fixture results. Exact per-stage consumed
+horizontal overflow. No task was submitted. The team subsequently reports
+3.4.3 production verification at commit `eee5b72`; that verification was not
+repeated in this frontend checkpoint. Exact per-stage consumed
 input provenance is unavailable; full event correlation/timeline, screen-reader,
 zoom and final mobile verification remain **PARTIAL**. The original roadmap below names this canvas
 work as 3.4.4; this checkpoint follows the team's 3.4.3 naming, without starting
 the separate Runs-browser/composer work.
+
+**Checkpoint 3.4.4 Contextual Events Consolidation + Live Interaction Polish
+COMPLETED locally (2026-09-30):** The workspace combines the selected run's saved
+events, handoffs and activities in a compact, source-filtered stream. A single
+run-scoped UI selection coordinates the canvas, Inspector and selected/related
+record indicators. Recorded lifecycle events open their saved stage, route or
+final-result object; unlinked records have their own Inspector. Initial/topology/
+container-size fitting keeps normal routes visible without resetting zoom for
+selection or telemetry updates. Historical edges remain static; current running,
+completed and failed labels come from authoritative snapshots, not timers.
+No backend, API, database, transport, execution or deployment change was needed.
+**PARTIAL:** production verification of 3.4.4, full screen-reader/zoom/mobile
+verification, live WebSocket browser integration, full timeline and exact
+event-to-message references. Read-only fixtures verified REST-driven transitions,
+all execution modes, failure, navigation and desktop/1024px/768px layouts. One
+narrow-viewport automation step selected an unintended record; the intended
+interaction was repeated successfully at desktop width, not claimed universally.
 
 The team reports production verification of Single, Fixed, Adaptive
 (Analysis → Report), and PostgreSQL restart durability. This review inspected
@@ -825,39 +843,80 @@ check passed; this does not establish complete responsive accessibility.
   confusing UI selection with status or losing access to output. **Production
   check:** yes, existing adaptive two-stage and fixed/single records.
 
-### Next team checkpoint 3.4.4 — recommended scope (planning only)
+### Team checkpoint 3.4.4 — contextual events and live interaction
 
-**NOT IMPLEMENTED:** a bounded Events/workbench consolidation checkpoint with
-live-interaction polish. The original roadmap's canvas/inspector work above was
-completed under the team's 3.4.3 name; reconcile the next implementation brief
-with the Events and recorded timing scope below rather than repeating canvas work
-or renumbering the entire roadmap. Compare remains gated on experiment/evaluation
-readiness and is **NOT RECOMMENDED** as the next implementation checkpoint.
+**COMPLETED locally:** bounded event consolidation and graph/Inspector interaction
+polish. This implements part of the original Events scope below; it does not
+renumber the architecture roadmap or implement a full timeline/replay.
 
-- Reuse the selected run's existing events/messages/activities in one contextual
-  Events surface, with source-kind filters and safe links to recorded objects.
-  Keep Logs/Messages/Event History reachable until equivalent behavior is tested.
-  Events currently have agent IDs but no explicit message reference; do not infer
-  exact causal links from prose or invent event/message identities.
-- Keep Runs selection/context ownership; the compact picker is still a limited
-  Runs browser. Avoid introducing competing selected-run state or a new store.
-  Reduce repeated route/result information only after preserving access to it.
-- Add interaction coverage for focus after internal Inspector links, run-switch
-  scroll/export-state isolation, graph fitting across different path lengths,
-  socket-driven refresh, and narrow-screen/zoom behavior. Current render tests
-  verify content/semantics but do not exercise React effects or native focus.
-- Review nested scrolling, screen-reader announcements, focus order, output
-  contrast and long-record performance. Full collapsed text is still in the DOM;
-  consider mounting it only when expanded if measured payloads warrant it.
-  The local development fixture also emitted React Flow's node-type warning
-  during navigation despite the existing module-level `NODE_TYPES` constant.
-  No broken inspection was observed; the warning's cause remains unverified.
-- Full-history polling and duplicated output payloads may become a scale limit.
-  Pagination/detail fetching requires a separate additive API design checkpoint;
-  keep backend execution and persistence unchanged during UI consolidation.
-- Import-audit stale prototype components/styles before any removal; do not
-  activate mock data. Consolidate duplicate formatting helpers only where their
-  semantics match. No dead-code deletion or new implementation is part of 3.4.3.
+| Recorded evidence | Live transport | Safe workspace relationship |
+|---|---|---|
+| `simulation_created`, `simulation_started`, `simulation_completed`, `simulation_failed` RunEvents | Named event plus authoritative `task_updated` | Run context; completed event opens Final Result only for a completed run |
+| `agent_started`, `agent_completed`, `agent_failed` RunEvents | Named event plus task snapshot | Matching persisted `agentId` and stage |
+| `route_planned` RunEvent | Named event plus task snapshot | Adaptive run's saved `routePlan`; not an LLM invocation |
+| `message_created` RunEvent | Named event plus task snapshot | Own event detail; no stored message ID, so no exact handoff association |
+| Message with ID/from/to/output key/content | `message_sent` | Exact recorded Handoff Inspector and canvas edge |
+| Activity with ID/agent/text/time | `activity_event` | Own detail and matching agent link; not a stage lifecycle event |
+| Aggregate metrics/current snapshot | `stats_updated`, `task_updated` | Derived authoritative state, not extra persisted timeline events |
+
+- `workspaceRecords` keeps events/activities/messages distinct using source-qualified
+  IDs, actual timestamps and deterministic tie ordering. The compact stream renders
+  at most 12 entries, with source filters and a selected older entry retained when
+  newer data arrives. No prose/timestamp matching invents a missing relationship.
+- One local selection stores a run ID and either an object target or saved-record
+  key. Refresh resolves it against the latest snapshot; missing records and run
+  switches clear selection. Graph objects highlight related records; record
+  selection highlights the linked object. Unknown events remain inspectable.
+- Event buttons expose label/time/agent and `aria-pressed`; related/selected/failure
+  text reinforces borders/color. Explicit record navigation focuses the Inspector
+  heading; same-object refresh preserves its scroll/focus. The stream is not an
+  `aria-live` firehose. Existing focus and reduced-motion rules remain intact.
+- Graph fitting runs after measurement and for changed topology/run/container size,
+  with a shared minimum zoom and zero-duration fit. Selection/status refresh does
+  not reset the viewport. Recorded edges stay static, including completed history.
+  No optional transfer animation was added: saved messages do not describe an
+  in-flight HTTP transfer. The adaptive plan-to-first-stage connector is marked
+  recorded only when the valid selected stage actually started.
+- The WebSocket hook still treats incoming updates as invalidations and refetches
+  REST state; reconnect refresh and polling are unchanged. An opt-in local fixture
+  (`frontend/tests/fixtures/workbenchPreview.mjs`) disables environment-file loading,
+  serves only fixtures, rejects writes, and never forwards requests to a provider.
+  Explicit snapshots cover queued/running/stage transitions/completion. The browser
+  verified active-run retention, stage selection through refresh, static completion,
+  safe failure inspection and absence of downstream handoffs.
+- Development React Flow warning 002 was traced to installed `useNodeOrEdgeTypes`:
+  its development `useMemo` mutates a ref and warns on identical keys during React
+  StrictMode's repeated calculation. A fixture-only pre-transform removing the
+  StrictMode wrapper eliminated the warnings; production's module-level `NODE_TYPES`
+  remains stable. **NOT RECOMMENDED:** removing application StrictMode, suppressing
+  diagnostics or patching installed library files to silence this nonfatal warning.
+- Sorting is memoized per authoritative task snapshot and DOM entry count is bounded.
+  Full history/output payloads still arrive via REST; full-history pagination and
+  lazy mounting of very large recorded output require separate measured design work.
+  No speculative memoization framework or stale-component deletion was introduced.
+- Keep **Messages**, **Logs** and **Event History**: the compact stream does not
+  replace full payload browsing, all event/activity records or the existing event
+  prefix control. “View full execution log” provides contextual access without a
+  competing selected-run store. No dedicated page was deleted or redirected.
+
+**PARTIAL:** automated browser interaction coverage (current unit/render tests do
+not run React effects), screen-reader/zoom/contrast verification, exact message-event
+provenance, full responsive polish, production verification and actual socket-driven
+browser testing. Fixture transport intentionally exercises REST recovery, not a real
+WebSocket server. **NOT IMPLEMENTED:** Compare, replay and evaluation UI.
+
+### Next checkpoint recommendation — planning only
+
+Prefer a bounded Runs/composer and interaction-verification checkpoint, reconciling
+the still-planned Runs-browser/composer work above with these completed Events
+foundations. Improve filters/context-loading/error presentation without a second
+history or selection store; add durable browser coverage for focus, stale selection,
+scroll retention and actual socket refresh. Review keyboard zoom/contrast at narrower
+widths before expanding the layout. Keep full timeline, page removal, payload
+pagination and lazy output mounting separately scoped and evidence-driven.
+**NOT RECOMMENDED next:** Compare before experiment/evaluation readiness, another
+canvas rewrite, replay, a new state library or a visual rebrand. No next-checkpoint
+implementation is included here.
 
 ### 3.4.5 — Events and recorded timing
 
@@ -957,7 +1016,8 @@ For later implementation acceptance:
 
 **COMPLETED in this phase:** source audit, information/component/state architecture,
 API gap analysis, reference review, staged acceptance plan and checkpoints 3.4.1
-and 3.4.2, plus checkpoint 3.4.3 Canvas and Inspector Depth locally. **PLANNED:**
+and 3.4.2, plus checkpoints 3.4.3 Canvas/Inspector Depth and 3.4.4 Contextual Events
+Consolidation + Live Interaction Polish. **PLANNED:**
 the remaining interface composition. **PARTIAL:** final Runs/Inspector/Events
 design, exact stage-input provenance, page consolidation, responsive verification,
 production benchmark provisioning and formal comparison data readiness.
@@ -976,3 +1036,14 @@ tests and backend compilation pass; the existing Starlette/AnyIO deprecation
 warning remains. `git diff --check` passes. No Groq call, commit, push or staging
 is part of this checkpoint. Compare, replay and evaluation UI remain
 **NOT IMPLEMENTED**.
+
+Checkpoint 3.4.4 final local validation: **43 frontend tests passed, zero failed**
+(13 additions covering saved-record links, unlinked evidence, stale selection,
+live state projection, fitting, render semantics and bounded lists). Frontend build
+passes with Vite 8.1.4 and 1984 transformed modules; lint has zero errors and the two
+existing Fast Refresh warnings in `SimulationContext.jsx`/`AppShell.jsx`. All
+**59 backend tests pass** with the existing Starlette/AnyIO deprecation warning;
+backend compilation and `git diff --check` pass. The fixture rejected writes,
+observed zero write attempts, and has no provider-forwarding path. No Groq calls,
+backend changes, staging, commit or push were made. Browser fixtures supplement
+unit/render tests; they are not production or automated WebSocket verification.

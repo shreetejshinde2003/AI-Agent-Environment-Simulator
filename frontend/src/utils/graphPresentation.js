@@ -1,5 +1,9 @@
 import { graphPath } from "./runs.js";
 
+// Refit for a different saved topology/run, never for selection or telemetry.
+export const GRAPH_FIT_OPTIONS = {padding: 0.12, minZoom: 0.15, maxZoom: 1.1, duration: 0};
+export const graphFitKey = task => JSON.stringify([task?.id, canvasPath(task)]);
+
 // Presentation derives from saved run evidence, never from an elapsed-time timer.
 export function canvasPath(task) {
   if (!task?.stages?.length) return [];
@@ -19,6 +23,8 @@ export function stageView(task, stage) {
 export function edgeView(task, from, next, stageMap, message) {
   const actual = message || (from === "goal" && task.executionStartedAt) ||
     (from === "orchestrator" && stageMap[next]?.startedAt) ||
+    (from === "route" && task.routePlan?.validationStatus === "valid" &&
+      task.routePlan.selectedAgentIds?.[0] === next && stageMap[next]?.startedAt) ||
     (from === "goal" && stageMap[next]?.startedAt) ||
     (next === "result" && task.status === "completed");
   // The saved handoff is an instantaneous record, not an in-flight transfer.
