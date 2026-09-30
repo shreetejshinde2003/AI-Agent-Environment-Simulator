@@ -6,7 +6,7 @@ export default function LiveSimulation() {
   const {selectedTask, connectionStatus, isLoading, hasLoaded} = useSimulation();
   return <div className="workspace-stack">
     <div className="page-heading workbench-header"><div><p className="workbench-eyebrow">Simulation workspace</p>
-      <h1>{selectedTask ? runTitle(selectedTask) : "Choose or create a run"}</h1>
+      <h1 tabIndex={-1} data-run-heading>{selectedTask ? runTitle(selectedTask) : "Choose or create a run"}</h1>
       <p className="muted">{workspaceSubtitle(selectedTask?.executionMode)}</p>
       {selectedTask && <p className="workbench-run-meta">{modeLabel(selectedTask.executionMode)} · {selectedTask.status.replaceAll("_", " ")}</p>}
     </div><QuickActions/></div>

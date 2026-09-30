@@ -1,0 +1,27 @@
+.run-composer-dialog .modal-panel { max-width: 720px; }
+.run-composer-dialog .modal-header { position: sticky; top: 0; z-index: 1; background: var(--bg-panel); }
+.run-composer { display: flex; flex-direction: column; gap: var(--space-4); }
+.run-composer .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.composer-fields, .composer-strategies { border: 0; min-width: 0; padding: 0; margin: 0; }
+.composer-fields > section, .composer-strategies { margin-bottom: var(--space-5); }
+.composer-fields h4, .composer-strategies > legend { font-size: 16px; font-weight: 600; margin-bottom: var(--space-3); }
+.run-composer textarea { min-height: 110px; }
+.run-composer input, .run-composer select, .run-composer textarea { width: 100%; min-width: 0; }
+.strategy-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
+.strategy-option { display: flex; align-items: flex-start; gap: var(--space-2); border: 1px solid var(--border-strong); border-radius: var(--radius-md); padding: var(--space-3); cursor: pointer; }
+.strategy-option:has(input:checked) { border-color: var(--accent-primary); background: var(--accent-primary-soft); }
+.strategy-option:has(input:focus-visible) { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+.run-composer .strategy-option input { width: auto; margin-top: 5px; flex-shrink: 0; accent-color: var(--accent-primary); }
+.strategy-option > span { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.strategy-option strong { font-size: 15px; }
+.strategy-option span, .strategy-option small { overflow-wrap: anywhere; }
+.strategy-option small { font-size: 12px; line-height: 1.6; color: var(--text-secondary); }
+.composer-utility { margin-top: var(--space-3); font-size: 13px; }
+.composer-utility > summary { color: var(--text-secondary); padding: var(--space-2) 0; }
+.composer-utility .form-field { margin-top: var(--space-3); }
+.run-composer .form-actions { flex-wrap: wrap; padding-top: var(--space-3); border-top: 1px solid var(--border-subtle); }
+.run-composer .upload-preview pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow-y: auto; font: 13px var(--font-mono); }
+.run-composer .form-error { margin-bottom: 0; }
+.run-composer p[role="status"] { color: var(--text-primary); line-height: 1.6; }
+@media (max-width: 640px) { .strategy-options { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 480px) { .run-composer-dialog .modal-panel { max-height: calc(100dvh - 16px); } }

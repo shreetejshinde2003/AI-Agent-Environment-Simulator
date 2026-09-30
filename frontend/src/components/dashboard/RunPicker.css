@@ -1,0 +1,14 @@
+.run-picker > summary { list-style: none; display: flex; flex-direction: column; gap: var(--space-1); }
+.run-picker > summary::-webkit-details-marker { display: none; }
+.run-picker .run-picker-caption { color: var(--text-tertiary); font-size: 12px; }
+.run-picker .run-picker-title { color: var(--text-primary); font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.run-picker-meta { font-size: 13px; }
+.run-picker .run-picker-id { font-family: var(--font-mono); font-size: 11px; overflow-wrap: anywhere; }
+.run-picker .run-picker-panel { max-height: min(78vh, 640px); overflow-y: auto; }
+.run-picker-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); margin-top: var(--space-3); }
+.run-picker-filters label { font-size: 12px; }
+.run-picker-filters select { display: block; width: 100%; min-width: 0; padding: var(--space-2); margin-top: var(--space-1); color: var(--text-primary); background: var(--bg-app); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); }
+.run-picker-help { font-size: 12px; color: var(--text-secondary); margin-top: var(--space-2); line-height: 1.5; }
+.run-picker-more { width: 100%; margin-top: var(--space-2); padding: var(--space-2); background: var(--bg-hover); color: var(--text-primary); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); }
+.run-picker li button[aria-current] { border-left: 3px solid var(--accent-primary); }
+@media (max-width: 480px) { .run-picker-filters { grid-template-columns: minmax(0, 1fr); } }

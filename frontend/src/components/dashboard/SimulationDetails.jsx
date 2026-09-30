@@ -34,7 +34,6 @@ export default function SimulationDetails({task}) {
           isLoading={isLoading} loadError={!!error && !tasks.length}/>
         <p className="muted">{tasks.length ? `${tasks.length} saved run${tasks.length === 1 ? "" : "s"}. Choose one to inspect its recorded path.` :
           isLoading ? "Loading saved runs…" : error ? "Run list unavailable." : "No simulation data yet."}</p>
-        {task && <p className="workbench-run-id">ID: {task.id}</p>}
         <p className="muted">{socketStatus === "connected" ? "Live event connection active." :
           socketStatus === "connecting" ? "Live events reconnecting; REST refresh remains available." :
           "Live events offline; REST refresh remains available."}</p>

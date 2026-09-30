@@ -54,12 +54,102 @@ container-size fitting keeps normal routes visible without resetting zoom for
 selection or telemetry updates. Historical edges remain static; current running,
 completed and failed labels come from authoritative snapshots, not timers.
 No backend, API, database, transport, execution or deployment change was needed.
-**PARTIAL:** production verification of 3.4.4, full screen-reader/zoom/mobile
+**COMPLETED — PRODUCTION VERIFIED:** Saved production runs at `319f707` were
+verified in the interrupted continuation (2026-09-30): stage/handoff/route
+inspection, independent unlinked message events, selection clearing on run
+switch, static historical edges, all four execution modes, reachable dedicated
+pages and desktop/approximately 1024px/768px layouts passed. This continuation
+retains that verification record rather than repeating it. No failed production
+run was available; failure interaction remains verified through deterministic
+fixtures only. No new production simulation or provider request was made.
+**PARTIAL:** full screen-reader/zoom/mobile
 verification, live WebSocket browser integration, full timeline and exact
 event-to-message references. Read-only fixtures verified REST-driven transitions,
 all execution modes, failure, navigation and desktop/1024px/768px layouts. One
 narrow-viewport automation step selected an unintended record; the intended
 interaction was repeated successfully at desktop width, not claimed universally.
+
+**Checkpoint 3.4.5 Runs + Composer Refinement COMPLETED locally
+(2026-09-30; baseline `319f707`):** The initial worktree contained only the
+pre-existing untracked `AGENTS.md`; no interrupted implementation needed to be
+discarded. This checkpoint follows the team's numbering; the original proposed
+roadmap below is historical, not a second implementation schedule.
+
+- Runs retains the existing picker/selection path. The selected title is primary,
+  mode/status/time secondary and immutable ID tertiary. Normalized multi-term
+  search, mode/status filters, newest-first ordering, 20-row progressive display,
+  full wrapping titles and native button keyboard navigation keep it compact.
+  History remains the complete archive/aggregate view, not a duplicate sidebar.
+- The existing creation dialog is now a 720px **New run** configuration surface:
+  Goal, optional API-supported title, three native research-strategy radios,
+  separate legacy specialist utility, and optional benchmark/reference context.
+  A run is not yet a grouped scientific experiment. Single remains one Direct
+  Agent call; Fixed remains the five-stage pipeline; Adaptive remains deterministic
+  capability/input routing, with no routing model or superiority claim.
+- Only active registry metadata supplies benchmark options. None, loading,
+  unavailable, inactive-only and zero-registry states are explicit. Private files
+  are still validated server-side; registered metadata is not proof of current
+  private-file availability. Uploads remain distinct from safe benchmark
+  aggregates, with existing 3-file/256-KiB/6,000-character/20-CSV-row bounds,
+  untrusted-text previews and shared-workspace/confidentiality warnings.
+- Whole-batch upload preflight and a synchronous request lock protect against
+  concurrent submission before disabled controls paint. Uploading and submitting
+  have distinct busy labels; controls and unsafe dismissal are disabled in flight.
+  Errors retain the draft and focus the alert. An uncertain network/5xx creation
+  outcome asks the user to check History; there is no automatic resubmission.
+  This is not server idempotency or a retry mechanism.
+- Native modal/inert semantics remain. A boundary Tab guard closes an observed
+  browser focus-wrap gap; cancellation restores the trigger, successful creation
+  focuses the new workspace heading, and upload completion restores an available
+  reference control. A sticky dialog header keeps dismissal accessible while
+  scrolling. No execution/API/schema/transport/deployment change was required.
+
+**COMPLETED — local interaction QA:** The isolated opt-in composer fixture accepts
+only in-memory test acknowledgements/uploads; its default mode still rejects
+writes. Neither mode forwards to a backend, database or provider. Browser QA
+verified initial focus, forward/reverse boundary trapping, Escape/focus return,
+native radio arrows, active dataset selection and empty state, whitespace-goal
+validation, busy/unsafe-dismissal protection, structured 422 errors and uncertain
+503 responses. Creation from both workspace and History selected the acknowledged
+ID, cleared stale object selection and focused its heading. Deliberately stale
+REST reads did not replace that ID; reload retained it; a later explicit completion
+snapshot updated the same run. Four fixture submissions (two acknowledgements,
+two rejections) and two synthetic text uploads made **zero provider calls**.
+
+Picker search, filters, show-more, arrow/Enter/Escape selection, full long titles,
+graph keyboard selection, pointer handoff selection, contextual event→object
+inspection, model-free Route Decision, Run Overview return, failure evidence,
+downstream nonexecution and existing page navigation passed. A 5,877-character
+untrusted output remained text, with no injected script/image elements; PageDown
+scrolled the expanded record. Desktop/laptop/tablet/mobile-like checks at
+1440/1280/1024/768/390px retained controls and had no document-wide horizontal
+overflow. Inspector/event evidence remains reachable by scrolling on narrow
+layouts. Keyboard graph selection deliberately retains node focus rather than
+moving focus on every authoritative refresh; the Inspector has semantic headings.
+
+**PARTIAL:** New local changes are not production-verified. Actual screen-reader
+operation, comprehensive contrast testing, true 200% browser zoom and final mobile
+polish remain unverified. The in-app browser did not provide reliable evidence of
+a true 200% browser-zoom setting; zoom/viewport overrides were reset. Browser QA
+uses REST fixture refresh, not a live WebSocket service. Existing development-only
+React Flow warning 002 remains under StrictMode; static node types and production
+behavior are unchanged. Do not remove StrictMode or patch the vendor to hide it.
+
+**NOT IMPLEMENTED:** Compare, replay, evaluation UI/scoring, grouped experiments,
+server-side creation idempotency, authentication, Web Search, retries and
+pause/cancel. No new unavailable-feature controls were added.
+**NOT RECOMMENDED:** decorative activity, LLM-generated naming, an HR decision
+product, a second run-history system or broad component rewrites.
+
+Next checkpoint recommendation: verify 3.4.5 in production using saved runs first,
+then perform a comparison-readiness architecture review before any Compare UI.
+Existing measured duration, recorded tokens/coverage, stage attempts, handoff
+counts, route and status can support descriptive comparison. Unmatched goals,
+context preparation, dataset versions, model settings and missing telemetry must
+not be presented as a controlled experiment. Quality/factuality/hallucination
+scores and rubrics remain absent. Full-list REST payload size, unbounded archive
+tables and related events falling outside the compact stream remain future scale
+and interaction concerns, not reasons to change execution in this checkpoint.
 
 The team reports production verification of Single, Fixed, Adaptive
 (Analysis → Report), and PostgreSQL restart durability. This review inspected
@@ -1016,9 +1106,9 @@ For later implementation acceptance:
 
 **COMPLETED in this phase:** source audit, information/component/state architecture,
 API gap analysis, reference review, staged acceptance plan and checkpoints 3.4.1
-and 3.4.2, plus checkpoints 3.4.3 Canvas/Inspector Depth and 3.4.4 Contextual Events
-Consolidation + Live Interaction Polish. **PLANNED:**
-the remaining interface composition. **PARTIAL:** final Runs/Inspector/Events
+and 3.4.2, plus checkpoints 3.4.3 Canvas/Inspector Depth, 3.4.4 Contextual Events
+Consolidation + Live Interaction Polish, and local 3.4.5 Runs/Composer Refinement.
+**PARTIAL:** the remaining interface composition, final Runs/Inspector/Events
 design, exact stage-input provenance, page consolidation, responsive verification,
 production benchmark provisioning and formal comparison data readiness.
 **NOT IMPLEMENTED:** Compare, evaluation UI, full replay or the final polished
@@ -1047,3 +1137,13 @@ backend compilation and `git diff --check` pass. The fixture rejected writes,
 observed zero write attempts, and has no provider-forwarding path. No Groq calls,
 backend changes, staging, commit or push were made. Browser fixtures supplement
 unit/render tests; they are not production or automated WebSocket verification.
+
+Checkpoint 3.4.5 final local validation: **56 frontend tests passed, zero failed**
+(13 new pure/render tests for run browsing, bounded history, native controls,
+mode education, utility isolation, dataset states, validation, synchronous busy
+protection, safe error/output presentation and acknowledgement/refresh identity).
+Frontend production build passes: Vite 8.1.4, 1989 modules transformed. Lint passes
+with zero errors and only the same two Fast Refresh warnings. **59 backend tests
+pass**, with the existing Starlette/AnyIO deprecation warning; backend compilation
+and `git diff --check` pass. No backend files or dependencies were changed.
+No Groq/provider request, real simulation, commit, push or staging was performed.

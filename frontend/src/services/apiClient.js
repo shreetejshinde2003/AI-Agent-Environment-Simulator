@@ -1,3 +1,4 @@
+import {apiError, creationError} from "../utils/apiErrors";
 // One environment-aware origin for REST, health and WebSocket traffic.
 export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ||
   (import.meta.env.DEV ? "http://localhost:8000" : window.location.origin)).replace(/\/$/, "");
@@ -11,7 +12,7 @@ async function request(path, options = {}) {
   if (!response.ok) {
     let detail;
     try { detail = (await response.json()).detail; } catch { /* generic safe error */ }
-    throw new Error(typeof detail === "string" ? detail : detail?.message || "Request failed (" + response.status + ")");
+    throw apiError(detail, response.status);
   }
   return response.json();
 }
@@ -22,7 +23,7 @@ export const apiClient = {
   getTasks: () => request("/tasks"),
   getTask: id => request("/tasks/" + encodeURIComponent(id)),
   getDatasets: () => request("/datasets"),
-  createTask: payload => request("/tasks", {method: "POST", body: JSON.stringify(payload)}),
+  createTask: payload => request("/tasks", {method: "POST", body: JSON.stringify(payload)}).catch(error => {throw creationError(error);}),
   getMetrics: () => request("/simulations/metrics"),
   getMessages: (limit = 50) => request("/messages?limit=" + limit),
   getSimulationStats: () => request("/simulation/stats"),
