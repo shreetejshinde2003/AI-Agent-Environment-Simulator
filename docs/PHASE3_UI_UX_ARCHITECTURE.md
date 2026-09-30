@@ -24,6 +24,25 @@ run-scoped UI IDs; REST snapshots remain the execution source of truth. History
 opens that same workspace and retains aggregate charts. **PARTIAL:** full Runs
 browser, inspector depth, timeline, responsive and page consolidation work.
 
+**Checkpoint 3.4.3 Canvas and Inspector Depth COMPLETED locally (2026-09-30):**
+The saved adaptive plan is an inspectable non-LLM canvas node; the text path and
+recorded handoffs remain keyboard-selectable. The Inspector now separates run,
+stage, route, handoff and final-result views, including real stage timing/model/
+token fields, recorded upstream messages, output, failures and downstream
+nonexecution. Long text expands safely as React text. Missing measurements remain
+Not recorded; actual zero remains zero. Final Result has a dedicated view with
+recorded timing, token coverage, stage-attempt/handoff counts and existing exports.
+No backend/API/schema change or model call was required. Local read-only fixtures
+verified all five inspector views, keyboard and pointer node/handoff inspection,
+run switching and reload, picker search, safe long-output keyboard scrolling,
+failure evidence, existing navigation, and stacked layout at 1024 × 900 without
+horizontal overflow. No task was submitted. Production verification of 3.4.3
+remains **PARTIAL**; these are local fixture results. Exact per-stage consumed
+input provenance is unavailable; full event correlation/timeline, screen-reader,
+zoom and final mobile verification remain **PARTIAL**. The original roadmap below names this canvas
+work as 3.4.4; this checkpoint follows the team's 3.4.3 naming, without starting
+the separate Runs-browser/composer work.
+
 The team reports production verification of Single, Fixed, Adaptive
 (Analysis → Report), and PostgreSQL restart durability. This review inspected
 source and public reference documentation; it did not repeat those production
@@ -786,6 +805,13 @@ legacy pages remain, and narrow-screen/zoom verification is incomplete.
 
 ### 3.4.4 — Canvas projection and contextual inspector
 
+**COMPLETED locally under checkpoint 3.4.3:** saved plan inspection, deeper
+run/stage/handoff/result evidence, safe expandable output, failure context and
+keyboard text-path selection. **PARTIAL:** final visual/zoom verification and
+screen-reader/zoom/mobile verification and precise consumed-input or
+event-to-message provenance, which are not persisted. A laptop-width fixture
+check passed; this does not establish complete responsive accessibility.
+
 - **Goal/files:** `AgentRelationshipGraph`, `TaskDetailsPanel`, `SimulationDetails`,
   workspace CSS and pure graph/state helpers; add route-decision node, selected/
   skipped/not-executed semantics, keyboard-equivalent stage/handoff lists.
@@ -798,6 +824,40 @@ legacy pages remain, and narrow-screen/zoom verification is incomplete.
 - **Rollback:** keep current graph/details as a composition boundary. **Risk:**
   confusing UI selection with status or losing access to output. **Production
   check:** yes, existing adaptive two-stage and fixed/single records.
+
+### Next team checkpoint 3.4.4 — recommended scope (planning only)
+
+**NOT IMPLEMENTED:** a bounded Events/workbench consolidation checkpoint with
+live-interaction polish. The original roadmap's canvas/inspector work above was
+completed under the team's 3.4.3 name; reconcile the next implementation brief
+with the Events and recorded timing scope below rather than repeating canvas work
+or renumbering the entire roadmap. Compare remains gated on experiment/evaluation
+readiness and is **NOT RECOMMENDED** as the next implementation checkpoint.
+
+- Reuse the selected run's existing events/messages/activities in one contextual
+  Events surface, with source-kind filters and safe links to recorded objects.
+  Keep Logs/Messages/Event History reachable until equivalent behavior is tested.
+  Events currently have agent IDs but no explicit message reference; do not infer
+  exact causal links from prose or invent event/message identities.
+- Keep Runs selection/context ownership; the compact picker is still a limited
+  Runs browser. Avoid introducing competing selected-run state or a new store.
+  Reduce repeated route/result information only after preserving access to it.
+- Add interaction coverage for focus after internal Inspector links, run-switch
+  scroll/export-state isolation, graph fitting across different path lengths,
+  socket-driven refresh, and narrow-screen/zoom behavior. Current render tests
+  verify content/semantics but do not exercise React effects or native focus.
+- Review nested scrolling, screen-reader announcements, focus order, output
+  contrast and long-record performance. Full collapsed text is still in the DOM;
+  consider mounting it only when expanded if measured payloads warrant it.
+  The local development fixture also emitted React Flow's node-type warning
+  during navigation despite the existing module-level `NODE_TYPES` constant.
+  No broken inspection was observed; the warning's cause remains unverified.
+- Full-history polling and duplicated output payloads may become a scale limit.
+  Pagination/detail fetching requires a separate additive API design checkpoint;
+  keep backend execution and persistence unchanged during UI consolidation.
+- Import-audit stale prototype components/styles before any removal; do not
+  activate mock data. Consolidate duplicate formatting helpers only where their
+  semantics match. No dead-code deletion or new implementation is part of 3.4.3.
 
 ### 3.4.5 — Events and recorded timing
 
@@ -897,8 +957,9 @@ For later implementation acceptance:
 
 **COMPLETED in this phase:** source audit, information/component/state architecture,
 API gap analysis, reference review, staged acceptance plan and checkpoints 3.4.1
-and 3.4.2. **PLANNED:** the remaining interface composition. **PARTIAL:** final
-Runs/Inspector/Events design, page consolidation, responsive verification,
+and 3.4.2, plus checkpoint 3.4.3 Canvas and Inspector Depth locally. **PLANNED:**
+the remaining interface composition. **PARTIAL:** final Runs/Inspector/Events
+design, exact stage-input provenance, page consolidation, responsive verification,
 production benchmark provisioning and formal comparison data readiness.
 **NOT IMPLEMENTED:** Compare, evaluation UI, full replay or the final polished
 workbench. **NOT RECOMMENDED:**
@@ -907,5 +968,11 @@ WebGL/no-code workflow/HR decision-product scope.
 The original architecture-only checkpoint used `git diff --check` and
 `git status --short`. Checkpoints 3.4.1 and 3.4.2 additionally validate frontend
 tests/build/lint and backend tests/compile. AGENTS.md, environment values,
-backend logic and deployment configuration remain outside 3.4.2. No Groq call,
-commit or push is part of this checkpoint.
+backend logic and deployment configuration remain outside these UI checkpoints.
+Checkpoint 3.4.3 final validation: 30 frontend tests pass (including render-level
+Inspector and missing-versus-empty handoff coverage); production build passes;
+lint has zero errors and the two existing Fast Refresh warnings. All 59 backend
+tests and backend compilation pass; the existing Starlette/AnyIO deprecation
+warning remains. `git diff --check` passes. No Groq call, commit, push or staging
+is part of this checkpoint. Compare, replay and evaluation UI remain
+**NOT IMPLEMENTED**.

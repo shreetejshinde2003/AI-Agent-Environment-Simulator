@@ -2,8 +2,7 @@ import { useMemo } from "react";
 import ReactFlow, { Background, Controls, Handle, Position } from "reactflow";
 import "reactflow/dist/style.css";
 import "./AgentRelationshipGraph.css";
-import { graphPath } from "../../utils/runs";
-import { edgeView, stageView } from "../../utils/graphPresentation";
+import { canvasPath, edgeView, stageView } from "../../utils/graphPresentation";
 import { graphTarget } from "../../utils/workspaceSelection";
 function StageNode({data}) {
   return <button type="button" onClick={data.onInspect}
@@ -22,10 +21,12 @@ export default function AgentRelationshipGraph({task, agents = [], selectedTarge
     const running = task?.status === "in_progress";
     const orchestration = running ? "active" : task?.status === "completed" ? "completed" :
       task?.status === "failed" ? "failed" : "waiting";
-    const ids = graphPath(task);
+    const ids = canvasPath(task);
     const nodes = ids.map((id, i) => {
       const view = stageMap[id] ? stageView(task, stageMap[id]) :
         id === "goal" ? {status: task ? "completed" : "waiting", text: task ? "Goal received" : "Waiting"} :
+        id === "route" ? {status: task.routePlan.validationStatus === "invalid" ? "failed" : "decision",
+          text: task.routePlan.validationStatus === "valid" ? "Plan validated" : task.routePlan.validationStatus === "invalid" ? "Plan invalid" : "Validation not recorded"} :
         id === "result" ? task?.status === "completed" ? {status: "completed", text: "Completed"} :
           task?.status === "failed" ? {status: "not-executed", text: "No final result"} :
           {status: "waiting", text: "Waiting"} :
@@ -33,10 +34,12 @@ export default function AgentRelationshipGraph({task, agents = [], selectedTarge
       return {
       id, type: "stage", position: {x: 120, y: i * 122},
       data: {label: id === "goal" ? "User Goal" : id === "result" ? "Final Result" :
+        id === "route" ? "Route Decision" :
         agents.find(a => a.id === id)?.name ?? id,
         onInspect: () => onInspect(graphTarget(id)),
         kind: id === "orchestrator" ? "Sequential coordinator · no LLM" :
-          ["goal", "result"].includes(id) ? "Simulation" : "Agent",
+          id === "route" ? `Rule-based plan · ${task.routePlan.routerVersion}` :
+            id === "goal" ? "Simulation" : id === "result" ? "Final result" : "Agent",
         status: view.status, statusText: view.text,
         selected: selectedTarget?.kind === "stage" ? selectedTarget.id === id : selectedTarget?.kind === id},
       };

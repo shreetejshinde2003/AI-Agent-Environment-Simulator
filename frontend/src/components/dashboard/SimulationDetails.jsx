@@ -4,8 +4,9 @@ import AgentRelationshipGraph from "./AgentRelationshipGraph";
 import RunPicker from "./RunPicker";
 import SimulationTimeline from "./SimulationTimeline";
 import WorkspaceInspector from "./WorkspaceInspector";
-import { graphPath, modeLabel, runTitle } from "../../utils/runs";
-import { hasRecordedTopology, recentRecordedEvents, resolveInspectorTarget } from "../../utils/workspaceSelection";
+import { modeLabel, runTitle } from "../../utils/runs";
+import { canvasPath } from "../../utils/graphPresentation";
+import { graphTarget, hasRecordedTopology, recentRecordedEvents, resolveInspectorTarget } from "../../utils/workspaceSelection";
 import "./WorkspaceShell.css";
 
 // UI selection is scoped to a run ID. The graph and inspector read the current
@@ -33,17 +34,21 @@ export default function SimulationDetails({task}) {
       </aside>
       <section className="workbench-flow" aria-labelledby="workbench-flow-title">
         <div className="workbench-pane-heading"><h2 id="workbench-flow-title">Execution flow</h2>
-          {task?.routePlan && <button type="button" className="text-button"
+          {task?.executionMode === "adaptive" && task.routePlan && <button type="button" className="text-button"
             aria-pressed={target?.kind === "route"} onClick={() => inspect({kind: "route"})}>Inspect route decision</button>}</div>
         {task && <p className="muted">{runTitle(task)} · {modeLabel(task.executionMode)} · {task.status.replaceAll("_", " ")}</p>}
         {task && !hasRecordedTopology(task) ? <p className="empty-note">Stage topology was not recorded for this run. Its saved result and events remain available in the inspector and log.</p> :
           <AgentRelationshipGraph task={task} agents={agents} selectedTarget={target} onInspect={inspect}/>}
         {hasRecordedTopology(task) && <div className="workbench-path" aria-label="Recorded stage path">
-          <strong>Recorded path</strong><p>{graphPath(task).map(id => id === "goal" ? "Goal" : id === "result" ? "Result" :
-            id === "orchestrator" ? "Coordinator (no model call)" : agents.find(agent => agent.id === id)?.name ?? id).join(" → ")}</p>
+          <strong>Recorded path</strong><ol>{canvasPath(task).map(id =>
+            <li key={id}><button type="button" className="text-button" onClick={() => inspect(graphTarget(id))}
+              aria-pressed={target?.kind === id || (target?.kind === "stage" && target.id === id)}>
+              {id === "goal" ? "Goal" : id === "result" ? "Final result" : id === "route" ? "Route decision (no model call)" :
+                id === "orchestrator" ? "Coordinator (no model call)" : agents.find(agent => agent.id === id)?.name ?? id}
+            </button></li>)}</ol>
         </div>}
       </section>
-      <WorkspaceInspector task={task} target={target} agents={agents} onShowRun={() => inspect(null)}/>
+      <WorkspaceInspector task={task} target={target} agents={agents} onShowRun={() => inspect(null)} onInspect={inspect}/>
     </div>
     <section className="workbench-events" aria-labelledby="workbench-events-title">
       <div className="workbench-pane-heading"><h2 id="workbench-events-title">Recent recorded events</h2>

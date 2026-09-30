@@ -8,13 +8,13 @@ export function resolveInspectorTarget(task, selection) {
   if (!target) return null;
   if (target.kind === "stage" && task.stages?.some(stage => stage.agentId === target.id)) return target;
   if (target.kind === "handoff" && task.messages?.some(message => message.id === target.id)) return target;
-  if (target.kind === "route" && task.routePlan) return target;
+  if (target.kind === "route" && task.executionMode === "adaptive" && task.routePlan) return target;
   if (["goal", "result", "orchestrator"].includes(target.kind) && graphPath(task).includes(target.kind)) return target;
   return null;
 }
 
 export function graphTarget(id) {
-  if (["goal", "result", "orchestrator"].includes(id)) return {kind: id};
+  if (["goal", "result", "orchestrator", "route"].includes(id)) return {kind: id};
   return {kind: "stage", id};
 }
 

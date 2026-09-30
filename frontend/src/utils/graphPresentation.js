@@ -1,4 +1,11 @@
+import { graphPath } from "./runs.js";
+
 // Presentation derives from saved run evidence, never from an elapsed-time timer.
+export function canvasPath(task) {
+  if (!task?.stages?.length) return [];
+  const stages = graphPath(task);
+  return task.executionMode === "adaptive" && task.routePlan ? [stages[0], "route", ...stages.slice(1)] : stages;
+}
 export function stageView(task, stage) {
   if (stage.status === "waiting") return ["failed", "completed"].includes(task.status)
     ? {status: "not-executed", text: "Not executed"}
