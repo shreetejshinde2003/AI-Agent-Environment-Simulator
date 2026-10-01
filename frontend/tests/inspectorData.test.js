@@ -2,7 +2,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { canvasPath, stageView } from "../src/utils/graphPresentation.js";
 import { graphTarget, resolveInspectorTarget } from "../src/utils/workspaceSelection.js";
-import { handoffEvidence, hasAvailableRunContext, recordedTokenCoverage, runEvidence, stageEvidence } from "../src/utils/inspectorData.js";
+import {
+  handoffEvidence,
+  hasAvailableRunContext,
+  recordedTokenCoverage,
+  researchProvenance,
+  runEvidence,
+  shortHash,
+  stageEvidence,
+} from "../src/utils/inspectorData.js";
 
 const stamp = "2026-09-29T10:00:00Z";
 const stage = (agentId, status, extra = {}) => ({agentId, status, outputKey: `${agentId}_output`, ...extra});
@@ -24,6 +32,42 @@ test("adaptive canvas includes only recorded plan and selected stage rows", () =
   assert.deepEqual(resolveInspectorTarget(adaptive, {runId: "adaptive", target: graphTarget("route")}), {kind: "route"});
   assert.equal(resolveInspectorTarget({...adaptive, routePlan: null}, {runId: "adaptive", target: graphTarget("route")}), null);
   assert.equal(resolveInspectorTarget(adaptive, {runId: "adaptive", target: graphTarget("research")}), null);
+});
+
+test("research provenance exposes recorded comparison metadata without fabrication", () => {
+  const task = {
+    provenance: {
+      experimentProtocolVersion: "experiment-v1",
+      inputFingerprint: "a".repeat(64),
+      configuredModel: "test-model",
+      provider: "groq",
+      promptProtocolVersion: "prompts-v1",
+      contractsVersion: "contracts-v1",
+      routerVersion: "rules-v1",
+      requestedTaskType: "analysis",
+      datasetId: "employee_small",
+      datasetChecksum: "b".repeat(64),
+      maxOutputTokens: 1024,
+    },
+  };
+
+  assert.deepEqual(researchProvenance(task), {
+    experimentProtocol: "experiment-v1",
+    inputFingerprint: "a".repeat(64),
+    configuredModel: "test-model",
+    provider: "groq",
+    promptProtocol: "prompts-v1",
+    contractsVersion: "contracts-v1",
+    routerVersion: "rules-v1",
+    requestedTaskType: "analysis",
+    datasetId: "employee_small",
+    datasetChecksum: "b".repeat(64),
+    maxOutputTokens: 1024,
+  });
+
+  assert.equal(shortHash("a".repeat(64)), "aaaaaaaa…aaaaaaaa");
+  assert.equal(researchProvenance({}), null);
+  assert.equal(researchProvenance(null), null);
 });
 
 test("single, fixed, and legacy canvas paths retain their actual distinct topology", () => {
@@ -58,13 +102,75 @@ test("failed stage preserves its error and only waiting downstream is not execut
   assert.deepEqual(stageEvidence(adaptive, "analysis").unstartedDownstream, []);
 });
 
-test("token sum preserves saved measurements even when a legacy start timestamp is absent", () => {
-  assert.deepEqual(recordedTokenCoverage(adaptive), {attempted: 3, measured: 2, total: 18});
-  assert.deepEqual(recordedTokenCoverage({stages: [stage("research", "completed", {totalTokens: 50})]}),
-    {attempted: 0, measured: 1, total: 50});
-  assert.deepEqual(recordedTokenCoverage({stages: [stage("research", "waiting", {totalTokens: null})]}),
-    {attempted: 0, measured: 0, total: null});
-  assert.deepEqual(recordedTokenCoverage(null), {attempted: 0, measured: 0, total: null});
+test("token coverage distinguishes complete, partial, unavailable, and real zero", () => {
+  assert.deepEqual(
+    recordedTokenCoverage(adaptive),
+    {
+      attempted: 3,
+      measured: 2,
+      coverage: "partial",
+      total: null,
+    },
+  );
+
+  assert.deepEqual(
+    recordedTokenCoverage({
+      stages: [
+        stage("research", "completed", {
+          startedAt: stamp,
+          totalTokens: 0,
+        }),
+      ],
+    }),
+    {
+      attempted: 1,
+      measured: 1,
+      coverage: "complete",
+      total: 0,
+    },
+  );
+
+  assert.deepEqual(
+    recordedTokenCoverage({
+      stages: [
+        stage("research", "completed", {
+          totalTokens: 50,
+        }),
+      ],
+    }),
+    {
+      attempted: 0,
+      measured: 0,
+      coverage: "unavailable",
+      total: null,
+    },
+  );
+
+  assert.deepEqual(
+    recordedTokenCoverage({
+      stages: [
+        stage("research", "waiting", {
+          totalTokens: null,
+        }),
+      ],
+    }),
+    {
+      attempted: 0,
+      measured: 0,
+      coverage: "unavailable",
+      total: null,
+    },
+  );
+
+  assert.deepEqual(
+    recordedTokenCoverage(null),
+    {
+      attempted: 0,
+      measured: 0,
+      coverage: "unavailable",
+      total: null,
+    },
+  );
 });
 
 test("absent topology is empty and route metadata belongs only to Adaptive", () => {

@@ -197,18 +197,78 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
                          "Records: 294; Department: Engineering")
     async def test_single_coordinator_records_real_model_usage(self):
         from app.agents import direct_agent
+
         tasks._IMPLEMENTED_AGENTS["direct"] = DirectAgent()
-        response = LLMResponse(text="Actual direct answer", input_tokens=7,
-                               output_tokens=4, response_time_seconds=0.1, model="test-model")
-        with patch.object(direct_agent, "call_llm", new_callable=AsyncMock, return_value=response) as llm:
+
+        response = LLMResponse(
+            text="Actual direct answer",
+            input_tokens=7,
+            output_tokens=4,
+            response_time_seconds=0.1,
+            model="test-model",
+        )
+
+        with patch.object(
+            direct_agent,
+            "call_llm",
+            new_callable=AsyncMock,
+            return_value=response,
+        ) as llm:
             run = await self.run_task(mode="single")
+
         llm.assert_awaited_once()
+
         self.assertEqual(run.output, response.text)
         self.assertEqual(len(run.stages), 1)
         self.assertEqual(run.stages[0].model, "test-model")
-        self.assertEqual((run.stages[0].input_tokens, run.stages[0].output_tokens,
-                          run.stages[0].total_tokens), (7, 4, 11))
+        self.assertEqual(
+            (
+                run.stages[0].input_tokens,
+                run.stages[0].output_tokens,
+                run.stages[0].total_tokens,
+            ),
+            (7, 4, 11),
+        )
         self.assertEqual(run.messages, [])
+
+    async def test_single_coordinator_preserves_missing_usage_as_null(self):
+        from app.agents import direct_agent
+
+        tasks._IMPLEMENTED_AGENTS["direct"] = DirectAgent()
+
+        response = LLMResponse(
+            text="Actual direct answer",
+            input_tokens=None,
+            output_tokens=None,
+            response_time_seconds=0.1,
+            model="test-model",
+        )
+
+        with patch.object(
+            direct_agent,
+            "call_llm",
+            new_callable=AsyncMock,
+            return_value=response,
+        ) as llm:
+            run = await self.run_task(mode="single")
+
+        llm.assert_awaited_once()
+
+        self.assertEqual(run.output, response.text)
+        self.assertEqual(len(run.stages), 1)
+        self.assertEqual(run.stages[0].model, "test-model")
+
+        self.assertIsNone(run.stages[0].input_tokens)
+        self.assertIsNone(run.stages[0].output_tokens)
+        self.assertIsNone(run.stages[0].total_tokens)
+
+        reopened = Repository("sqlite:///" + self.path)
+        reopened.initialize()
+        restored = reopened.get(run.id)
+
+        self.assertIsNone(restored.stages[0].input_tokens)
+        self.assertIsNone(restored.stages[0].output_tokens)
+        self.assertIsNone(restored.stages[0].total_tokens)
     async def test_single_upload_context_uses_same_bounded_input(self):
         from app.api.routes.uploads import parse_upload
         upload = parse_upload("reference.txt", b"Supplied fact: 42")
@@ -423,6 +483,194 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(client.post("/api/v1/uploads?filename=bad.json", content=b"{").status_code, 422)
             self.assertEqual(client.post("/api/v1/uploads?filename=large.txt",
                                         content=b"x"*262145).status_code, 413)
+    async def test_research_modes_capture_matched_input_provenance(self):
+        payloads = (
+            CreateTaskRequest(
+                directive="Analyze tradeoffs",
+                title="Single presentation title",
+                execution_mode="single",
+                task_type="analysis",
+            ),
+            CreateTaskRequest(
+                directive="Analyze tradeoffs",
+                title="Fixed presentation title",
+                execution_mode="fixed",
+                task_type="analysis",
+            ),
+            CreateTaskRequest(
+                directive="Analyze tradeoffs",
+                title="Adaptive presentation title",
+                execution_mode="adaptive",
+                task_type="analysis",
+            ),
+        )
 
+        runs = [
+            await tasks.create_task(payload, BackgroundTasks())
+            for payload in payloads
+        ]
+
+        self.assertTrue(all(run.provenance is not None for run in runs))
+
+        fingerprints = {
+            run.provenance.input_fingerprint
+            for run in runs
+        }
+        self.assertEqual(len(fingerprints), 1)
+
+        self.assertEqual(
+            [run.execution_mode.value for run in runs],
+            ["single", "fixed", "adaptive"],
+        )
+
+        self.assertIsNone(runs[0].provenance.router_version)
+        self.assertIsNone(runs[1].provenance.router_version)
+        self.assertEqual(runs[2].provenance.router_version, "rules-v1")
+
+        for run in runs:
+            self.assertEqual(
+                run.provenance.requested_task_type,
+                "analysis",
+            )
+            self.assertEqual(
+                run.provenance.configured_model,
+                tasks.DEFAULT_MODEL,
+            )
+            self.assertEqual(
+                run.provenance.max_output_tokens,
+                tasks.DEFAULT_MAX_TOKENS,
+            )
+
+
+    async def test_adaptive_provenance_preserves_requested_task_type_before_inference(self):
+        from app.api.routes.uploads import parse_upload
+
+        upload = parse_upload(
+            "table.csv",
+            b"department,count\nEngineering,4",
+        )
+        repository.save_upload(upload)
+
+        queued = await tasks.create_task(
+            CreateTaskRequest(
+                directive="Analyze supplied data",
+                execution_mode="adaptive",
+                upload_ids=[upload.id],
+            ),
+            BackgroundTasks(),
+        )
+
+        self.assertEqual(
+            queued.task_type,
+            "structured_data_analysis",
+        )
+        self.assertIsNone(
+            queued.provenance.requested_task_type,
+        )
+        self.assertEqual(
+            queued.provenance.router_version,
+            "rules-v1",
+        )
+
+
+    async def test_legacy_specialist_utility_has_no_research_provenance(self):
+        queued = await tasks.create_task(
+            CreateTaskRequest(
+                directive="Inspect this input",
+                execution_mode="single_agent",
+                assigned_agent_id="analysis",
+            ),
+            BackgroundTasks(),
+        )
+
+        self.assertIsNone(queued.provenance)
+
+
+    async def test_provenance_survives_repository_reopen(self):
+        queued = await tasks.create_task(
+            CreateTaskRequest(
+                directive="Analyze tradeoffs",
+                execution_mode="single",
+                task_type="analysis",
+            ),
+            BackgroundTasks(),
+        )
+
+        expected = queued.provenance
+
+        reopened = Repository("sqlite:///" + self.path)
+        reopened.initialize()
+        restored = reopened.get(queued.id)
+
+        self.assertEqual(restored.provenance, expected)
+
+
+    async def test_historical_task_without_provenance_remains_valid(self):
+        queued = await tasks.create_task(
+            CreateTaskRequest(
+                directive="Historical compatibility",
+                execution_mode="single",
+            ),
+            BackgroundTasks(),
+        )
+
+        snapshot = queued.model_dump(mode="json")
+        snapshot.pop("provenance")
+
+        from app.models.schemas import Task
+
+        restored = Task.model_validate(snapshot)
+
+        self.assertIsNone(restored.provenance)
+
+    async def test_metrics_marks_missing_token_usage_unavailable(self):
+        from app.api.routes import simulations
+
+        run = await self.run_task(mode="single")
+
+        result = await simulations.metrics()
+        history = next(item for item in result["history"] if item["id"] == run.id)
+
+        self.assertEqual(history["startedStageCount"], 1)
+        self.assertEqual(history["measuredStageCount"], 0)
+        self.assertEqual(history["tokenCoverage"], "unavailable")
+        self.assertIsNone(history["tokens"])
+
+
+    async def test_metrics_preserves_real_zero_as_complete_measurement(self):
+        from app.api.routes import simulations
+
+        run = await self.run_task(mode="single")
+
+        run.stages[0].input_tokens = 0
+        run.stages[0].output_tokens = 0
+        run.stages[0].total_tokens = 0
+        repository.save(run)
+
+        result = await simulations.metrics()
+        history = next(item for item in result["history"] if item["id"] == run.id)
+
+        self.assertEqual(history["startedStageCount"], 1)
+        self.assertEqual(history["measuredStageCount"], 1)
+        self.assertEqual(history["tokenCoverage"], "complete")
+        self.assertEqual(history["tokens"], 0)
+
+
+    async def test_metrics_does_not_publish_partial_token_total_as_complete(self):
+        from app.api.routes import simulations
+
+        run = await self.run_task(mode="fixed")
+
+        run.stages[0].input_tokens = 3
+        run.stages[0].output_tokens = 2
+        run.stages[0].total_tokens = 5
+        repository.save(run)
+
+        result = await simulations.metrics()
+        history = next(item for item in result["history"] if item["id"] == run.id)
+        self.assertEqual(history["startedStageCount"], 5)
+        self.assertEqual(history["measuredStageCount"], 1)
+        self.assertEqual(history["tokenCoverage"], "partial")
+        self.assertIsNone(history["tokens"])
 if __name__ == "__main__":
     unittest.main()

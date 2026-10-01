@@ -46,6 +46,57 @@ test("no selection renders the recorded run overview with real mode and ID", () 
   assert.match(html, /Export CSV/);
 });
 
+test("run overview renders research provenance and honest token coverage", () => {
+  const task = structuredClone(adaptiveRun);
+  task.stages[2].totalTokens = null;
+  task.stages[2].inputTokens = null;
+  task.stages[2].outputTokens = null;
+  task.provenance = {
+    experimentProtocolVersion: "experiment-v1",
+    inputFingerprint: "a".repeat(64),
+    directiveSha256: "c".repeat(64),
+    requestedTaskType: "analysis",
+    datasetId: "employee_small",
+    datasetChecksum: "b".repeat(64),
+    benchmarkContextSha256: "d".repeat(64),
+    uploadContextSha256: [],
+    provider: "groq",
+    configuredModel: "fixture-model",
+    maxOutputTokens: 1024,
+    promptProtocolVersion: "prompts-v1",
+    contractsVersion: "contracts-v1",
+    routerVersion: "rules-v1",
+  };
+
+  const html = inspect(task);
+
+  assert.match(html, /Research provenance/);
+  metadata(html, "Experiment protocol", "<code>experiment-v1</code>");
+  assert.match(html, /aaaaaaaa…aaaaaaaa/);
+  assert.match(html, /groq/);
+  assert.match(html, /fixture-model/);
+  assert.match(html, /prompts-v1/);
+  assert.match(html, /contracts-v1/);
+  assert.match(html, /rules-v1/);
+  assert.match(html, /employee_small/);
+
+  metadata(html, "Token coverage", "Partial · 2/3 stages");
+  metadata(html, "Comparable token total", "Not available");
+
+  assert.match(html, /Execution mode is intentionally excluded from that fingerprint/);
+});
+
+test("historical run overview does not fabricate research provenance", () => {
+  const task = structuredClone(singleRun);
+  delete task.provenance;
+
+  const html = inspect(task);
+
+  assert.match(html, /Research provenance/);
+  assert.match(html, /No experiment provenance was recorded for this run/);
+  assert.doesNotMatch(html, /experiment-v1|prompts-v1|rules-v1/);
+});
+
 test("stage selection renders stored telemetry and source provenance", () => {
   const html = inspect(adaptiveRun, {kind: "stage", id: "analysis"});
   assert.match(html, /Analysis Agent · Completed/);

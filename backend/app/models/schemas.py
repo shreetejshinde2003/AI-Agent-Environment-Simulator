@@ -206,6 +206,44 @@ class DatasetMetadata(CamelModel):
     imported_at: datetime
     quality: DatasetQuality
 
+class RunProvenance(CamelModel):
+    """Immutable evidence describing the conditions under which a run began."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    experiment_protocol_version: str
+    input_fingerprint: str = Field(
+        min_length=64,
+        max_length=64,
+        pattern=r"^[0-9a-f]{64}$",
+    )
+    directive_sha256: str = Field(
+        min_length=64,
+        max_length=64,
+        pattern=r"^[0-9a-f]{64}$",
+    )
+
+    # Preserve what the caller supplied before Adaptive routing can classify
+    # and replace Task.task_type with the inferred route task type.
+    requested_task_type: str | None = None
+
+    dataset_id: str | None = None
+    dataset_checksum: str | None = None
+    benchmark_context_sha256: str | None = Field(
+        default=None,
+        min_length=64,
+        max_length=64,
+        pattern=r"^[0-9a-f]{64}$",
+    )
+    upload_context_sha256: tuple[str, ...] = ()
+
+    provider: str
+    configured_model: str
+    max_output_tokens: int = Field(gt=0)
+
+    prompt_protocol_version: str
+    contracts_version: str
+    router_version: str | None = None
 
 class RoutePlan(CamelModel):
     """Versioned deterministic routing metadata, never model reasoning."""
@@ -267,6 +305,7 @@ class Task(CamelModel):
     input_error: InputContractFailure | None = None
     title: str | None = None
     route_plan: RoutePlan | None = None
+    provenance: RunProvenance | None = None
 
     @model_validator(mode="after")
     def readable_title(self):

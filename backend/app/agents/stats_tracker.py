@@ -60,7 +60,7 @@ class AgentStatsTracker:
         self,
         agent_id: str,
         response_time_seconds: float,
-        tokens_used: int,
+        tokens_used: int | None,
         response_preview: str,
         model_used: str | None = None,
     ) -> None:
@@ -76,7 +76,8 @@ class AgentStatsTracker:
         ) / new_count
 
         stats.calls_made = new_count
-        stats.total_tokens_used += tokens_used
+        if tokens_used is not None:
+            stats.total_tokens_used += tokens_used
         stats.last_response_time_seconds = response_time_seconds
         stats.last_response_preview = response_preview[:200]
         stats.last_called_at = datetime.now(timezone.utc)

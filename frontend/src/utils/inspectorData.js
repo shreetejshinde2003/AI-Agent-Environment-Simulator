@@ -21,11 +21,26 @@ export function handoffEvidence(task, messageId) {
 export function recordedTokenCoverage(task) {
   const stages = task?.stages ?? [];
   const attempted = stages.filter(stage => stage.startedAt);
-  // Match the run metrics API: preserve every recorded token total, including
-  // older records missing a start timestamp. A missing measurement is not zero.
-  const measured = stages.filter(stage => Number.isFinite(stage.totalTokens));
-  return {attempted: attempted.length, measured: measured.length,
-    total: measured.length ? measured.reduce((sum, stage) => sum + stage.totalTokens, 0) : null};
+  const measured = attempted.filter(stage => Number.isFinite(stage.totalTokens));
+
+  const attemptedCount = attempted.length;
+  const measuredCount = measured.length;
+
+  const coverage =
+    attemptedCount === 0 || measuredCount === 0
+      ? "unavailable"
+      : measuredCount < attemptedCount
+        ? "partial"
+        : "complete";
+
+  return {
+    attempted: attemptedCount,
+    measured: measuredCount,
+    coverage,
+    total: coverage === "complete"
+      ? measured.reduce((sum, stage) => sum + stage.totalTokens, 0)
+      : null,
+  };
 }
 
 export function runEvidence(task) {
@@ -44,7 +59,30 @@ export function runEvidence(task) {
     finalStage: stages.at(-1) ?? null,
   };
 }
+export function shortHash(value) {
+  if (!value) return null;
+  return value.length > 16
+    ? `${value.slice(0, 8)}…${value.slice(-8)}`
+    : value;
+}
 
+export function researchProvenance(task) {
+  if (!task?.provenance) return null;
+
+  return {
+    experimentProtocol: task.provenance.experimentProtocolVersion,
+    inputFingerprint: task.provenance.inputFingerprint,
+    configuredModel: task.provenance.configuredModel,
+    provider: task.provenance.provider,
+    promptProtocol: task.provenance.promptProtocolVersion,
+    contractsVersion: task.provenance.contractsVersion,
+    routerVersion: task.provenance.routerVersion,
+    requestedTaskType: task.provenance.requestedTaskType,
+    datasetId: task.provenance.datasetId,
+    datasetChecksum: task.provenance.datasetChecksum,
+    maxOutputTokens: task.provenance.maxOutputTokens,
+  };
+}
 export function hasAvailableRunContext(task) {
   return !!task?.uploads?.length || !!task?.benchmarkContext;
 }

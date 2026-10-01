@@ -66,13 +66,15 @@ _client = AsyncGroq(api_key=settings.GROQ_API_KEY)
 @dataclass
 class LLMResponse:
     text: str
-    input_tokens: int
-    output_tokens: int
+    input_tokens: int | None
+    output_tokens: int | None
     response_time_seconds: float
     model: str
 
     @property
-    def total_tokens(self) -> int:
+    def total_tokens(self) -> int | None:
+        if self.input_tokens is None or self.output_tokens is None:
+            return None
         return self.input_tokens + self.output_tokens
 
 
@@ -110,8 +112,8 @@ async def call_llm(
 
     return LLMResponse(
         text=response.choices[0].message.content or "",
-        input_tokens=usage.prompt_tokens if usage else 0,
-        output_tokens=usage.completion_tokens if usage else 0,
+        input_tokens=usage.prompt_tokens if usage is not None else None,
+        output_tokens=usage.completion_tokens if usage is not None else None,
         response_time_seconds=elapsed,
         model=resolved_model,
     )

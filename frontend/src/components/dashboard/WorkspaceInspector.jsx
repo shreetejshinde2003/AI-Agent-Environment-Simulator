@@ -2,7 +2,14 @@ import { useEffect, useRef } from "react";
 import TaskDetailsPanel from "./TaskDetailsPanel";
 import RecordedText from "./RecordedText";
 import { stageView } from "../../utils/graphPresentation";
-import { handoffEvidence, hasAvailableRunContext, stageEvidence } from "../../utils/inspectorData";
+import {
+  handoffEvidence,
+  hasAvailableRunContext,
+  recordedTokenCoverage,
+  researchProvenance,
+  shortHash,
+  stageEvidence,
+} from "../../utils/inspectorData";
 
 const recorded = value => value == null ? "Not recorded" : value;
 const time = value => value ? new Date(value).toLocaleString() : "Not recorded";
@@ -12,6 +19,66 @@ const name = (id, agents) => agents.find(agent => agent.id === id)?.name ?? id;
 function Metadata({items}) {
   return <dl className="metadata inspector-metadata">{items.filter(([, value]) => value != null).map(([label, value]) =>
     <div className="inspector-metadata-row" key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>;
+}
+function ResearchEvidence({task}) {
+  const provenance = researchProvenance(task);
+  const tokens = recordedTokenCoverage(task);
+
+  if (!provenance) {
+    return <section aria-labelledby="inspector-research-heading">
+      <h4 id="inspector-research-heading">Research provenance</h4>
+      <p className="muted">
+        No experiment provenance was recorded for this run. Historical or utility runs may predate the experiment protocol.
+      </p>
+    </section>;
+  }
+
+  const coverageLabel =
+    tokens.coverage === "complete"
+      ? `Complete · ${tokens.measured}/${tokens.attempted} stages`
+      : tokens.coverage === "partial"
+        ? `Partial · ${tokens.measured}/${tokens.attempted} stages`
+        : `Unavailable · ${tokens.measured}/${tokens.attempted} stages`;
+
+  return <section aria-labelledby="inspector-research-heading">
+    <h4 id="inspector-research-heading">Research provenance</h4>
+
+    <Metadata items={[
+      ["Experiment protocol", <code key="experiment-protocol">{provenance.experimentProtocol}</code>],
+      ["Input fingerprint", provenance.inputFingerprint
+        ? <code key="input-fingerprint" title={provenance.inputFingerprint}>
+            {shortHash(provenance.inputFingerprint)}
+          </code>
+        : null],
+      ["Provider", provenance.provider],
+      ["Configured model", provenance.configuredModel
+        ? <code key="configured-model">{provenance.configuredModel}</code>
+        : null],
+      ["Max output tokens", provenance.maxOutputTokens],
+      ["Prompt protocol", provenance.promptProtocol
+        ? <code key="prompt-protocol">{provenance.promptProtocol}</code>
+        : null],
+      ["Contracts version", provenance.contractsVersion
+        ? <code key="contracts-version">{provenance.contractsVersion}</code>
+        : null],
+      ["Router version", provenance.routerVersion
+        ? <code key="router-version">{provenance.routerVersion}</code>
+        : "Not applicable"],
+      ["Requested task type", provenance.requestedTaskType ?? "Not specified"],
+      ["Dataset", provenance.datasetId ?? "None"],
+      ["Dataset checksum", provenance.datasetChecksum
+        ? <code key="dataset-checksum" title={provenance.datasetChecksum}>
+            {shortHash(provenance.datasetChecksum)}
+          </code>
+        : "None"],
+      ["Token coverage", coverageLabel],
+      ["Comparable token total", tokens.total ?? "Not available"],
+    ]}/>
+
+    <p className="muted">
+      The input fingerprint identifies matched research inputs. Execution mode is intentionally excluded from that fingerprint.
+    </p>
+  </section>;
 }
 
 function StageInspector({task, evidence, agents, onInspect, onInspectRecord}) {
@@ -141,6 +208,14 @@ export default function WorkspaceInspector({task, target, agents = [], selectedR
           route ? <RouteInspector task={task} route={route} agents={agents}/> :
             target?.kind === "goal" ? <RecordedText text={task.directive} label="user directive"/> :
               target?.kind === "orchestrator" ? <p>The fixed-mode coordinator runs the selected stages in order. It does not invoke a model itself.</p> :
-                <TaskDetailsPanel key={task.id} task={task} view={target?.kind === "result" ? "result" : "overview"} onInspect={inspectRelated}/>}
+                <>
+  {target?.kind !== "result" && <ResearchEvidence task={task}/>}
+  <TaskDetailsPanel
+    key={task.id}
+    task={task}
+    view={target?.kind === "result" ? "result" : "overview"}
+    onInspect={inspectRelated}
+  />
+</>}
   </section>;
 }

@@ -27,7 +27,29 @@ async def list_simulations():
 async def create_simulation(payload: CreateSimulationRequest, background_tasks: BackgroundTasks):
     return view(await create_task(payload, background_tasks))
 
+def token_coverage(task):
+    started = [stage for stage in task.stages if stage.started_at is not None]
+    measured = [stage for stage in started if stage.total_tokens is not None]
 
+    started_count = len(started)
+    measured_count = len(measured)
+
+    if started_count == 0 or measured_count == 0:
+        coverage = "unavailable"
+        total = None
+    elif measured_count < started_count:
+        coverage = "partial"
+        total = None
+    else:
+        coverage = "complete"
+        total = sum(stage.total_tokens for stage in measured)
+
+    return {
+        "startedStageCount": started_count,
+        "measuredStageCount": measured_count,
+        "tokenCoverage": coverage,
+        "tokens": total,
+    }
 @router.get("/metrics")
 async def metrics():
     runs = repository.list()
@@ -55,8 +77,7 @@ async def metrics():
              skippedAgentIds=list(r.route_plan.skipped_agent_ids) if r.route_plan else [],
              models=sorted({s.model for s in r.stages if s.model}),
              duration=r.elapsed_seconds,
-             tokens=sum(s.total_tokens for s in r.stages if s.total_tokens is not None)
-             if any(s.total_tokens is not None for s in r.stages) else None)
+             **token_coverage(r))
         for r in runs
     ]}
 

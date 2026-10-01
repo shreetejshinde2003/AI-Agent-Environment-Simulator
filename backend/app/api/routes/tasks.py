@@ -26,6 +26,8 @@ from app.models.schemas import (
 )
 from app.storage.database import repository
 from app.websocket.manager import manager
+from app.agents.llm_client import DEFAULT_MODEL, DEFAULT_MAX_TOKENS
+from app.experiments.provenance import build_run_provenance
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 _TASKS: dict[str, Task] = {}  # Active process cache; SQLite is authoritative for reads.
@@ -95,6 +97,7 @@ async def create_task(payload: CreateTaskRequest, background_tasks: BackgroundTa
         except (OSError, ValueError) as exc:
             raise HTTPException(422, str(exc)) from exc
         dataset_checksum = dataset["checksum"]
+    requested_task_type = payload.task_type
     task_id = f"T-{uuid.uuid4().hex[:12]}"
     is_pipeline = payload.execution_mode == TaskExecutionMode.FIXED
     is_single = payload.execution_mode == TaskExecutionMode.SINGLE
@@ -109,21 +112,64 @@ async def create_task(payload: CreateTaskRequest, background_tasks: BackgroundTa
         status=TaskStatus.QUEUED, started_at=now(), created_at=now(),
         duration_seconds=0, progress_percent=0, uploads=uploads,
         dataset_id=payload.dataset_id, dataset_checksum=dataset_checksum,
-        task_type=payload.task_type, benchmark_context=benchmark_context,
+        task_type=requested_task_type, benchmark_context=benchmark_context,
         stages=[] if is_adaptive else [StageExecution(agent_id=aid, output_key=key) for aid, key in sequence],
     )
     if is_adaptive:
         try:
-            plan = plan_route(_prepared_context(task), [u.format for u in uploads])
+            plan = plan_route(
+                _prepared_context(task),
+                [u.format for u in uploads],
+            )
             if plan.validation_status != "valid":
-                raise HTTPException(422, detail={"code": "invalid_route", "message": plan.validation_error,
-                                                "routePlan": plan.model_dump(mode="json")})
+                raise HTTPException(
+                    422,
+                    detail={
+                        "code": "invalid_route",
+                        "message": plan.validation_error,
+                        "routePlan": plan.model_dump(mode="json"),
+                    },
+                )
         except (ValueError, AgentInputError) as exc:
-            raise HTTPException(422, detail={"code": "invalid_route", "message": str(exc)}) from exc
+            raise HTTPException(
+                422,
+                detail={
+                    "code": "invalid_route",
+                    "message": str(exc),
+                },
+            ) from exc
+
         task.route_plan = plan
         task.task_type = plan.task_type
-        task.stages = [StageExecution(agent_id=aid, output_key=CONTRACTS[aid].output)
-                       for aid in plan.selected_agent_ids]
+        task.stages = [
+            StageExecution(
+                agent_id=aid,
+                output_key=CONTRACTS[aid].output,
+            )
+            for aid in plan.selected_agent_ids
+        ]
+
+    if task.execution_mode in (
+        TaskExecutionMode.SINGLE,
+        TaskExecutionMode.FIXED,
+        TaskExecutionMode.ADAPTIVE,
+    ):
+        task.provenance = build_run_provenance(
+            directive=task.directive,
+            requested_task_type=requested_task_type,
+            dataset_id=task.dataset_id,
+            dataset_checksum=task.dataset_checksum,
+            benchmark_context=task.benchmark_context,
+            uploads=task.uploads,
+            configured_model=DEFAULT_MODEL,
+            max_output_tokens=DEFAULT_MAX_TOKENS,
+            router_version=(
+                task.route_plan.router_version
+                if task.route_plan is not None
+                else None
+            ),
+        )
+
     _TASKS[task.id] = task
     await emit(task, "simulation_created", "Simulation queued")
     if task.route_plan:
