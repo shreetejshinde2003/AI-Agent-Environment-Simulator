@@ -8,6 +8,7 @@ from app.api.routes.tasks import create_task, get_record
 from app.api.routes.simulation import aggregate
 from app.models.schemas import CreateSimulationRequest
 from app.storage.database import repository
+from app.experiments.evaluation import token_measurement
 
 router = APIRouter(prefix="/simulations", tags=["simulations"])
 
@@ -28,25 +29,23 @@ async def create_simulation(payload: CreateSimulationRequest, background_tasks: 
     return view(await create_task(payload, background_tasks))
 
 def token_coverage(task):
-    started = [stage for stage in task.stages if stage.started_at is not None]
-    measured = [stage for stage in started if stage.total_tokens is not None]
+    started = [
+        stage
+        for stage in task.stages
+        if stage.started_at is not None
+    ]
 
-    started_count = len(started)
-    measured_count = len(measured)
+    measured = [
+        stage
+        for stage in started
+        if stage.total_tokens is not None
+    ]
 
-    if started_count == 0 or measured_count == 0:
-        coverage = "unavailable"
-        total = None
-    elif measured_count < started_count:
-        coverage = "partial"
-        total = None
-    else:
-        coverage = "complete"
-        total = sum(stage.total_tokens for stage in measured)
+    coverage, total = token_measurement(task)
 
     return {
-        "startedStageCount": started_count,
-        "measuredStageCount": measured_count,
+        "startedStageCount": len(started),
+        "measuredStageCount": len(measured),
         "tokenCoverage": coverage,
         "tokens": total,
     }

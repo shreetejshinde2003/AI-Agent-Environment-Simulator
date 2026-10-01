@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import ValidationError
-
+from app.experiments.evaluation import build_run_evaluation
 from app.agents.research_agent import ResearchAgent
 from app.agents.data_agent import DataAgent
 from app.agents.analysis_agent import AnalysisAgent
@@ -380,54 +380,130 @@ async def _execute_mode(task: Task) -> str:
 async def _run_task(task_id: str) -> None:
     task = _TASKS.get(task_id) or get_record(task_id)
     started = time.perf_counter()
+
     task.execution_started_at = now()
     task.status = TaskStatus.IN_PROGRESS
-    coordinator = "orchestrator" if task.execution_mode in (TaskExecutionMode.FIXED, TaskExecutionMode.ADAPTIVE) else None
-    await emit(task, "simulation_started", "Simulation started", coordinator)
+
+    coordinator = (
+        "orchestrator"
+        if task.execution_mode in (
+            TaskExecutionMode.FIXED,
+            TaskExecutionMode.ADAPTIVE,
+        )
+        else None
+    )
+
+    await emit(
+        task,
+        "simulation_started",
+        "Simulation started",
+        coordinator,
+    )
+
     try:
         result = await _execute_mode(task)
+
         task.output = result
         task.status = TaskStatus.COMPLETED
         task.progress_percent = 100
+
     except (Exception, asyncio.CancelledError) as exc:
         task.status = TaskStatus.FAILED
         task.error = safe_error(exc)
+
         if isinstance(exc, AgentInputError):
             task.input_error = exc.detail
+
         task.output = None
+
     finally:
         task.completed_at = now()
         task.elapsed_seconds = time.perf_counter() - started
         task.duration_seconds = int(task.elapsed_seconds)
+
         successful = task.status == TaskStatus.COMPLETED
-        await record_activity(coordinator or "simulation", f"Simulation {task.status.value}", task=task)
-        await emit(task, "simulation_completed" if successful else "simulation_failed",
-                   f"Simulation {task.status.value}", coordinator)
-        await register_task_finished(task.elapsed_seconds, successful)
+
+        if task.execution_mode in (
+            TaskExecutionMode.SINGLE,
+            TaskExecutionMode.FIXED,
+            TaskExecutionMode.ADAPTIVE,
+        ):
+            task.evaluation = build_run_evaluation(task)
+
+        await record_activity(
+            coordinator or "simulation",
+            f"Simulation {task.status.value}",
+            task=task,
+        )
+
+        await emit(
+            task,
+            "simulation_completed" if successful else "simulation_failed",
+            f"Simulation {task.status.value}",
+            coordinator,
+        )
+
+        await register_task_finished(
+            task.elapsed_seconds,
+            successful,
+        )
+
         _TASKS.pop(task.id, None)
 
 
 def recover_interrupted():
     """A restart cannot resume an in-flight provider call: record an honest failure."""
+
     for task in repository.list():
-        if task.status not in (TaskStatus.QUEUED, TaskStatus.IN_PROGRESS):
+        if task.status not in (
+            TaskStatus.QUEUED,
+            TaskStatus.IN_PROGRESS,
+        ):
             continue
+
         timestamp = now()
+
         task.status = TaskStatus.FAILED
-        task.error = "Server restarted before this simulation completed; create a new run to retry."
+        task.error = (
+            "Server restarted before this simulation completed; "
+            "create a new run to retry."
+        )
         task.completed_at = timestamp
+
         if task.execution_started_at:
-            task.elapsed_seconds = (timestamp - task.execution_started_at).total_seconds()
+            task.elapsed_seconds = (
+                timestamp - task.execution_started_at
+            ).total_seconds()
             task.duration_seconds = int(task.elapsed_seconds)
+
         for stage in task.stages:
             if stage.status == "active":
                 stage.status = "failed"
                 stage.error = task.error
                 stage.completed_at = timestamp
+
         task.progress_steps = [
-            TaskProgressStep(label=f"{s.agent_id}: {s.status}", done=s.status == "completed")
-            for s in task.stages
+            TaskProgressStep(
+                label=f"{stage.agent_id}: {stage.status}",
+                done=stage.status == "completed",
+            )
+            for stage in task.stages
         ]
-        task.events.append(RunEvent(id=uuid.uuid4().hex, type="simulation_failed",
-                                   timestamp=timestamp, text=task.error))
+
+        if task.execution_mode in (
+            TaskExecutionMode.SINGLE,
+            TaskExecutionMode.FIXED,
+            TaskExecutionMode.ADAPTIVE,
+        ):
+            task.evaluation = build_run_evaluation(task)
+
+        task.events.append(
+            RunEvent(
+                id=uuid.uuid4().hex,
+                type="simulation_failed",
+                timestamp=timestamp,
+                text=task.error,
+            )
+        )
+
         repository.save(task)

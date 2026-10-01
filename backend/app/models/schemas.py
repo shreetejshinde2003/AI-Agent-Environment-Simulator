@@ -245,6 +245,127 @@ class RunProvenance(CamelModel):
     contracts_version: str
     router_version: str | None = None
 
+class ObjectiveEvaluation(CamelModel):
+    """Measured execution evidence; never an LLM judgment."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    status: Literal["completed", "failed"]
+    elapsed_seconds: float | None = Field(default=None, ge=0)
+    agent_invocation_count: int = Field(ge=0)
+    handoff_count: int = Field(ge=0)
+    token_coverage: Literal["unavailable", "partial", "complete"]
+    total_tokens: int | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def validate_token_semantics(self):
+        if self.token_coverage == "complete" and self.total_tokens is None:
+            raise ValueError(
+                "Complete token coverage requires total_tokens."
+            )
+
+        if self.token_coverage != "complete" and self.total_tokens is not None:
+            raise ValueError(
+                "total_tokens must be null unless token coverage is complete."
+            )
+
+        return self
+
+
+class QualityCriterion(CamelModel):
+    """One blinded evaluator judgment under the versioned quality rubric."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: Literal[
+        "task_fulfillment",
+        "completeness",
+        "coherence",
+        "grounding",
+    ]
+    applicable: bool = True
+    score: int | None = Field(default=None, ge=1, le=5)
+    rationale: str = Field(min_length=1, max_length=600)
+
+    @model_validator(mode="after")
+    def validate_applicability(self):
+        if self.applicable and self.score is None:
+            raise ValueError(
+                "Applicable criteria require a score."
+            )
+
+        if not self.applicable and self.score is not None:
+            raise ValueError(
+                "Non-applicable criteria must not have a score."
+            )
+
+        return self
+
+
+class QualityJudgment(CamelModel):
+    """Blinded output-quality judgment; not factual ground truth."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    evaluation_protocol_version: Literal["evaluation-v1"] = "evaluation-v1"
+    rubric_version: Literal["quality-rubric-v1"] = "quality-rubric-v1"
+
+    evaluator_provider: str
+    evaluator_model: str
+
+    # The evaluator prompt must not reveal Single / Fixed / Adaptive.
+    treatment_blinded: Literal[True] = True
+
+    output_sha256: str = Field(
+        min_length=64,
+        max_length=64,
+        pattern=r"^[0-9a-f]{64}$",
+    )
+
+    criteria: tuple[
+        QualityCriterion,
+        QualityCriterion,
+        QualityCriterion,
+        QualityCriterion,
+    ]
+
+    @model_validator(mode="after")
+    def validate_rubric_dimensions(self):
+        expected = (
+            "task_fulfillment",
+            "completeness",
+            "coherence",
+            "grounding",
+        )
+
+        actual = tuple(item.name for item in self.criteria)
+
+        if actual != expected:
+            raise ValueError(
+                "Quality criteria must appear exactly once in rubric order."
+            )
+
+        return self
+
+
+class RunEvaluation(CamelModel):
+    """Evaluation evidence attached to one completed research run."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    task_id: str
+    experiment_id: str | None = None
+
+    input_fingerprint: str | None = Field(
+        default=None,
+        min_length=64,
+        max_length=64,
+        pattern=r"^[0-9a-f]{64}$",
+    )
+
+    evaluated_at: datetime
+    objective: ObjectiveEvaluation
+    quality: QualityJudgment | None = None
 class RoutePlan(CamelModel):
     """Versioned deterministic routing metadata, never model reasoning."""
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -302,6 +423,7 @@ class Task(CamelModel):
     task_type: str | None = None
     benchmark_context: str | None = None
     evaluation_scores: dict[str, float] | None = None
+    evaluation: RunEvaluation | None = None
     input_error: InputContractFailure | None = None
     title: str | None = None
     route_plan: RoutePlan | None = None
