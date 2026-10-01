@@ -1,10 +1,20 @@
 from datetime import datetime, timezone
 
+import pytest
+from pydantic import ValidationError
+
 from app.experiments.provenance import (
     build_input_fingerprint,
     build_run_provenance,
 )
-from app.models.schemas import UploadedContext
+from app.models.schemas import (
+    CreateMatchedExperimentRequest,
+    MatchedExperiment,
+    MatchedExperimentRun,
+    Task,
+    UploadedContext,
+)
+
 
 
 def upload(
@@ -172,3 +182,74 @@ def test_provenance_fingerprint_ignores_protocol_treatment_metadata():
     )
 
     assert single.input_fingerprint == adaptive.input_fingerprint
+def test_matched_experiment_request_has_no_execution_mode_override():
+    request = CreateMatchedExperimentRequest(
+        directive="Compare the same input across research modes",
+    )
+
+    payload = request.model_dump(mode="json")
+
+    assert "executionMode" not in payload
+    assert "assignedAgentId" not in payload
+
+
+def test_matched_experiment_contract_has_exact_three_research_modes():
+    fingerprint = "a" * 64
+
+    experiment = MatchedExperiment(
+        experiment_id="E-test123",
+        created_at=datetime.now(timezone.utc),
+        input_fingerprint=fingerprint,
+        runs=(
+            MatchedExperimentRun(
+                execution_mode="single",
+                task_id="T-single",
+            ),
+            MatchedExperimentRun(
+                execution_mode="fixed",
+                task_id="T-fixed",
+            ),
+            MatchedExperimentRun(
+                execution_mode="adaptive",
+                task_id="T-adaptive",
+            ),
+        ),
+    )
+
+    assert experiment.input_fingerprint == fingerprint
+    assert [run.execution_mode for run in experiment.runs] == [
+        "single",
+        "fixed",
+        "adaptive",
+    ]
+
+
+def test_matched_experiment_run_rejects_legacy_specialist_mode():
+    with pytest.raises(ValidationError):
+        MatchedExperimentRun(
+            execution_mode="single_agent",
+            task_id="T-legacy",
+        )
+
+
+def test_historical_task_without_experiment_id_remains_valid():
+    from app.models.schemas import (
+        TaskPriority,
+        TaskStatus,
+    )
+
+    snapshot = {
+        "id": "T-historical",
+        "directive": "Historical task",
+        "assignedAgentId": "direct",
+        "status": TaskStatus.COMPLETED,
+        "priority": TaskPriority.MEDIUM,
+        "executionMode": "single",
+        "startedAt": datetime.now(timezone.utc),
+        "durationSeconds": 1,
+        "progressPercent": 100,
+    }
+
+    restored = Task.model_validate(snapshot)
+
+    assert restored.experiment_id is None

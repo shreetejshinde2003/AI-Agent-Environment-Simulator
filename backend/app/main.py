@@ -12,7 +12,16 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import agents, datasets, messages, simulation, tasks, simulations, uploads
+from app.api.routes import (
+    agents,
+    datasets,
+    experiments,
+    messages,
+    simulation,
+    tasks,
+    simulations,
+    uploads,
+)
 from app.storage.database import repository
 from app.core.config import settings
 from app.websocket.manager import manager
@@ -49,7 +58,7 @@ app.include_router(simulation.router, prefix=settings.API_V1_PREFIX)
 app.include_router(simulations.router, prefix=settings.API_V1_PREFIX)
 app.include_router(uploads.router, prefix=settings.API_V1_PREFIX)
 app.include_router(datasets.router, prefix=settings.API_V1_PREFIX)
-
+app.include_router(experiments.router, prefix=settings.API_V1_PREFIX)
 
 @app.get("/health")
 async def health_check():

@@ -306,6 +306,7 @@ class Task(CamelModel):
     title: str | None = None
     route_plan: RoutePlan | None = None
     provenance: RunProvenance | None = None
+    experiment_id: str | None = None
 
     @model_validator(mode="after")
     def readable_title(self):
@@ -392,6 +393,35 @@ class CreateSimulationRequest(CreateTaskRequest):
     assigned_agent_id: str = "orchestrator"
     execution_mode: TaskExecutionMode = TaskExecutionMode.FIXED
 
+
+class CreateMatchedExperimentRequest(CamelModel):
+    """One immutable research input executed through all three research modes."""
+
+    directive: str = Field(min_length=1, max_length=10000)
+    title: str | None = Field(default=None, max_length=120)
+    priority: TaskPriority = TaskPriority.MEDIUM
+    upload_ids: list[str] = Field(default_factory=list, max_length=3)
+    dataset_id: str | None = None
+    task_type: str | None = Field(default=None, max_length=80)
+
+class MatchedExperimentRun(CamelModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    execution_mode: Literal["single", "fixed", "adaptive"]
+    task_id: str
+
+
+class MatchedExperiment(CamelModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    experiment_id: str
+    created_at: datetime
+    input_fingerprint: str = Field(
+        min_length=64,
+        max_length=64,
+        pattern=r"^[0-9a-f]{64}$",
+    )
+    runs: tuple[MatchedExperimentRun, MatchedExperimentRun, MatchedExperimentRun]
 
 # ==========================================================================
 # Agent runtime stats — response time, token usage, call counts per agent

@@ -74,53 +74,100 @@ async def get_task(task_id: str):
     return get_record(task_id)
 
 
-@router.post("", response_model=Task, status_code=201)
-async def create_task(payload: CreateTaskRequest, background_tasks: BackgroundTasks):
+def prepare_task(
+    payload: CreateTaskRequest,
+    *,
+    experiment_id: str | None = None,
+) -> Task:
     if not payload.directive.strip():
         raise HTTPException(422, "Directive must not be blank")
-    if payload.execution_mode == TaskExecutionMode.SINGLE_AGENT and not payload.assigned_agent_id:
-        raise HTTPException(422, "Individual specialist execution requires assignedAgentId")
+
+    if (
+        payload.execution_mode == TaskExecutionMode.SINGLE_AGENT
+        and not payload.assigned_agent_id
+    ):
+        raise HTTPException(
+            422,
+            "Individual specialist execution requires assignedAgentId",
+        )
+
     uploads = []
     for upload_id in dict.fromkeys(payload.upload_ids):
         upload = repository.get_upload(upload_id)
         if upload is None:
             raise HTTPException(404, "Uploaded context not found")
         uploads.append(upload)
+
     benchmark_context = None
     dataset_checksum = None
+
     if payload.dataset_id:
         dataset = repository.get_dataset(payload.dataset_id)
         if dataset is None:
             raise HTTPException(404, "Benchmark dataset not registered")
+
         try:
             benchmark_context = context_for_dataset(dataset)
         except (OSError, ValueError) as exc:
             raise HTTPException(422, str(exc)) from exc
+
         dataset_checksum = dataset["checksum"]
+
     requested_task_type = payload.task_type
     task_id = f"T-{uuid.uuid4().hex[:12]}"
+
     is_pipeline = payload.execution_mode == TaskExecutionMode.FIXED
     is_single = payload.execution_mode == TaskExecutionMode.SINGLE
     is_adaptive = payload.execution_mode == TaskExecutionMode.ADAPTIVE
+
     sequence = _PIPELINE_STAGES if is_pipeline else (
-        ("direct", "final_answer") if is_single else (payload.assigned_agent_id, "output"),
+        ("direct", "final_answer")
+        if is_single
+        else (payload.assigned_agent_id, "output"),
     )
+
     task = Task(
-        id=task_id, simulation_id=task_id, directive=payload.directive.strip(), title=payload.title,
-        assigned_agent_id="orchestrator" if is_pipeline or is_adaptive else "direct" if is_single else payload.assigned_agent_id,
-        execution_mode=payload.execution_mode, priority=payload.priority,
-        status=TaskStatus.QUEUED, started_at=now(), created_at=now(),
-        duration_seconds=0, progress_percent=0, uploads=uploads,
-        dataset_id=payload.dataset_id, dataset_checksum=dataset_checksum,
-        task_type=requested_task_type, benchmark_context=benchmark_context,
-        stages=[] if is_adaptive else [StageExecution(agent_id=aid, output_key=key) for aid, key in sequence],
+        id=task_id,
+        simulation_id=task_id,
+        directive=payload.directive.strip(),
+        title=payload.title,
+        assigned_agent_id=(
+            "orchestrator"
+            if is_pipeline or is_adaptive
+            else "direct"
+            if is_single
+            else payload.assigned_agent_id
+        ),
+        execution_mode=payload.execution_mode,
+        priority=payload.priority,
+        status=TaskStatus.QUEUED,
+        started_at=now(),
+        created_at=now(),
+        duration_seconds=0,
+        progress_percent=0,
+        uploads=uploads,
+        dataset_id=payload.dataset_id,
+        dataset_checksum=dataset_checksum,
+        task_type=requested_task_type,
+        benchmark_context=benchmark_context,
+        stages=(
+            []
+            if is_adaptive
+            else [
+                StageExecution(agent_id=aid, output_key=key)
+                for aid, key in sequence
+            ]
+        ),
+        experiment_id=experiment_id,
     )
+
     if is_adaptive:
         try:
             plan = plan_route(
                 _prepared_context(task),
                 [u.format for u in uploads],
             )
+
             if plan.validation_status != "valid":
                 raise HTTPException(
                     422,
@@ -130,6 +177,7 @@ async def create_task(payload: CreateTaskRequest, background_tasks: BackgroundTa
                         "routePlan": plan.model_dump(mode="json"),
                     },
                 )
+
         except (ValueError, AgentInputError) as exc:
             raise HTTPException(
                 422,
@@ -170,19 +218,59 @@ async def create_task(payload: CreateTaskRequest, background_tasks: BackgroundTa
             ),
         )
 
+    return task
+
+
+async def enqueue_task(
+    task: Task,
+    background_tasks: BackgroundTasks,
+) -> Task:
+    is_pipeline = task.execution_mode == TaskExecutionMode.FIXED
+
     _TASKS[task.id] = task
-    await emit(task, "simulation_created", "Simulation queued")
+
+    await emit(
+        task,
+        "simulation_created",
+        "Simulation queued",
+    )
+
     if task.route_plan:
-        await emit(task, "route_planned", " ".join(task.route_plan.reasons), "orchestrator")
-    await manager.broadcast("task_created", task.model_dump(mode="json"))
+        await emit(
+            task,
+            "route_planned",
+            " ".join(task.route_plan.reasons),
+            "orchestrator",
+        )
+
+    await manager.broadcast(
+        "task_created",
+        task.model_dump(mode="json"),
+    )
+
     await register_task_created()
-    await record_activity("orchestrator" if is_pipeline else "simulation",
-                          f"Queued simulation {task.id}", task=task)
+
+    await record_activity(
+        "orchestrator" if is_pipeline else "simulation",
+        f"Queued simulation {task.id}",
+        task=task,
+    )
+
     repository.save(task)
-    # Freeze the queued HTTP response before background execution mutates state.
+
     response = task.model_copy(deep=True)
     background_tasks.add_task(_run_task, task.id)
+
     return response
+
+
+@router.post("", response_model=Task, status_code=201)
+async def create_task(
+    payload: CreateTaskRequest,
+    background_tasks: BackgroundTasks,
+):
+    task = prepare_task(payload)
+    return await enqueue_task(task, background_tasks)
 
 
 async def _run_stage(task: Task, stage: StageExecution, context: ExecutionContext):
