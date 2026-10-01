@@ -355,3 +355,246 @@ def test_run_evaluation_allows_historical_run_without_provenance():
 
     assert evaluation.input_fingerprint is None
     assert evaluation.quality is None
+
+
+def test_quality_judge_prompt_is_treatment_blinded():
+    from app.experiments.evaluation import build_quality_judge_prompt
+
+    task = task_with_stages()
+    task.output = "A concise candidate answer."
+    task.execution_mode = TaskExecutionMode.ADAPTIVE
+    task.assigned_agent_id = "orchestrator"
+
+    prompt = build_quality_judge_prompt(task)
+
+    assert task.id not in prompt
+    assert "executionMode" not in prompt
+    assert "execution_mode" not in prompt
+    assert "assignedAgentId" not in prompt
+    assert "assigned_agent_id" not in prompt
+    assert "orchestrator" not in prompt
+    assert "routePlan" not in prompt
+    assert "route_plan" not in prompt
+
+
+def test_quality_judge_prompt_marks_grounding_not_applicable_without_reference():
+    from app.experiments.evaluation import build_quality_judge_prompt
+
+    task = task_with_stages()
+    task.output = "A candidate answer."
+
+    prompt = build_quality_judge_prompt(task)
+
+    assert "grounding applicable=false" in prompt
+    assert '"score": null' in prompt
+
+
+def test_quality_parser_accepts_exact_blinded_contract():
+    import hashlib
+
+    from app.experiments.evaluation import parse_quality_judgment
+
+    output = "Candidate output"
+
+    payload = """
+    {
+      "criteria": [
+        {
+          "name": "task_fulfillment",
+          "applicable": true,
+          "score": 4,
+          "rationale": "Directly addresses the requested task."
+        },
+        {
+          "name": "completeness",
+          "applicable": true,
+          "score": 4,
+          "rationale": "Covers the important requested elements."
+        },
+        {
+          "name": "coherence",
+          "applicable": true,
+          "score": 5,
+          "rationale": "Clear and internally consistent."
+        },
+        {
+          "name": "grounding",
+          "applicable": false,
+          "score": null,
+          "rationale": "No external reference material was supplied."
+        }
+      ]
+    }
+    """
+
+    judgment = parse_quality_judgment(
+        payload,
+        evaluator_provider="groq",
+        evaluator_model="test-model",
+        output_text=output,
+        grounding_applicable=False,
+    )
+
+    assert judgment.treatment_blinded is True
+    assert judgment.evaluator_provider == "groq"
+    assert judgment.evaluator_model == "test-model"
+    assert judgment.output_sha256 == hashlib.sha256(
+        output.encode("utf-8")
+    ).hexdigest()
+    assert judgment.criteria[3].applicable is False
+    assert judgment.criteria[3].score is None
+
+
+def test_quality_parser_rejects_markdown_wrapped_json():
+    import pytest
+
+    from app.experiments.evaluation import parse_quality_judgment
+
+    with pytest.raises(
+        ValueError,
+        match="invalid JSON",
+    ):
+        parse_quality_judgment(
+            """```json
+            {"criteria": []}
+            ```""",
+            evaluator_provider="groq",
+            evaluator_model="test-model",
+            output_text="answer",
+            grounding_applicable=False,
+        )
+
+
+def test_quality_parser_rejects_incorrect_grounding_applicability():
+    import pytest
+
+    from app.experiments.evaluation import parse_quality_judgment
+
+    payload = """
+    {
+      "criteria": [
+        {
+          "name": "task_fulfillment",
+          "applicable": true,
+          "score": 4,
+          "rationale": "Good."
+        },
+        {
+          "name": "completeness",
+          "applicable": true,
+          "score": 4,
+          "rationale": "Good."
+        },
+        {
+          "name": "coherence",
+          "applicable": true,
+          "score": 4,
+          "rationale": "Good."
+        },
+        {
+          "name": "grounding",
+          "applicable": true,
+          "score": 4,
+          "rationale": "Incorrectly claims grounding is applicable."
+        }
+      ]
+    }
+    """
+
+    with pytest.raises(
+        ValueError,
+        match="Grounding applicability",
+    ):
+        parse_quality_judgment(
+            payload,
+            evaluator_provider="groq",
+            evaluator_model="test-model",
+            output_text="answer",
+            grounding_applicable=False,
+        )
+
+
+def test_quality_evaluator_uses_shared_llm_client_without_treatment_metadata():
+    import asyncio
+    from unittest.mock import AsyncMock, patch
+
+    from app.agents.llm_client import LLMResponse
+    from app.experiments import evaluation
+
+    task = task_with_stages()
+    task.output = "A candidate answer."
+    task.execution_mode = TaskExecutionMode.ADAPTIVE
+
+    response = LLMResponse(
+        text="""
+        {
+          "criteria": [
+            {
+              "name": "task_fulfillment",
+              "applicable": true,
+              "score": 4,
+              "rationale": "Addresses the task."
+            },
+            {
+              "name": "completeness",
+              "applicable": true,
+              "score": 4,
+              "rationale": "Covers the requested content."
+            },
+            {
+              "name": "coherence",
+              "applicable": true,
+              "score": 5,
+              "rationale": "Clear and consistent."
+            },
+            {
+              "name": "grounding",
+              "applicable": false,
+              "score": null,
+              "rationale": "No external reference material."
+            }
+          ]
+        }
+        """,
+        input_tokens=100,
+        output_tokens=50,
+        response_time_seconds=0.1,
+        model="judge-test-model",
+    )
+
+    with patch.object(
+        evaluation,
+        "call_llm",
+        new_callable=AsyncMock,
+        return_value=response,
+    ) as llm:
+        judgment = asyncio.run(
+            evaluation.evaluate_quality_judgment(task)
+        )
+
+    llm.assert_awaited_once()
+
+    prompt = llm.await_args.kwargs["prompt"]
+
+    assert task.id not in prompt
+    assert "executionMode" not in prompt
+    assert "routePlan" not in prompt
+    assert judgment.evaluator_model == "judge-test-model"
+    assert judgment.treatment_blinded is True
+
+
+def test_quality_evaluation_rejects_failed_run():
+    import pytest
+
+    from app.experiments.evaluation import build_quality_judge_prompt
+
+    task = task_with_stages(
+        status=TaskStatus.FAILED,
+    )
+    task.output = None
+
+    with pytest.raises(
+        ValueError,
+        match="completed task",
+    ):
+        build_quality_judge_prompt(task)
