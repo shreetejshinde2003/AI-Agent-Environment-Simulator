@@ -6,7 +6,10 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import ValidationError
-from app.experiments.evaluation import build_run_evaluation
+from app.experiments.evaluation import (
+    build_run_evaluation,
+    evaluate_quality_judgment,
+)
 from app.agents.research_agent import ResearchAgent
 from app.agents.data_agent import DataAgent
 from app.agents.analysis_agent import AnalysisAgent
@@ -23,6 +26,7 @@ from app.datasets.registry import context_for_dataset
 from app.models.schemas import (
     CreateTaskRequest, MessageKind, Task, TaskExecutionMode,
     TaskProgressStep, TaskStatus, StageExecution, RunEvent,
+    RunEvaluation,
 )
 from app.storage.database import repository
 from app.websocket.manager import manager
@@ -72,6 +76,104 @@ async def list_tasks():
 @router.get("/{task_id}", response_model=Task)
 async def get_task(task_id: str):
     return get_record(task_id)
+
+
+@router.post("/{task_id}/evaluate", response_model=RunEvaluation)
+async def evaluate_task_quality(task_id: str):
+    """Explicitly run the blinded quality judge for one completed research run."""
+
+    task = get_record(task_id)
+
+    if task.execution_mode not in (
+        TaskExecutionMode.SINGLE,
+        TaskExecutionMode.FIXED,
+        TaskExecutionMode.ADAPTIVE,
+    ):
+        raise HTTPException(
+            422,
+            detail={
+                "code": "evaluation_not_supported",
+                "message": (
+                    "Quality evaluation is available only for "
+                    "Single, Fixed and Adaptive research runs."
+                ),
+            },
+        )
+
+    if task.status != TaskStatus.COMPLETED:
+        raise HTTPException(
+            409,
+            detail={
+                "code": "task_not_completed",
+                "message": (
+                    "Quality evaluation requires a completed research run."
+                ),
+            },
+        )
+
+    # Idempotency: never spend another evaluator request when a
+    # quality judgment is already persisted.
+    if (
+        task.evaluation is not None
+        and task.evaluation.quality is not None
+    ):
+        return task.evaluation
+
+    # Historical completed research runs may predate objective
+    # evaluation persistence. Reconstruct objective evidence from
+    # their stored task telemetry without an LLM call.
+    base_evaluation = (
+        task.evaluation
+        if task.evaluation is not None
+        else build_run_evaluation(task)
+    )
+
+    try:
+        quality = await evaluate_quality_judgment(task)
+
+    except ValueError as exc:
+        raise HTTPException(
+            502,
+            detail={
+                "code": "invalid_evaluator_response",
+                "message": str(exc),
+            },
+        ) from exc
+
+    except Exception as exc:
+        raise HTTPException(
+            502,
+            detail={
+                "code": "evaluation_provider_error",
+                "message": safe_error(exc),
+            },
+        ) from exc
+
+    task.evaluation = RunEvaluation(
+        task_id=base_evaluation.task_id,
+        experiment_id=base_evaluation.experiment_id,
+        input_fingerprint=base_evaluation.input_fingerprint,
+        evaluated_at=now(),
+        objective=base_evaluation.objective,
+        quality=quality,
+    )
+
+    repository.save(task)
+
+    await manager.broadcast(
+        "evaluation_completed",
+        {
+            "simulationId": task.id,
+            "evaluation": task.evaluation.model_dump(mode="json"),
+        },
+    )
+
+    await manager.broadcast(
+        "task_updated",
+        task.model_dump(mode="json"),
+    )
+
+    return task.evaluation
 
 
 def prepare_task(
