@@ -8,6 +8,7 @@ import Messages from "./pages/Messages";
 import Logs from "./pages/Logs";
 import Replay from "./pages/Replay";
 import Settings from "./pages/Settings";
+import { PrivacyPolicy, TermsOfService } from "./pages/LegalPages";
 import "./components/dashboard/SimulationWorkspace.css";
 const PAGES = {live: LiveSimulation, "task-summary": TaskSummary, agents: Agents,
   messages: Messages, logs: Logs, replay: Replay, settings: Settings};
@@ -32,5 +33,15 @@ function AppContent() {
   </AppShell>;
 }
 export default function App() {
+  const path = window.location.pathname.replace(/\/+$/, "") || "/";
+
+  if (path === "/privacy") {
+    return <PrivacyPolicy />;
+  }
+
+  if (path === "/terms") {
+    return <TermsOfService />;
+  }
+
   return <SimulationProvider><AppContent /></SimulationProvider>;
 }
