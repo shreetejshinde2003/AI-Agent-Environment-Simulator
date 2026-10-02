@@ -1,7 +1,8 @@
 """Operational persistence with SQLite fallback and PostgreSQL support.
 
-V1 SQLite snapshots are backed up, archived, and projected into version 2
-relational tables. Snapshots remain the compatible API read format.
+V1 SQLite snapshots are backed up, archived, and projected into the
+current relational schema. Version 3 adds local Google identities and
+revocable application sessions without changing existing simulation payloads.
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ from app.core.config import settings
 from app.models.schemas import Task, UploadedContext
 from app.storage import models as dbm
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 def normalize_url(url: str | None) -> str:
@@ -71,15 +72,40 @@ class Repository:
             self._initialize_sqlite()
         else:
             with engine.begin() as connection:
-                # Serialize concurrent Railway workers during first startup.
+                # Serialize concurrent Railway workers during startup/migration.
                 connection.exec_driver_sql("SELECT pg_advisory_xact_lock(721842)")
+
                 dbm.metadata.create_all(connection)
-                versions = connection.execute(select(dbm.schema_version.c.version)).scalars().all()
+
+                versions = connection.execute(
+                    select(dbm.schema_version.c.version)
+                ).scalars().all()
+
                 if not versions:
-                    connection.execute(insert(dbm.schema_version).values(
-                        version=SCHEMA_VERSION, applied_at=timestamp(datetime.now(timezone.utc))))
+                    connection.execute(
+                        insert(dbm.schema_version).values(
+                            version=SCHEMA_VERSION,
+                            applied_at=timestamp(datetime.now(timezone.utc)),
+                        )
+                    )
+
+                elif versions == [2]:
+                    # V3 is additive: users + auth_sessions. create_all above
+                    # safely creates the new tables while preserving all V2
+                    # simulation/benchmark data.
+                    connection.execute(
+                        update(dbm.schema_version)
+                        .where(dbm.schema_version.c.version == 2)
+                        .values(
+                            version=SCHEMA_VERSION,
+                            applied_at=timestamp(datetime.now(timezone.utc)),
+                        )
+                    )
+
                 elif versions != [SCHEMA_VERSION]:
-                    raise RuntimeError("Unsupported PostgreSQL schema version")
+                    raise RuntimeError(
+                        "Unsupported PostgreSQL schema version"
+                    )
 
     def _initialize_sqlite(self):
         with sqlite3.connect(self.path) as raw:
@@ -92,18 +118,46 @@ class Repository:
         if version == 1:
             self._migrate_v1()
             return
+
         if version == 0 and "simulations" in names and "schema_version" not in names:
-            raise RuntimeError("Unversioned database contains simulations; manual inspection required")
+            raise RuntimeError(
+                "Unversioned database contains simulations; manual inspection required"
+            )
+
         with self.engine.begin() as connection:
             dbm.metadata.create_all(connection)
-            versions = connection.execute(select(dbm.schema_version.c.version)).scalars().all()
-            if versions and versions != [SCHEMA_VERSION]:
-                raise RuntimeError("Unsupported SQLite schema version")
+
+            versions = connection.execute(
+                select(dbm.schema_version.c.version)
+            ).scalars().all()
+
             if not versions:
-                connection.execute(insert(dbm.schema_version).values(
-                    version=SCHEMA_VERSION, applied_at=timestamp(datetime.now(timezone.utc))))
+                connection.execute(
+                    insert(dbm.schema_version).values(
+                        version=SCHEMA_VERSION,
+                        applied_at=timestamp(datetime.now(timezone.utc)),
+                    )
+                )
+
+            elif versions == [2]:
+                connection.execute(
+                    update(dbm.schema_version)
+                    .where(dbm.schema_version.c.version == 2)
+                    .values(
+                        version=SCHEMA_VERSION,
+                        applied_at=timestamp(datetime.now(timezone.utc)),
+                    )
+                )
+
+            elif versions != [SCHEMA_VERSION]:
+                raise RuntimeError(
+                    "Unsupported SQLite schema version"
+                )
+
         with sqlite3.connect(self.path) as raw:
-            raw.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
+            raw.execute(
+                f"PRAGMA user_version={SCHEMA_VERSION}"
+            )
 
     def _migrate_v1(self):
         # Validate before any schema change; keep an independent SQLite backup.
@@ -215,6 +269,70 @@ class Repository:
             rows = connection.execute(select(dbm.simulations.c.payload).order_by(
                 dbm.simulations.c.created_at, dbm.simulations.c.id)).scalars().all()
         return [Task.model_validate(row) for row in rows]
+
+    def save_user(self, user: dict):
+        """Create or update one locally persisted Google identity."""
+
+        with self.engine.begin() as connection:
+            self._upsert(
+                connection,
+                dbm.users,
+                "id",
+                user,
+            )
+
+    def get_user(self, user_id: str):
+        with self.engine.connect() as connection:
+            row = connection.execute(
+                select(dbm.users).where(
+                    dbm.users.c.id == user_id
+                )
+            ).mappings().first()
+
+        return dict(row) if row else None
+
+    def get_user_by_google_sub(self, google_sub: str):
+        with self.engine.connect() as connection:
+            row = connection.execute(
+                select(dbm.users).where(
+                    dbm.users.c.google_sub == google_sub
+                )
+            ).mappings().first()
+
+        return dict(row) if row else None
+
+    def save_auth_session(self, session: dict):
+        """Persist only a digest of the browser's opaque session token."""
+
+        with self.engine.begin() as connection:
+            self._upsert(
+                connection,
+                dbm.auth_sessions,
+                "id",
+                session,
+            )
+
+    def get_auth_session_by_digest(self, token_digest: str):
+        with self.engine.connect() as connection:
+            row = connection.execute(
+                select(dbm.auth_sessions).where(
+                    dbm.auth_sessions.c.token_digest == token_digest
+                )
+            ).mappings().first()
+
+        return dict(row) if row else None
+
+    def revoke_auth_session(
+        self,
+        session_id: str,
+        revoked_at: str,
+    ):
+        with self.engine.begin() as connection:
+            connection.execute(
+                update(dbm.auth_sessions)
+                .where(dbm.auth_sessions.c.id == session_id)
+                .values(revoked_at=revoked_at)
+            )
 
     def save_agent(self, agent):
         with self.engine.begin() as connection:

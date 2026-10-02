@@ -1,4 +1,4 @@
-"""Version 2 operational tables; benchmark records never enter this schema."""
+"""Version 3 operational tables; benchmark records never enter this schema."""
 
 from sqlalchemy import (JSON, Boolean, Column, Float, ForeignKey, Index, Integer,
                         MetaData, String, Table, Text)
@@ -9,6 +9,38 @@ json_type = JSON().with_variant(JSONB, "postgresql")
 
 schema_version = Table("schema_version", metadata,
     Column("version", Integer, primary_key=True), Column("applied_at", String(40), nullable=False))
+
+# ---------------------------------------------------------------------------
+# Authentication identity.
+#
+# Google authenticates the person. These tables store only the application's
+# local identity and revocable application sessions. No Google password and
+# no Google OAuth access/refresh token belongs here.
+# ---------------------------------------------------------------------------
+users = Table("users", metadata,
+    Column("id", String(80), primary_key=True),
+    Column("google_sub", String(255), nullable=False, unique=True),
+    Column("email", String(320), nullable=False),
+    Column("display_name", String(255), nullable=False),
+    Column("profile_picture", Text),
+    Column("email_verified", Boolean, nullable=False, default=False),
+    Column("active", Boolean, nullable=False, default=True),
+    Column("created_at", String(40), nullable=False),
+    Column("last_login_at", String(40)))
+Index("ix_users_email", users.c.email)
+
+auth_sessions = Table("auth_sessions", metadata,
+    Column("id", String(80), primary_key=True),
+    Column("user_id", String(80),
+           ForeignKey("users.id", ondelete="CASCADE"),
+           nullable=False),
+    # Only a SHA-256 digest of the opaque browser session credential is stored.
+    Column("token_digest", String(64), nullable=False, unique=True),
+    Column("created_at", String(40), nullable=False),
+    Column("expires_at", String(40), nullable=False),
+    Column("revoked_at", String(40)))
+Index("ix_auth_sessions_user", auth_sessions.c.user_id)
+Index("ix_auth_sessions_expires", auth_sessions.c.expires_at)
 dataset_registry = Table("dataset_registry", metadata,
     Column("dataset_id", String(80), primary_key=True), Column("name", String(120), nullable=False),
     Column("family", String(40), nullable=False), Column("size_variant", String(20), nullable=False),
