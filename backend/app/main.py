@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import (
     agents,
+    auth,
     datasets,
     experiments,
     messages,
@@ -51,6 +52,7 @@ app.add_middleware(
 # --------------------------------------------------------------------
 # Routers — each one is namespaced under API_V1_PREFIX (see config.py)
 # --------------------------------------------------------------------
+app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
 app.include_router(agents.router, prefix=settings.API_V1_PREFIX)
 app.include_router(tasks.router, prefix=settings.API_V1_PREFIX)
 app.include_router(messages.router, prefix=settings.API_V1_PREFIX)

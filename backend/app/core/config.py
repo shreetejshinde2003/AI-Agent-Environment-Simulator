@@ -70,6 +70,18 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""      # <-- USER-DEFINED: set in .env if you switch to GPT
 
     # ------------------------------------------------------------------
+    # Google OAuth / OpenID Connect
+    # ------------------------------------------------------------------
+    # Secrets belong in backend/.env locally and Railway Variables in
+    # production. Never commit the real client secret.
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    GOOGLE_REDIRECT_URI: str = (
+        "http://localhost:8000/api/v1/auth/google/callback"
+    )
+    FRONTEND_URL: str = "http://localhost:5173"
+
+    # ------------------------------------------------------------------
     # WebSocket
     # ------------------------------------------------------------------
     WEBSOCKET_PATH: str = "/ws/live"  # frontend's useLiveSocket.js must point at this same path
