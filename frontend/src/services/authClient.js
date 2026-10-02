@@ -1,11 +1,15 @@
 import { API_BASE_URL } from "./apiClient";
 
+const AUTH_BASE_URL = import.meta.env.DEV
+  ? API_BASE_URL
+  : window.location.origin;
+
 export const AUTH_LOGIN_URL =
-  API_BASE_URL + "/api/v1/auth/google/login";
+  AUTH_BASE_URL + "/api/v1/auth/google/login";
 
 export async function getCurrentUser() {
   const response = await fetch(
-    API_BASE_URL + "/api/v1/auth/me",
+    AUTH_BASE_URL + "/api/v1/auth/me",
     {
       method: "GET",
       credentials: "include",
@@ -35,7 +39,7 @@ export async function getCurrentUser() {
 
 export async function logout() {
   const response = await fetch(
-    API_BASE_URL + "/api/v1/auth/logout",
+    AUTH_BASE_URL + "/api/v1/auth/logout",
     {
       method: "POST",
       credentials: "include",
