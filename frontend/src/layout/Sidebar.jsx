@@ -1,4 +1,4 @@
-import { Activity, ClipboardList, Users, MessageSquare, ScrollText, RotateCcw, Settings, Bot } from "lucide-react";
+import { Activity, ClipboardList, Users, MessageSquare, ScrollText, RotateCcw, Settings, Bot, LogOut } from "lucide-react";
 import SimulationInfoPanel from "../components/dashboard/SimulationInfoPanel";
 import "./Sidebar.css";
 
@@ -59,17 +59,50 @@ export default function Sidebar({ activePage = "live", onNavigate = () => {}, us
 
       <div className="sidebar-footer">
         <div className="sidebar-user">
-          <div className="sidebar-user-avatar" aria-hidden="true">
+          <div
+            className="sidebar-user-avatar"
+            aria-hidden="true"
+          >
             {user?.avatarUrl ? (
-              <img src={user.avatarUrl} alt="" />
+              <img
+                src={user.avatarUrl}
+                alt=""
+              />
             ) : (
-              <span>{(user?.name ?? "?").charAt(0)}</span>
+              <span>
+                {(user?.name ?? "?").charAt(0)}
+              </span>
             )}
           </div>
+
           <div className="sidebar-user-info">
-            <span className="sidebar-user-name">{user?.name ?? "Guest"}</span>
-            <span className="sidebar-user-role">{user?.role ?? "Viewer"}</span>
+            <span className="sidebar-user-name">
+              {user?.name ?? "Guest"}
+            </span>
+            <span className="sidebar-user-role">
+              {user?.role ?? "Viewer"}
+            </span>
           </div>
+        </div>
+
+        {user?.onLogout && (
+          <button
+            type="button"
+            className="sidebar-logout"
+            onClick={user.onLogout}
+          >
+            <LogOut
+              size={15}
+              strokeWidth={2}
+            />
+            <span>Sign out</span>
+          </button>
+        )}
+
+        <div className="sidebar-legal-links">
+          <a href="/privacy">Privacy</a>
+          <span aria-hidden="true">·</span>
+          <a href="/terms">Terms</a>
         </div>
       </div>
     </aside>
