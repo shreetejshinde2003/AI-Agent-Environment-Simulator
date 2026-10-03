@@ -2,8 +2,9 @@
 
 V1 SQLite snapshots are backed up, archived, and projected into the
 current relational schema. Version 3 added local Google identities and
-revocable application sessions. Version 4 adds the workspace/tenancy
-foundation without changing existing simulation ownership yet.
+revocable application sessions. Version 4 added the workspace/tenancy
+foundation. Version 5 adds organization memberships without changing
+existing simulation ownership yet.
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ from app.core.config import settings
 from app.models.schemas import Task, UploadedContext
 from app.storage import models as dbm
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 
 def normalize_url(url: str | None) -> str:
@@ -90,10 +91,11 @@ class Repository:
                         )
                     )
 
-                elif versions in ([2], [3]):
-                    # V4 remains additive. create_all above safely creates:
-                    #   V2 -> users + auth_sessions + workspaces
-                    #   V3 -> workspaces
+                elif versions in ([2], [3], [4]):
+                    # V5 remains additive. create_all above safely creates:
+                    #   V2 -> auth + workspaces + memberships
+                    #   V3 -> workspaces + memberships
+                    #   V4 -> memberships
                     # Existing simulation and benchmark records are preserved.
                     previous_version = versions[0]
 
@@ -148,7 +150,7 @@ class Repository:
                     )
                 )
 
-            elif versions in ([2], [3]):
+            elif versions in ([2], [3], [4]):
                 previous_version = versions[0]
 
                 connection.execute(
@@ -355,6 +357,168 @@ class Repository:
             ).mappings().first()
 
         return dict(row) if row else None
+
+    def save_organization_membership(
+        self,
+        membership: dict,
+    ):
+        """Persist membership only for an active Organization workspace."""
+
+        workspace = self.get_workspace(
+            membership["workspace_id"]
+        )
+
+        if workspace is None:
+            raise ValueError(
+                "Organization workspace does not exist."
+            )
+
+        if workspace["kind"] != "organization":
+            raise ValueError(
+                "Personal Workspaces cannot have organization memberships."
+            )
+
+        if not workspace["active"]:
+            raise ValueError(
+                "Organization workspace is inactive."
+            )
+
+        user = self.get_user(
+            membership["user_id"]
+        )
+
+        if user is None or not user["active"]:
+            raise ValueError(
+                "Membership user is unavailable."
+            )
+
+        added_by = self.get_user(
+            membership["added_by_user_id"]
+        )
+
+        if added_by is None or not added_by["active"]:
+            raise ValueError(
+                "Membership actor is unavailable."
+            )
+
+        with self.engine.begin() as connection:
+            exists = connection.execute(
+                select(
+                    dbm.organization_memberships.c.workspace_id
+                ).where(
+                    dbm.organization_memberships.c.workspace_id
+                    == membership["workspace_id"],
+                    dbm.organization_memberships.c.user_id
+                    == membership["user_id"],
+                )
+            ).first()
+
+            if exists:
+                connection.execute(
+                    update(dbm.organization_memberships)
+                    .where(
+                        dbm.organization_memberships.c.workspace_id
+                        == membership["workspace_id"],
+                        dbm.organization_memberships.c.user_id
+                        == membership["user_id"],
+                    )
+                    .values(**membership)
+                )
+            else:
+                connection.execute(
+                    insert(
+                        dbm.organization_memberships
+                    ).values(**membership)
+                )
+
+    def get_organization_membership(
+        self,
+        workspace_id: str,
+        user_id: str,
+    ):
+        with self.engine.connect() as connection:
+            row = connection.execute(
+                select(
+                    dbm.organization_memberships
+                ).where(
+                    dbm.organization_memberships.c.workspace_id
+                    == workspace_id,
+                    dbm.organization_memberships.c.user_id
+                    == user_id,
+                )
+            ).mappings().first()
+
+        return dict(row) if row else None
+
+    def list_organization_memberships_for_user(
+        self,
+        user_id: str,
+        *,
+        active_only: bool = True,
+    ):
+        statement = (
+            select(
+                dbm.organization_memberships
+            )
+            .where(
+                dbm.organization_memberships.c.user_id
+                == user_id
+            )
+            .order_by(
+                dbm.organization_memberships.c.joined_at,
+                dbm.organization_memberships.c.workspace_id,
+            )
+        )
+
+        if active_only:
+            statement = statement.where(
+                dbm.organization_memberships.c.active.is_(True)
+            )
+
+        with self.engine.connect() as connection:
+            rows = connection.execute(
+                statement
+            ).mappings().all()
+
+        return [
+            dict(row)
+            for row in rows
+        ]
+
+    def list_organization_memberships(
+        self,
+        workspace_id: str,
+        *,
+        active_only: bool = True,
+    ):
+        statement = (
+            select(
+                dbm.organization_memberships
+            )
+            .where(
+                dbm.organization_memberships.c.workspace_id
+                == workspace_id
+            )
+            .order_by(
+                dbm.organization_memberships.c.joined_at,
+                dbm.organization_memberships.c.user_id,
+            )
+        )
+
+        if active_only:
+            statement = statement.where(
+                dbm.organization_memberships.c.active.is_(True)
+            )
+
+        with self.engine.connect() as connection:
+            rows = connection.execute(
+                statement
+            ).mappings().all()
+
+        return [
+            dict(row)
+            for row in rows
+        ]
 
     def save_auth_session(self, session: dict):
         """Persist only a digest of the browser's opaque session token."""

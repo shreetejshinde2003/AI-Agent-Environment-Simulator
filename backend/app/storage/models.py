@@ -1,4 +1,4 @@
-"""Version 4 operational tables; benchmark records never enter this schema."""
+"""Version 5 operational tables; benchmark records never enter this schema."""
 
 from sqlalchemy import (JSON, Boolean, CheckConstraint, Column, Float, ForeignKey,
                         Index, Integer, MetaData, String, Table, Text)
@@ -115,6 +115,77 @@ Index(
 Index(
     "ix_workspaces_created_by",
     workspaces.c.created_by_user_id,
+)
+
+# ---------------------------------------------------------------------------
+# Organization membership.
+#
+# Personal Workspaces do not use this table. They remain private and are
+# owned directly through workspaces.personal_owner_user_id.
+#
+# These two roles are only tenancy-level bootstrap roles. Fine-grained
+# application permissions belong to Phase 4.3 IAM / RBAC.
+# ---------------------------------------------------------------------------
+organization_memberships = Table(
+    "organization_memberships",
+    metadata,
+
+    Column(
+        "workspace_id",
+        String(80),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+
+    Column(
+        "user_id",
+        String(80),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+
+    Column(
+        "membership_role",
+        String(20),
+        nullable=False,
+    ),
+
+    Column(
+        "active",
+        Boolean,
+        nullable=False,
+        default=True,
+    ),
+
+    Column(
+        "joined_at",
+        String(40),
+        nullable=False,
+    ),
+
+    Column(
+        "added_by_user_id",
+        String(80),
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
+    ),
+
+    CheckConstraint(
+        "membership_role IN ('owner', 'member')",
+        name="ck_organization_membership_role",
+    ),
+)
+
+Index(
+    "ix_org_memberships_user_active",
+    organization_memberships.c.user_id,
+    organization_memberships.c.active,
+)
+
+Index(
+    "ix_org_memberships_workspace_active",
+    organization_memberships.c.workspace_id,
+    organization_memberships.c.active,
 )
 
 dataset_registry = Table("dataset_registry", metadata,
