@@ -1,8 +1,9 @@
 """Operational persistence with SQLite fallback and PostgreSQL support.
 
 V1 SQLite snapshots are backed up, archived, and projected into the
-current relational schema. Version 3 adds local Google identities and
-revocable application sessions without changing existing simulation payloads.
+current relational schema. Version 3 added local Google identities and
+revocable application sessions. Version 4 adds the workspace/tenancy
+foundation without changing existing simulation ownership yet.
 """
 
 from __future__ import annotations
@@ -18,7 +19,7 @@ from app.core.config import settings
 from app.models.schemas import Task, UploadedContext
 from app.storage import models as dbm
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 
 def normalize_url(url: str | None) -> str:
@@ -89,16 +90,24 @@ class Repository:
                         )
                     )
 
-                elif versions == [2]:
-                    # V3 is additive: users + auth_sessions. create_all above
-                    # safely creates the new tables while preserving all V2
-                    # simulation/benchmark data.
+                elif versions in ([2], [3]):
+                    # V4 remains additive. create_all above safely creates:
+                    #   V2 -> users + auth_sessions + workspaces
+                    #   V3 -> workspaces
+                    # Existing simulation and benchmark records are preserved.
+                    previous_version = versions[0]
+
                     connection.execute(
                         update(dbm.schema_version)
-                        .where(dbm.schema_version.c.version == 2)
+                        .where(
+                            dbm.schema_version.c.version
+                            == previous_version
+                        )
                         .values(
                             version=SCHEMA_VERSION,
-                            applied_at=timestamp(datetime.now(timezone.utc)),
+                            applied_at=timestamp(
+                                datetime.now(timezone.utc)
+                            ),
                         )
                     )
 
@@ -139,13 +148,20 @@ class Repository:
                     )
                 )
 
-            elif versions == [2]:
+            elif versions in ([2], [3]):
+                previous_version = versions[0]
+
                 connection.execute(
                     update(dbm.schema_version)
-                    .where(dbm.schema_version.c.version == 2)
+                    .where(
+                        dbm.schema_version.c.version
+                        == previous_version
+                    )
                     .values(
                         version=SCHEMA_VERSION,
-                        applied_at=timestamp(datetime.now(timezone.utc)),
+                        applied_at=timestamp(
+                            datetime.now(timezone.utc)
+                        ),
                     )
                 )
 
@@ -296,6 +312,45 @@ class Repository:
             row = connection.execute(
                 select(dbm.users).where(
                     dbm.users.c.google_sub == google_sub
+                )
+            ).mappings().first()
+
+        return dict(row) if row else None
+
+    def save_workspace(self, workspace: dict):
+        """Create or update one workspace identity."""
+
+        with self.engine.begin() as connection:
+            self._upsert(
+                connection,
+                dbm.workspaces,
+                "id",
+                workspace,
+            )
+
+    def get_workspace(self, workspace_id: str):
+        with self.engine.connect() as connection:
+            row = connection.execute(
+                select(dbm.workspaces).where(
+                    dbm.workspaces.c.id
+                    == workspace_id
+                )
+            ).mappings().first()
+
+        return dict(row) if row else None
+
+    def get_personal_workspace(
+        self,
+        user_id: str,
+    ):
+        with self.engine.connect() as connection:
+            row = connection.execute(
+                select(dbm.workspaces).where(
+                    dbm.workspaces.c.kind
+                    == "personal",
+                    dbm.workspaces.c.personal_owner_user_id
+                    == user_id,
+                    dbm.workspaces.c.active.is_(True),
                 )
             ).mappings().first()
 

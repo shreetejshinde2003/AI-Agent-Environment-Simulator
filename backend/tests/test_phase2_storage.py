@@ -105,7 +105,7 @@ def test_v1_snapshot_migration_preserves_data(tmp_path):
         inspect(repo.engine).get_table_names())
     assert len(list(tmp_path.glob("legacy.db.v1.*.db"))) == 1
     with sqlite3.connect(path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 3
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 4
     repo.initialize()  # idempotent
 
 

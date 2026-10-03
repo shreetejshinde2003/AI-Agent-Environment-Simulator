@@ -1,7 +1,7 @@
-"""Version 3 operational tables; benchmark records never enter this schema."""
+"""Version 4 operational tables; benchmark records never enter this schema."""
 
-from sqlalchemy import (JSON, Boolean, Column, Float, ForeignKey, Index, Integer,
-                        MetaData, String, Table, Text)
+from sqlalchemy import (JSON, Boolean, CheckConstraint, Column, Float, ForeignKey,
+                        Index, Integer, MetaData, String, Table, Text)
 from sqlalchemy.dialects.postgresql import JSONB
 
 metadata = MetaData()
@@ -41,6 +41,82 @@ auth_sessions = Table("auth_sessions", metadata,
     Column("revoked_at", String(40)))
 Index("ix_auth_sessions_user", auth_sessions.c.user_id)
 Index("ix_auth_sessions_expires", auth_sessions.c.expires_at)
+
+# ---------------------------------------------------------------------------
+# Workspace / tenancy foundation.
+#
+# A workspace is the common ownership boundary used by both:
+#   - one private Personal Workspace for one user
+#   - a shared Organization that can later have multiple members
+#
+# Memberships are intentionally added in Phase 4.2.2. This phase establishes
+# only the stable workspace identity that later simulations and HR records can
+# reference.
+# ---------------------------------------------------------------------------
+workspaces = Table(
+    "workspaces",
+    metadata,
+    Column("id", String(80), primary_key=True),
+    Column("kind", String(20), nullable=False),
+    Column("name", String(255), nullable=False),
+
+    # Set only for Personal Workspaces. UNIQUE guarantees that one user cannot
+    # accidentally receive multiple Personal Workspaces. Multiple NULL values
+    # remain valid for Organization rows.
+    Column(
+        "personal_owner_user_id",
+        String(80),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
+        unique=True,
+    ),
+
+    # The creator is retained independently from later organization roles.
+    Column(
+        "created_by_user_id",
+        String(80),
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
+    ),
+
+    # Organization join codes will be generated in Phase 4.2.5/4.2.6.
+    # Only a digest belongs in persistent storage, never the shareable code.
+    Column(
+        "join_code_digest",
+        String(64),
+        nullable=True,
+        unique=True,
+    ),
+
+    Column("active", Boolean, nullable=False, default=True),
+    Column("created_at", String(40), nullable=False),
+    Column("updated_at", String(40), nullable=False),
+
+    CheckConstraint(
+        "kind IN ('personal', 'organization')",
+        name="ck_workspaces_kind",
+    ),
+    CheckConstraint(
+        "kind != 'personal' OR personal_owner_user_id IS NOT NULL",
+        name="ck_personal_workspace_has_owner",
+    ),
+    CheckConstraint(
+        "kind != 'organization' OR personal_owner_user_id IS NULL",
+        name="ck_organization_has_no_personal_owner",
+    ),
+)
+
+Index(
+    "ix_workspaces_kind_active",
+    workspaces.c.kind,
+    workspaces.c.active,
+)
+
+Index(
+    "ix_workspaces_created_by",
+    workspaces.c.created_by_user_id,
+)
+
 dataset_registry = Table("dataset_registry", metadata,
     Column("dataset_id", String(80), primary_key=True), Column("name", String(120), nullable=False),
     Column("family", String(40), nullable=False), Column("size_variant", String(20), nullable=False),
