@@ -21,6 +21,10 @@ from sqlalchemy.exc import IntegrityError
 from app.core.config import settings
 from app.models.schemas import Task, UploadedContext
 from app.storage import models as dbm
+from app.security.workspaces import (
+    generate_join_code,
+    join_code_digest,
+)
 
 SCHEMA_VERSION = 5
 
@@ -504,6 +508,105 @@ class Repository:
 
         raise PermissionError(
             "Workspace access denied."
+        )
+
+    def create_organization(
+        self,
+        *,
+        creator_user_id: str,
+        name: str,
+    ):
+        """Atomically create an Organization and its owner membership.
+
+        The plaintext join code is returned to the caller but never persisted.
+        """
+
+        creator = self.get_user(
+            creator_user_id
+        )
+
+        if (
+            creator is None
+            or not creator["active"]
+        ):
+            raise ValueError(
+                "Organization creator is unavailable."
+            )
+
+        normalized_name = " ".join(
+            name.strip().split()
+        )
+
+        if (
+            len(normalized_name) < 2
+            or len(normalized_name) > 120
+        ):
+            raise ValueError(
+                "Organization name must be between 2 and 120 characters."
+            )
+
+        now = timestamp(
+            datetime.now(timezone.utc)
+        )
+
+        # A digest collision is extraordinarily unlikely, but retrying keeps
+        # the uniqueness contract explicit and deterministic.
+        for _ in range(5):
+            join_code = generate_join_code()
+            digest = join_code_digest(
+                join_code
+            )
+
+            workspace = {
+                "id": (
+                    f"WS-{uuid.uuid4().hex[:20]}"
+                ),
+                "kind": "organization",
+                "name": normalized_name,
+                "personal_owner_user_id": None,
+                "created_by_user_id": creator_user_id,
+                "join_code_digest": digest,
+                "active": True,
+                "created_at": now,
+                "updated_at": now,
+            }
+
+            membership = {
+                "workspace_id": workspace["id"],
+                "user_id": creator_user_id,
+                "membership_role": "owner",
+                "active": True,
+                "joined_at": now,
+                "added_by_user_id": creator_user_id,
+            }
+
+            try:
+                with self.engine.begin() as connection:
+                    connection.execute(
+                        insert(
+                            dbm.workspaces
+                        ).values(
+                            **workspace
+                        )
+                    )
+
+                    connection.execute(
+                        insert(
+                            dbm.organization_memberships
+                        ).values(
+                            **membership
+                        )
+                    )
+
+                return workspace, join_code
+
+            except IntegrityError:
+                # A join-code digest collision can be retried safely because
+                # the transaction rolls back both inserts.
+                continue
+
+        raise RuntimeError(
+            "Could not generate a unique organization join code."
         )
 
     def save_organization_membership(

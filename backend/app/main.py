@@ -22,6 +22,7 @@ from app.api.routes import (
     tasks,
     simulations,
     uploads,
+    workspaces,
 )
 from app.storage.database import repository
 from app.core.config import settings
@@ -53,6 +54,7 @@ app.add_middleware(
 # Routers — each one is namespaced under API_V1_PREFIX (see config.py)
 # --------------------------------------------------------------------
 app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
+app.include_router(workspaces.router, prefix=settings.API_V1_PREFIX)
 app.include_router(agents.router, prefix=settings.API_V1_PREFIX)
 app.include_router(tasks.router, prefix=settings.API_V1_PREFIX)
 app.include_router(messages.router, prefix=settings.API_V1_PREFIX)

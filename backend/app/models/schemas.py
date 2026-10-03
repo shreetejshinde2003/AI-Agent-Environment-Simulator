@@ -511,6 +511,43 @@ class CreateTaskRequest(CamelModel):
         return normalize_execution_mode(value)
 
 
+class CreateOrganizationRequest(CamelModel):
+    """Create one explicitly shared Organization workspace."""
+
+    name: str = Field(
+        min_length=2,
+        max_length=120,
+    )
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, value: str):
+        normalized = " ".join(
+            value.strip().split()
+        )
+
+        if len(normalized) < 2:
+            raise ValueError(
+                "Organization name must contain at least 2 characters."
+            )
+
+        return normalized
+
+
+class OrganizationCreated(CamelModel):
+    """Organization creation response.
+
+    join_code is intentionally returned only at creation time. Persistent
+    storage contains only its digest.
+    """
+
+    id: str
+    kind: Literal["organization"] = "organization"
+    name: str
+    membership_role: Literal["owner"] = "owner"
+    join_code: str
+
+
 class CreateSimulationRequest(CreateTaskRequest):
     assigned_agent_id: str = "orchestrator"
     execution_mode: TaskExecutionMode = TaskExecutionMode.FIXED
