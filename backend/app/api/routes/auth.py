@@ -596,6 +596,13 @@ async def google_callback(
 
     repository.save_user(user)
 
+    # Every authenticated user receives exactly one private Personal
+    # Workspace. Existing users created before tenancy was introduced are
+    # backfilled here on their next successful login.
+    repository.ensure_personal_workspace(
+        user["id"]
+    )
+
     opaque_session_token = create_opaque_token()
     expires_at = session_expiry()
 

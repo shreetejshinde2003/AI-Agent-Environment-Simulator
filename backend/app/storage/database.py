@@ -11,10 +11,12 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
 from sqlalchemy import create_engine, delete, event, insert, select, update
+from sqlalchemy.exc import IntegrityError
 
 from app.core.config import settings
 from app.models.schemas import Task, UploadedContext
@@ -357,6 +359,80 @@ class Repository:
             ).mappings().first()
 
         return dict(row) if row else None
+
+    def ensure_personal_workspace(
+        self,
+        user_id: str,
+    ):
+        """Return the user's one private Personal Workspace.
+
+        Creation is idempotent. The database UNIQUE constraint on
+        personal_owner_user_id remains the final concurrency guard.
+        """
+
+        user = self.get_user(user_id)
+
+        if user is None or not user["active"]:
+            raise ValueError(
+                "Personal Workspace owner is unavailable."
+            )
+
+        existing = self.get_personal_workspace(
+            user_id
+        )
+
+        if existing is not None:
+            return existing
+
+        now = timestamp(
+            datetime.now(timezone.utc)
+        )
+
+        workspace = {
+            "id": (
+                f"WS-{uuid.uuid4().hex[:20]}"
+            ),
+            "kind": "personal",
+            "name": "Personal Workspace",
+            "personal_owner_user_id": user_id,
+            "created_by_user_id": user_id,
+            "join_code_digest": None,
+            "active": True,
+            "created_at": now,
+            "updated_at": now,
+        }
+
+        try:
+            with self.engine.begin() as connection:
+                connection.execute(
+                    insert(dbm.workspaces).values(
+                        **workspace
+                    )
+                )
+
+        except IntegrityError:
+            # Another concurrent login may have created the same user's
+            # workspace after our first lookup. Re-read rather than
+            # creating or exposing a duplicate.
+            existing = self.get_personal_workspace(
+                user_id
+            )
+
+            if existing is not None:
+                return existing
+
+            raise
+
+        created = self.get_personal_workspace(
+            user_id
+        )
+
+        if created is None:
+            raise RuntimeError(
+                "Personal Workspace creation did not persist."
+            )
+
+        return created
 
     def save_organization_membership(
         self,

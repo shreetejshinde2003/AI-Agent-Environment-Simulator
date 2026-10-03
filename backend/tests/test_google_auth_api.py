@@ -13,9 +13,11 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 from app.api.routes import auth
 from app.main import app
+from app.storage import models as dbm
 from app.storage.database import repository
 
 
@@ -223,6 +225,24 @@ def test_callback_creates_local_user_and_session(
         assert (
             "provider-token-not-persisted"
             != session_token
+        )
+
+        personal_workspace = (
+            repository.get_personal_workspace(
+                user["id"]
+            )
+        )
+
+        assert personal_workspace is not None
+        assert (
+            personal_workspace["kind"]
+            == "personal"
+        )
+        assert (
+            personal_workspace[
+                "personal_owner_user_id"
+            ]
+            == user["id"]
         )
 
 
@@ -499,3 +519,75 @@ def test_me_requires_session(
         response.json()["detail"]["code"]
         == "not_authenticated"
     )
+
+
+
+def test_repeated_google_login_reuses_personal_workspace(
+    isolated_auth_db,
+    google_settings,
+):
+    with (
+        patch.object(
+            auth,
+            "_exchange_code",
+            new_callable=AsyncMock,
+            return_value={
+                "id_token": "mock-id-token"
+            },
+        ),
+        patch.object(
+            auth,
+            "_verify_google_id_token",
+        ) as verify,
+        TestClient(app) as client,
+    ):
+        for iteration in range(2):
+            _, query = begin_login(
+                client
+            )
+
+            state = query["state"][0]
+            nonce = query["nonce"][0]
+
+            verify.return_value = {
+                "sub": "google-repeat-user",
+                "email": "repeat@example.com",
+                "email_verified": True,
+                "name": "Repeat User",
+                "nonce": nonce,
+            }
+
+            response = client.get(
+                (
+                    "/api/v1/auth/google/callback"
+                    f"?code=code-{iteration}"
+                    f"&state={state}"
+                ),
+                follow_redirects=False,
+            )
+
+            assert response.status_code == 302
+
+        user = (
+            repository.get_user_by_google_sub(
+                "google-repeat-user"
+            )
+        )
+
+        workspace = (
+            repository.get_personal_workspace(
+                user["id"]
+            )
+        )
+
+        assert workspace is not None
+
+        with repository.engine.connect() as connection:
+            rows = connection.execute(
+                select(dbm.workspaces).where(
+                    dbm.workspaces.c.personal_owner_user_id
+                    == user["id"]
+                )
+            ).all()
+
+        assert len(rows) == 1
