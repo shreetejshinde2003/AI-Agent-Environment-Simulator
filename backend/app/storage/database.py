@@ -609,6 +609,128 @@ class Repository:
             "Could not generate a unique organization join code."
         )
 
+    def join_organization(
+        self,
+        *,
+        user_id: str,
+        join_code: str,
+    ):
+        """Join one active Organization using its secret share code.
+
+        Invalid and inactive codes intentionally resolve the same way so this
+        method cannot be used as an Organization discovery mechanism.
+        """
+
+        user = self.get_user(
+            user_id
+        )
+
+        if (
+            user is None
+            or not user["active"]
+        ):
+            raise ValueError(
+                "Organization member is unavailable."
+            )
+
+        digest = join_code_digest(
+            join_code
+        )
+
+        now = timestamp(
+            datetime.now(timezone.utc)
+        )
+
+        with self.engine.begin() as connection:
+            workspace_row = connection.execute(
+                select(
+                    dbm.workspaces
+                ).where(
+                    dbm.workspaces.c.kind
+                    == "organization",
+                    dbm.workspaces.c.active.is_(True),
+                    dbm.workspaces.c.join_code_digest
+                    == digest,
+                )
+            ).mappings().first()
+
+            if workspace_row is None:
+                raise LookupError(
+                    "Invalid organization join code."
+                )
+
+            workspace = dict(
+                workspace_row
+            )
+
+            membership_row = connection.execute(
+                select(
+                    dbm.organization_memberships
+                ).where(
+                    dbm.organization_memberships.c.workspace_id
+                    == workspace["id"],
+                    dbm.organization_memberships.c.user_id
+                    == user_id,
+                )
+            ).mappings().first()
+
+            if membership_row is not None:
+                membership = dict(
+                    membership_row
+                )
+
+                # Never downgrade an existing owner simply because they used
+                # the join code again.
+                role = membership[
+                    "membership_role"
+                ]
+
+                if not membership["active"]:
+                    connection.execute(
+                        update(
+                            dbm.organization_memberships
+                        )
+                        .where(
+                            dbm.organization_memberships.c.workspace_id
+                            == workspace["id"],
+                            dbm.organization_memberships.c.user_id
+                            == user_id,
+                        )
+                        .values(
+                            active=True,
+                            membership_role=role,
+                            joined_at=now,
+                            added_by_user_id=user_id,
+                        )
+                    )
+
+                membership["active"] = True
+                membership["joined_at"] = now
+                membership[
+                    "added_by_user_id"
+                ] = user_id
+
+                return workspace, membership
+
+            membership = {
+                "workspace_id": workspace["id"],
+                "user_id": user_id,
+                "membership_role": "member",
+                "active": True,
+                "joined_at": now,
+                "added_by_user_id": user_id,
+            }
+
+            connection.execute(
+                insert(
+                    dbm.organization_memberships
+                ).values(
+                    **membership
+                )
+            )
+
+            return workspace, membership
+
     def save_organization_membership(
         self,
         membership: dict,

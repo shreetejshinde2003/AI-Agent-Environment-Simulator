@@ -548,6 +548,39 @@ class OrganizationCreated(CamelModel):
     join_code: str
 
 
+class JoinOrganizationRequest(CamelModel):
+    """Join one Organization using its non-public share code."""
+
+    join_code: str = Field(
+        min_length=12,
+        max_length=32,
+    )
+
+    @field_validator("join_code")
+    @classmethod
+    def normalize_code(cls, value: str):
+        normalized = value.strip().upper()
+
+        if not normalized:
+            raise ValueError(
+                "Join code must not be empty."
+            )
+
+        return normalized
+
+
+class OrganizationJoined(CamelModel):
+    """Successful Organization membership resolution."""
+
+    id: str
+    kind: Literal["organization"] = "organization"
+    name: str
+    membership_role: Literal[
+        "owner",
+        "member",
+    ]
+
+
 class CreateSimulationRequest(CreateTaskRequest):
     assigned_agent_id: str = "orchestrator"
     execution_mode: TaskExecutionMode = TaskExecutionMode.FIXED
