@@ -46,3 +46,6 @@ build/
 
 # Locally provisioned HR benchmark records contain identifying fields.
 data/benchmark/*.json
+
+# Local SQLite runtime database
+simulator.db
