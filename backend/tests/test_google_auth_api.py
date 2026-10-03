@@ -309,6 +309,18 @@ def test_me_reads_valid_application_session(
             == "Me User"
         )
 
+        assert (
+            body["workspace"]["kind"]
+            == "personal"
+        )
+
+        assert (
+            body["workspace"]["name"]
+            == "Personal Workspace"
+        )
+
+        assert body["workspace"]["id"]
+
 
 def test_logout_revokes_session(
     isolated_auth_db,

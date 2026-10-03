@@ -434,6 +434,78 @@ class Repository:
 
         return created
 
+    def resolve_workspace_for_user(
+        self,
+        user_id: str,
+        workspace_id: str | None = None,
+    ):
+        """Resolve one workspace the user is allowed to access.
+
+        No explicit workspace means the user's private Personal Workspace.
+        Organization access requires an active membership.
+        """
+
+        user = self.get_user(user_id)
+
+        if user is None or not user["active"]:
+            raise ValueError(
+                "Workspace user is unavailable."
+            )
+
+        if workspace_id is None:
+            workspace = self.get_personal_workspace(
+                user_id
+            )
+
+            if workspace is None:
+                workspace = self.ensure_personal_workspace(
+                    user_id
+                )
+
+            return workspace
+
+        workspace = self.get_workspace(
+            workspace_id
+        )
+
+        if workspace is None or not workspace["active"]:
+            raise PermissionError(
+                "Workspace is unavailable."
+            )
+
+        if workspace["kind"] == "personal":
+            if (
+                workspace["personal_owner_user_id"]
+                != user_id
+            ):
+                raise PermissionError(
+                    "Workspace access denied."
+                )
+
+            return workspace
+
+        if workspace["kind"] == "organization":
+            membership = (
+                self.get_organization_membership(
+                    workspace_id,
+                    user_id,
+                )
+            )
+
+            if (
+                membership is None
+                or not membership["active"]
+            ):
+                raise PermissionError(
+                    "Workspace access denied."
+                )
+
+            return workspace
+
+        raise PermissionError(
+            "Workspace access denied."
+        )
+
     def save_organization_membership(
         self,
         membership: dict,

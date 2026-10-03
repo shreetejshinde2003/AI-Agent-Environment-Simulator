@@ -647,9 +647,20 @@ async def me(request: Request):
         request
     )
 
+    workspace = (
+        repository.resolve_workspace_for_user(
+            user["id"]
+        )
+    )
+
     return {
         "authenticated": True,
         "user": _public_user(user),
+        "workspace": {
+            "id": workspace["id"],
+            "kind": workspace["kind"],
+            "name": workspace["name"],
+        },
     }
 
 
