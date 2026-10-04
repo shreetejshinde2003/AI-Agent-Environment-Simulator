@@ -9,7 +9,7 @@ or via the convenience script:
 """
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import (
@@ -72,17 +72,25 @@ async def health_check():
 
 @app.websocket(settings.WEBSOCKET_PATH)
 async def websocket_endpoint(websocket: WebSocket):
-    """
-    Live update stream — the frontend's hooks/useLiveSocket.js connects
-    here. Every broadcast from manager.broadcast(...) (called from the
-    sequential task coordinator) gets
-    pushed to every connected client.
-    """
-    await manager.connect(websocket)
+    """Authenticated live stream scoped to one accessible workspace."""
+    workspace_id = websocket.query_params.get("workspaceId")
+
+    try:
+        user, _ = auth._authenticated_record(websocket)
+        workspace = repository.resolve_workspace_for_user(
+            user["id"],
+            workspace_id,
+        )
+    except HTTPException:
+        await websocket.close(code=4401)
+        return
+    except (PermissionError, ValueError):
+        await websocket.close(code=4404)
+        return
+
+    await manager.connect(websocket, workspace["id"])
     try:
         while True:
-            # We don't expect the frontend to send anything meaningful yet;
-            # this just keeps the connection alive and detects disconnects.
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)

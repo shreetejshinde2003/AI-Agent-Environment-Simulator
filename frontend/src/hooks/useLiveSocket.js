@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { WS_URL } from "../services/apiClient";
-export function useLiveSocket(onEvent, enabled = true) {
+export function useLiveSocket(onEvent, enabled = true, workspaceId = null) {
   const callback = useRef(onEvent);
   callback.current = onEvent;
   const [status, setStatus] = useState("disconnected");
@@ -9,7 +9,9 @@ export function useLiveSocket(onEvent, enabled = true) {
     let socket, timer, disposed = false, retry = 0;
     function connect() {
       setStatus("connecting");
-      socket = new WebSocket(WS_URL);
+      const url = new URL(WS_URL);
+      if (workspaceId) url.searchParams.set("workspaceId", workspaceId);
+      socket = new WebSocket(url.toString());
       socket.onopen = () => {
         retry = 0; setStatus("connected");
         callback.current(); // Recover authoritative REST state after every reconnect.
@@ -24,6 +26,6 @@ export function useLiveSocket(onEvent, enabled = true) {
     }
     connect();
     return () => { disposed = true; clearTimeout(timer); socket?.close(); };
-  }, [enabled]);
+  }, [enabled, workspaceId]);
   return status;
 }

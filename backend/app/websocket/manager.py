@@ -1,18 +1,4 @@
-"""
-app/websocket/manager.py
-
-Broadcasts live updates to every connected dashboard client. This class is
-fully functional as-is — it doesn't depend on storage or agents/ being
-implemented yet.
-
-How it gets used later:
-    - app/api/routes/*.py will call `manager.broadcast(...)` after any
-      state change (task created, agent status changed, message sent).
-    - app/agents/orchestrator.py (RESERVED, LangGraph) will call
-      `manager.broadcast(...)` on every node transition, which is what
-      actually drives the "Live" badges and Simulation Timeline on the
-      frontend.
-"""
+"""Workspace-scoped WebSocket connection manager."""
 
 import json
 from datetime import datetime, timezone
@@ -22,25 +8,23 @@ from fastapi import WebSocket
 
 class ConnectionManager:
     def __init__(self) -> None:
-        self._active_connections: list[WebSocket] = []
+        self._active_connections: dict[WebSocket, str] = {}
 
-    async def connect(self, websocket: WebSocket) -> None:
+    async def connect(self, websocket: WebSocket, workspace_id: str) -> None:
         await websocket.accept()
-        self._active_connections.append(websocket)
+        self._active_connections[websocket] = workspace_id
 
     def disconnect(self, websocket: WebSocket) -> None:
-        if websocket in self._active_connections:
-            self._active_connections.remove(websocket)
+        self._active_connections.pop(websocket, None)
 
-    async def broadcast(self, event_type: str, payload: dict) -> None:
-        """
-        Send a JSON event to every connected client.
-
-        event_type examples the frontend should expect (keep this list in
-        sync with whatever useLiveSocket.js switches on):
-            "agent_status_changed" | "task_updated" | "task_created" |
-            "message_sent" | "activity_event" | "stats_updated"
-        """
+    async def broadcast(
+        self,
+        event_type: str,
+        payload: dict,
+        *,
+        workspace_id: str | None = None,
+    ) -> None:
+        """Broadcast globally or, for tenant data, only within one workspace."""
         message = json.dumps(
             {
                 "event": event_type,
@@ -49,12 +33,17 @@ class ConnectionManager:
             }
         )
 
-        # Iterate over a copy — a client can disconnect mid-broadcast
-        for connection in list(self._active_connections):
+        for connection, connection_workspace_id in list(
+            self._active_connections.items()
+        ):
+            if (
+                workspace_id is not None
+                and connection_workspace_id != workspace_id
+            ):
+                continue
             try:
                 await connection.send_text(message)
             except Exception:
-                # Client dropped without a clean close handshake — prune it.
                 self.disconnect(connection)
 
     @property
@@ -62,5 +51,4 @@ class ConnectionManager:
         return len(self._active_connections)
 
 
-# Single shared instance — import this everywhere, don't instantiate a new one.
 manager = ConnectionManager()

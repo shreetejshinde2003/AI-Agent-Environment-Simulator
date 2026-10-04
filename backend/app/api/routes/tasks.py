@@ -56,10 +56,18 @@ async def emit(task: Task, event_type: str, text: str, agent_id: str | None = No
                      agent_id=agent_id, timestamp=now())
     task.events.append(event)
     repository.save(task)
-    await manager.broadcast(event_type, {"simulationId": task.id,
-                                         "executionMode": task.execution_mode.value,
-                                         **event.model_dump(mode="json")})
-    await manager.broadcast("task_updated", task.model_dump(mode="json"))
+    await manager.broadcast(
+        event_type,
+        {"simulationId": task.id,
+         "executionMode": task.execution_mode.value,
+         **event.model_dump(mode="json")},
+        workspace_id=task.workspace_id,
+    )
+    await manager.broadcast(
+        "task_updated",
+        task.model_dump(mode="json"),
+        workspace_id=task.workspace_id,
+    )
 
 
 def get_record(task_id: str, workspace_id: str | None = None) -> Task:
@@ -185,11 +193,13 @@ async def evaluate_task_quality(
             "simulationId": task.id,
             "evaluation": task.evaluation.model_dump(mode="json"),
         },
+        workspace_id=task.workspace_id,
     )
 
     await manager.broadcast(
         "task_updated",
         task.model_dump(mode="json"),
+        workspace_id=task.workspace_id,
     )
 
     return task.evaluation
@@ -369,9 +379,10 @@ async def enqueue_task(
     await manager.broadcast(
         "task_created",
         task.model_dump(mode="json"),
+        workspace_id=task.workspace_id,
     )
 
-    await register_task_created()
+    await register_task_created(task)
 
     await record_activity(
         "orchestrator" if is_pipeline else "simulation",
@@ -584,6 +595,7 @@ async def _run_task(task_id: str) -> None:
         )
 
         await register_task_finished(
+            task,
             task.elapsed_seconds,
             successful,
         )

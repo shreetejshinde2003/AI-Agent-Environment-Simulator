@@ -18,7 +18,11 @@ async def record_message(from_agent_id: str, to_agent_id: str, kind: MessageKind
                       output_key=output_key)
     task.messages.append(message)
     repository.save(task)
-    await manager.broadcast("message_sent", message.model_dump(mode="json"))
+    await manager.broadcast(
+        "message_sent",
+        message.model_dump(mode="json"),
+        workspace_id=task.workspace_id,
+    )
     return message
 
 

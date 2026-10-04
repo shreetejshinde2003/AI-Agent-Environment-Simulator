@@ -48,7 +48,11 @@ export function useSimulationData() {
     const timer = setInterval(refresh, 5000);
     return () => { mounted.current = false; clearInterval(timer); };
   }, [activeWorkspaceId, refresh]);
-  const socketStatus = useLiveSocket(refresh, health === "connected");
+  const socketStatus = useLiveSocket(
+    refresh,
+    health === "connected" && Boolean(activeWorkspaceId),
+    activeWorkspaceId,
+  );
   const acceptRun = useCallback(run => setData(previous => ({...previous, tasks: mergeRuns([run], previous.tasks)})), []);
   return {...data, stats: data.metrics.summary, refresh, acceptRun, error, socketStatus, hasLoaded, lastRefreshedAt,
     connectionStatus: error ? "disconnected" : health, isDemoMode: false,

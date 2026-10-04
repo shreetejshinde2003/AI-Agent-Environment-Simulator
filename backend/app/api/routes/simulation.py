@@ -68,15 +68,29 @@ async def record_activity(agent_id: str, text: str, *, task: Task):
                           timestamp=datetime.now(timezone.utc), simulation_id=task.id)
     task.activities.append(event)
     repository.save(task)
-    await manager.broadcast("activity_event", event.model_dump(mode="json"))
+    await manager.broadcast(
+        "activity_event",
+        event.model_dump(mode="json"),
+        workspace_id=task.workspace_id,
+    )
 
 
-async def register_task_created():
-    await manager.broadcast("stats_updated", aggregate())
+async def register_task_created(task: Task):
+    runs = repository.list_for_workspace(task.workspace_id) if task.workspace_id else []
+    await manager.broadcast(
+        "stats_updated",
+        aggregate(runs),
+        workspace_id=task.workspace_id,
+    )
 
 
-async def register_task_finished(response_time_seconds: float, success: bool):
-    await manager.broadcast("stats_updated", aggregate())
+async def register_task_finished(task: Task, response_time_seconds: float, success: bool):
+    runs = repository.list_for_workspace(task.workspace_id) if task.workspace_id else []
+    await manager.broadcast(
+        "stats_updated",
+        aggregate(runs),
+        workspace_id=task.workspace_id,
+    )
 
 
 # Retain the legacy routes but explicitly describe their unsupported behavior.
