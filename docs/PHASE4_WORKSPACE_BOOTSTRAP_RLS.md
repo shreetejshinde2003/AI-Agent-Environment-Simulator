@@ -1,5 +1,11 @@
 # Phase 4.5.5A — Workspace and membership bootstrap RLS
 
+Historical checkpoint record: local 4.5.5B now activates HR assignment RLS and
+scopes its operations. See [current HR-role behavior](PHASE4_HR_HUMAN_ROLE_RLS.md)
+for the expanded activation set and current workflow. Upload ownership/RLS and
+live PostgreSQL verification remain incomplete; the 4.5.5A results below are not
+a claim of subsequent production verification.
+
 ## Status
 
 COMPLETED (local implementation): authenticated-user bootstrap, scoped

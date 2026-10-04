@@ -1,7 +1,7 @@
 """PostgreSQL row-level security policy definitions for tenant-owned data.
 
-Phase 4.5.5A activates user-bound bootstrap alongside the simulation data plane.
-HR-role tables remain deferred; uploads still require schema hardening.
+Phase 4.5.5B activates HR-role isolation alongside bootstrap and simulation RLS.
+Uploads still require schema hardening and are deliberately excluded.
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ from app.security.tenant_db_context import (
 from app.security.tenant_isolation import IsolationScope, TABLE_ISOLATION_RULES
 
 POLICY_NAME = "fm_tenant_isolation"
+WRITE_POLICY_NAME = "fm_tenant_isolation_write"
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,12 +24,30 @@ class PostgresRLSPolicy:
     table: str
     using_sql: str
     check_sql: str
+    write_using_sql: str | None = None
+    write_check_sql: str | None = None
+
+    @property
+    def policy_names(self) -> frozenset[str]:
+        return frozenset({POLICY_NAME, WRITE_POLICY_NAME} if self.write_using_sql else {POLICY_NAME})
 
     def ddl(self) -> tuple[str, ...]:
-        return (
+        statements = (
             f'ALTER TABLE "{self.table}" ENABLE ROW LEVEL SECURITY',
             f'ALTER TABLE "{self.table}" FORCE ROW LEVEL SECURITY',
             f'DROP POLICY IF EXISTS "{POLICY_NAME}" ON "{self.table}"',
+        )
+        if self.write_using_sql is not None:
+            # SELECT-only policy must not accidentally grant DELETE privileges.
+            # The managerial ALL policy covers INSERT/UPDATE/DELETE and adds no
+            # broader SELECT access than managers already receive.
+            return statements + (
+                f'DROP POLICY IF EXISTS "{WRITE_POLICY_NAME}" ON "{self.table}"',
+                f'CREATE POLICY "{POLICY_NAME}" ON "{self.table}" FOR SELECT USING ({self.using_sql})',
+                f'CREATE POLICY "{WRITE_POLICY_NAME}" ON "{self.table}" FOR ALL '
+                f'USING ({self.write_using_sql}) WITH CHECK ({self.write_check_sql})',
+            )
+        return statements + (
             (
                 f'CREATE POLICY "{POLICY_NAME}" ON "{self.table}" '
                 f'FOR ALL USING ({self.using_sql}) WITH CHECK ({self.check_sql})'
@@ -84,6 +103,33 @@ def _direct_policy(table: str, workspace_column: str) -> PostgresRLSPolicy:
     return PostgresRLSPolicy(table, predicate, predicate)
 
 
+def _human_role_policy() -> PostgresRLSPolicy:
+    table = "organization_human_role_assignments"
+    actor = (
+        "EXISTS (SELECT 1 FROM organization_memberships AS hr_actor "
+        f"WHERE hr_actor.workspace_id = {table}.workspace_id "
+        f"AND hr_actor.user_id = {CURRENT_USER_SQL} AND hr_actor.active = TRUE"
+    )
+    base = (
+        f"{CURRENT_USER_SQL} IS NOT NULL AND workspace_id = {CURRENT_WORKSPACE_SQL} AND "
+        "EXISTS (SELECT 1 FROM workspaces AS hr_workspace "
+        f"WHERE hr_workspace.id = {table}.workspace_id "
+        "AND hr_workspace.kind = 'organization' AND hr_workspace.active = TRUE)"
+    )
+    manager = f"({base}) AND {actor} AND hr_actor.membership_role IN ('owner', 'admin'))"
+    visible = (
+        f"({manager}) OR (({base}) AND user_id = {CURRENT_USER_SQL} AND active = TRUE "
+        f"AND {actor} AND hr_actor.membership_role IN ('owner', 'admin', 'member')))"
+    )
+    writable = (
+        f"({manager}) AND assigned_by_user_id = {CURRENT_USER_SQL} AND (active = FALSE OR "
+        "EXISTS (SELECT 1 FROM organization_memberships AS hr_target "
+        f"WHERE hr_target.workspace_id = {table}.workspace_id "
+        f"AND hr_target.user_id = {table}.user_id AND hr_target.active = TRUE))"
+    )
+    return PostgresRLSPolicy(table, visible, writable, manager, writable)
+
+
 def _simulation_child_policy(table: str, simulation_column: str) -> PostgresRLSPolicy:
     predicate = (
         "EXISTS ("
@@ -109,6 +155,8 @@ def build_postgres_rls_policies() -> tuple[PostgresRLSPolicy, ...]:
         elif rule.scope == IsolationScope.TENANT_DIRECT:
             if rule.table == "organization_memberships":
                 policies.append(_membership_policy())
+            elif rule.table == "organization_human_role_assignments":
+                policies.append(_human_role_policy())
             else:
                 assert rule.workspace_column is not None
                 policies.append(_direct_policy(rule.table, rule.workspace_column))
@@ -128,7 +176,8 @@ DATA_PLANE_RLS_TABLES = frozenset({
     "activity_events", "run_events", "simulation_metrics", "simulation_uploads",
 })
 BOOTSTRAP_RLS_TABLES = frozenset({"workspaces", "organization_memberships"})
-ACTIVE_RLS_TABLES = DATA_PLANE_RLS_TABLES | BOOTSTRAP_RLS_TABLES
+HR_ROLE_RLS_TABLES = frozenset({"organization_human_role_assignments"})
+ACTIVE_RLS_TABLES = DATA_PLANE_RLS_TABLES | BOOTSTRAP_RLS_TABLES | HR_ROLE_RLS_TABLES
 DEFERRED_RLS_TABLES = POSTGRES_RLS_TABLES - ACTIVE_RLS_TABLES
 
 
@@ -153,8 +202,8 @@ def require_rls_runtime_role(connection) -> None:
 def install_data_plane_rls_policies(connection) -> None:
     """Preflight and activate the ready subset inside initialization's transaction.
 
-    Historical entrypoint name retained: the subset now includes the two ready
-    bootstrap tables as well as the eight simulation data-plane tables.
+    Historical entrypoint name retained: includes bootstrap, HR roles and the
+    eight simulation data-plane tables. Upload ownership remains deferred.
     Unknown policies can OR together with our permissive policy. Refuse them,
     rather than weakening the boundary or deleting operator-owned DDL. Unassigned
     legacy history must be explicitly migrated before first activation.
@@ -162,6 +211,7 @@ def install_data_plane_rls_policies(connection) -> None:
     if connection.dialect.name != "postgresql":
         return
     require_rls_runtime_role(connection)
+    policies_by_table = {policy.table: policy for policy in POSTGRES_RLS_POLICIES}
     states = {}
     for table in sorted(POSTGRES_RLS_TABLES):
         state = connection.execute(text(
@@ -171,13 +221,13 @@ def install_data_plane_rls_policies(connection) -> None:
         states[table] = state
         if table in DEFERRED_RLS_TABLES and state["relrowsecurity"]:
             raise RuntimeError(
-                f"RLS on {table} requires an HR-role readiness checkpoint."
+                f"RLS on {table} requires its tenant-readiness checkpoint."
             )
         if table in ACTIVE_RLS_TABLES:
             names = connection.execute(text(
                 "SELECT polname FROM pg_policy WHERE polrelid = to_regclass(:table)"
             ), {"table": table}).scalars().all()
-            if set(names) - {POLICY_NAME}:
+            if set(names) - policies_by_table[table].policy_names:
                 raise RuntimeError(f"Unreviewed PostgreSQL RLS policies on {table}.")
 
     if not states["simulations"]["relrowsecurity"]:
@@ -204,8 +254,8 @@ def install_postgres_rls_policies(connection) -> None:
     """Install/refresh all declared RLS policies on a PostgreSQL connection.
 
     Definition/testing utility only: repository startup uses the narrower,
-    preflighted install_data_plane_rls_policies instead. Do not use this full-set
-    installer before HR-role context is ready.
+    preflighted install_data_plane_rls_policies instead. This full-set installer
+    bypasses readiness preflight and is not the application startup path.
     """
 
     if connection.dialect.name != "postgresql":

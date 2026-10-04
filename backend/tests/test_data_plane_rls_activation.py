@@ -7,9 +7,11 @@ import pytest
 from app.security.postgres_rls import (
     DATA_PLANE_RLS_TABLES,
     BOOTSTRAP_RLS_TABLES,
+    HR_ROLE_RLS_TABLES,
     ACTIVE_RLS_TABLES,
     DEFERRED_RLS_TABLES,
     POLICY_NAME,
+    WRITE_POLICY_NAME,
     POSTGRES_RLS_POLICIES,
     install_data_plane_rls_policies,
 )
@@ -70,19 +72,21 @@ class ActivationConnection:
         self.ddl.append(statement)
 
 
-def test_activation_keeps_eight_data_tables_and_adds_only_two_bootstrap_tables():
+def test_activation_keeps_data_and_bootstrap_tables_and_adds_hr_roles_only():
     assert DATA_PLANE_RLS_TABLES == {
         "simulations", "tasks", "agent_executions", "agent_messages",
         "activity_events", "run_events", "simulation_metrics", "simulation_uploads",
     }
     assert BOOTSTRAP_RLS_TABLES == {"workspaces", "organization_memberships"}
-    assert DEFERRED_RLS_TABLES == {"organization_human_role_assignments"}
+    assert HR_ROLE_RLS_TABLES == {"organization_human_role_assignments"}
+    assert DEFERRED_RLS_TABLES == set()
+    assert "uploads" not in ACTIVE_RLS_TABLES
     connection = ActivationConnection()
     install_data_plane_rls_policies(connection)
     expected = tuple(sql for policy in POSTGRES_RLS_POLICIES
                      if policy.table in ACTIVE_RLS_TABLES for sql in policy.ddl())
     assert tuple(connection.ddl) == expected
-    assert len(expected) == 40
+    assert len(expected) == 46
     for table in ACTIVE_RLS_TABLES:
         assert f'ALTER TABLE "{table}" FORCE ROW LEVEL SECURITY' in connection.ddl
     assert not any(f'ON "{table}"' in sql for table in DEFERRED_RLS_TABLES
@@ -96,17 +100,26 @@ def test_unsafe_runtime_credentials_refuse_activation_before_ddl():
     assert connection.ddl == []
 
 
-@pytest.mark.parametrize("table", sorted(DEFERRED_RLS_TABLES))
-def test_already_activated_deferred_hr_tables_fail_closed_without_disabling_them(table):
-    connection = ActivationConnection(enabled=[table])
-    with pytest.raises(RuntimeError, match="readiness checkpoint"):
+def test_hr_policy_refresh_restores_force_without_disabling_an_activated_table():
+    connection = ActivationConnection(
+        enabled=["organization_human_role_assignments"],
+        policies={"organization_human_role_assignments": [POLICY_NAME, WRITE_POLICY_NAME]},
+    )
+    install_data_plane_rls_policies(connection)
+    assert 'ALTER TABLE "organization_human_role_assignments" FORCE ROW LEVEL SECURITY' in connection.ddl
+    assert not any("DISABLE ROW" in sql or "NO FORCE" in sql for sql in connection.ddl)
+
+
+@pytest.mark.parametrize("table", ["tasks", "workspaces", "organization_memberships", "organization_human_role_assignments"])
+def test_unknown_policy_is_not_ored_with_tenant_policy_or_deleted(table):
+    connection = ActivationConnection(policies={table: [POLICY_NAME, "allow_all"]})
+    with pytest.raises(RuntimeError, match="Unreviewed"):
         install_data_plane_rls_policies(connection)
     assert connection.ddl == []
 
 
-@pytest.mark.parametrize("table", ["tasks", "workspaces", "organization_memberships"])
-def test_unknown_policy_is_not_ored_with_tenant_policy_or_deleted(table):
-    connection = ActivationConnection(policies={table: [POLICY_NAME, "allow_all"]})
+def test_hr_write_policy_name_is_not_accepted_on_other_tables():
+    connection = ActivationConnection(policies={"tasks": [POLICY_NAME, WRITE_POLICY_NAME]})
     with pytest.raises(RuntimeError, match="Unreviewed"):
         install_data_plane_rls_policies(connection)
     assert connection.ddl == []
@@ -123,7 +136,7 @@ def test_repeat_activation_restores_force_without_unscoped_payload_read():
     connection = ActivationConnection(enabled=DATA_PLANE_RLS_TABLES,
                                       policies={t: [POLICY_NAME] for t in DATA_PLANE_RLS_TABLES})
     install_data_plane_rls_policies(connection)
-    assert len(connection.ddl) == 40
+    assert len(connection.ddl) == 46
     assert not any("FROM simulations" in sql for sql, _ in connection.queries)
 
 
@@ -177,7 +190,7 @@ def test_postgresql_initialize_installs_only_after_role_and_schema_preflight(mon
     repo.initialize()
     assert created == [connection]
     assert connection.ddl[0] == "SELECT pg_advisory_xact_lock(721842)"
-    assert len(connection.ddl) == 41
+    assert len(connection.ddl) == 47
     connection.unsafe_role = True
     created.clear()
     with pytest.raises(RuntimeError, match="NOSUPERUSER"):

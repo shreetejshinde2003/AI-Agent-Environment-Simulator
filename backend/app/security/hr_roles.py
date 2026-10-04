@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 from typing import Mapping, Protocol
+from app.security.rbac import AuthorizationError
 
 
 class HRHumanRole(str, Enum):
@@ -78,6 +79,7 @@ class HRRoleRepository(Protocol):
         *,
         user_id: str | None = None,
         active_only: bool = True,
+        actor_user_id: str,
     ): ...
 
 
@@ -107,11 +109,18 @@ def resolve_hr_human_authorization(
         return HRHumanAuthorization(user_id, workspace_id, frozenset())
 
     roles: set[HRHumanRole] = set()
-    for assignment in repository.list_organization_human_roles(
-        workspace_id,
-        user_id=user_id,
-        active_only=True,
-    ):
+    try:
+        assignments = repository.list_organization_human_roles(
+            workspace_id,
+            user_id=user_id,
+            active_only=True,
+            actor_user_id=user_id,
+        )
+    except AuthorizationError:
+        # Membership may have been revoked after bootstrap checks. No cached
+        # role grant survives; unexpected storage errors are NOT swallowed.
+        return HRHumanAuthorization(user_id, workspace_id, frozenset())
+    for assignment in assignments:
         try:
             roles.add(HRHumanRole(assignment.get("human_role")))
         except (TypeError, ValueError):

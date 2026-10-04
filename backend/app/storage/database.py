@@ -1395,6 +1395,34 @@ class Repository:
 
             return dict(updated)
 
+    @staticmethod
+    def _hr_authorization_in_transaction(connection, *, workspace_id, actor_user_id):
+        """Recheck the actor's current IAM boundary on the HR operation connection.
+
+        Bootstrap resolution is still required before selecting this workspace;
+        this check closes stale preflight decisions without caching HR/IAM roles.
+        HR assignments never grant membership or IAM management permissions.
+        """
+        from app.security.rbac import AuthorizationError, WorkspaceAuthorization, WorkspaceRole
+
+        workspace = connection.execute(select(dbm.workspaces).where(
+            dbm.workspaces.c.id == workspace_id,
+            dbm.workspaces.c.kind == "organization",
+            dbm.workspaces.c.active.is_(True),
+        )).mappings().first()
+        actor = connection.execute(select(dbm.organization_memberships).where(
+            dbm.organization_memberships.c.workspace_id == workspace_id,
+            dbm.organization_memberships.c.user_id == actor_user_id,
+            dbm.organization_memberships.c.active.is_(True),
+        )).mappings().first()
+        if workspace is None or actor is None:
+            raise AuthorizationError("Permission denied.")
+        try:
+            role = WorkspaceRole(actor["membership_role"])
+        except (TypeError, ValueError) as exc:
+            raise AuthorizationError("Permission denied.") from exc
+        return WorkspaceAuthorization(actor_user_id, workspace_id, "organization", role)
+
     def assign_organization_human_role(
         self,
         *,
@@ -1424,14 +1452,6 @@ class Repository:
         )
         authorization.require(Permission.ORGANIZATION_HUMAN_ROLES_MANAGE)
 
-        target_membership = self.get_organization_membership(
-            workspace_id,
-            target_user_id,
-            actor_user_id=actor_user_id,
-        )
-        if target_membership is None or not target_membership.get("active"):
-            raise AuthorizationError("Permission denied.")
-
         assignment = {
             "workspace_id": workspace_id,
             "user_id": target_user_id,
@@ -1441,7 +1461,17 @@ class Repository:
             "assigned_by_user_id": actor_user_id,
         }
 
-        with self.engine.begin() as connection:
+        with tenant_transaction(self.engine, workspace_id=workspace_id, user_id=actor_user_id) as connection:
+            self._hr_authorization_in_transaction(
+                connection, workspace_id=workspace_id, actor_user_id=actor_user_id,
+            ).require(Permission.ORGANIZATION_HUMAN_ROLES_MANAGE)
+            target_membership = connection.execute(select(dbm.organization_memberships).where(
+                dbm.organization_memberships.c.workspace_id == workspace_id,
+                dbm.organization_memberships.c.user_id == target_user_id,
+                dbm.organization_memberships.c.active.is_(True),
+            )).mappings().first()
+            if target_membership is None:
+                raise AuthorizationError("Permission denied.")
             existing = connection.execute(
                 select(dbm.organization_human_role_assignments).where(
                     dbm.organization_human_role_assignments.c.workspace_id
@@ -1503,7 +1533,10 @@ class Repository:
         )
         authorization.require(Permission.ORGANIZATION_HUMAN_ROLES_MANAGE)
 
-        with self.engine.begin() as connection:
+        with tenant_transaction(self.engine, workspace_id=workspace_id, user_id=actor_user_id) as connection:
+            self._hr_authorization_in_transaction(
+                connection, workspace_id=workspace_id, actor_user_id=actor_user_id,
+            ).require(Permission.ORGANIZATION_HUMAN_ROLES_MANAGE)
             existing = connection.execute(
                 select(dbm.organization_human_role_assignments).where(
                     dbm.organization_human_role_assignments.c.workspace_id
@@ -1554,7 +1587,21 @@ class Repository:
         *,
         user_id: str | None = None,
         active_only: bool = True,
+        actor_user_id: str | None = None,
     ):
+        """Read own active roles, or IAM-manager assignment history, in one tenant.
+
+        user_id is the target filter, NOT the authenticated actor. Unscoped calls
+        are SQLite fixture compatibility only and fail before PostgreSQL checkout.
+        """
+        from app.security.rbac import Permission, resolve_workspace_authorization
+
+        if actor_user_id is None:
+            self._require_legacy_sqlite()
+        else:
+            resolve_workspace_authorization(
+                self, user_id=actor_user_id, workspace_id=workspace_id,
+            )
         statement = select(dbm.organization_human_role_assignments).where(
             dbm.organization_human_role_assignments.c.workspace_id
             == workspace_id
@@ -1575,7 +1622,17 @@ class Repository:
             dbm.organization_human_role_assignments.c.human_role,
         )
 
-        with self.engine.connect() as connection:
+        transaction = (
+            tenant_transaction(self.engine, workspace_id=workspace_id, user_id=actor_user_id)
+            if actor_user_id is not None else self.engine.begin()
+        )
+        with transaction as connection:
+            if actor_user_id is not None:
+                authorization = self._hr_authorization_in_transaction(
+                    connection, workspace_id=workspace_id, actor_user_id=actor_user_id,
+                )
+                if user_id != actor_user_id or not active_only:
+                    authorization.require(Permission.ORGANIZATION_HUMAN_ROLES_MANAGE)
             rows = connection.execute(statement).mappings().all()
 
         return [dict(row) for row in rows]

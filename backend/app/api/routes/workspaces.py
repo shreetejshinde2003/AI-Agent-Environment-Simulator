@@ -412,15 +412,29 @@ async def list_organization_human_roles(
             detail={"code": "permission_denied", "message": "You do not have permission to manage HR human roles."},
         ) from exc
 
+    try:
+        rows = repository.list_organization_human_roles(
+            workspace_id, active_only=True, actor_user_id=user["id"],
+        )
+    except AuthorizationError as exc:
+        # A membership/role can change between initial checks and the scoped
+        # read. Preserve inaccessible-workspace 404 versus missing-permission 403.
+        try:
+            resolve_workspace_authorization(repository, user_id=user["id"], workspace_id=workspace_id)
+        except AuthorizationError:
+            raise HTTPException(
+                404, detail={"code": "workspace_unavailable", "message": "Workspace is unavailable."},
+            ) from exc
+        raise HTTPException(
+            403, detail={"code": "permission_denied", "message": "You do not have permission to manage HR human roles."},
+        ) from exc
+
     assignments = [
         OrganizationHumanRoleAssignment(
             user_id=row["user_id"],
             human_role=row["human_role"],
         )
-        for row in repository.list_organization_human_roles(
-            workspace_id,
-            active_only=True,
-        )
+        for row in rows
     ]
     return OrganizationHumanRoleListResponse(
         workspace_id=workspace_id,
