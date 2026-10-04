@@ -588,7 +588,7 @@ class WorkspaceSummary(CamelModel):
     id: str
     kind: Literal["personal", "organization"]
     name: str
-    membership_role: Literal["owner", "member"] | None = None
+    membership_role: Literal["owner", "admin", "member"] | None = None
 
 
 class WorkspaceListResponse(CamelModel):
@@ -596,6 +596,32 @@ class WorkspaceListResponse(CamelModel):
 
     personal_workspace: WorkspaceSummary
     organizations: list[WorkspaceSummary]
+
+
+class OrganizationMemberSummary(CamelModel):
+    """Safe organization member profile visible to authorized managers."""
+
+    user_id: str
+    display_name: str
+    email: str
+    profile_picture: str | None = None
+    membership_role: Literal["owner", "admin", "member"]
+    joined_at: str
+
+
+class OrganizationMemberListResponse(CamelModel):
+    workspace_id: str
+    members: list[OrganizationMemberSummary]
+
+
+class ChangeOrganizationMemberRoleRequest(CamelModel):
+    membership_role: Literal["owner", "admin", "member"]
+
+
+class OrganizationMemberRoleChanged(CamelModel):
+    workspace_id: str
+    user_id: str
+    membership_role: Literal["owner", "admin", "member"]
 
 
 class CreateSimulationRequest(CreateTaskRequest):

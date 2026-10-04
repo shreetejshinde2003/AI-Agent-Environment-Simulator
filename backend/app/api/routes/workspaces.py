@@ -6,10 +6,19 @@ from app.api.routes import auth
 from app.models.schemas import (
     CreateOrganizationRequest,
     JoinOrganizationRequest,
+    ChangeOrganizationMemberRoleRequest,
     OrganizationCreated,
     OrganizationJoined,
+    OrganizationMemberListResponse,
+    OrganizationMemberRoleChanged,
+    OrganizationMemberSummary,
     WorkspaceListResponse,
     WorkspaceSummary,
+)
+from app.security.rbac import (
+    AuthorizationError,
+    Permission,
+    resolve_workspace_authorization,
 )
 from app.storage.database import repository
 
@@ -198,4 +207,128 @@ async def join_organization(
         membership_role=membership[
             "membership_role"
         ],
+    )
+
+
+@router.get(
+    "/organizations/{workspace_id}/members",
+    response_model=OrganizationMemberListResponse,
+)
+async def list_organization_members(
+    workspace_id: str,
+    request: Request,
+):
+    """List active members for an organization when RBAC permits it."""
+
+    user, _ = auth._authenticated_record(request)
+
+    try:
+        authorization = resolve_workspace_authorization(
+            repository,
+            user_id=user["id"],
+            workspace_id=workspace_id,
+        )
+    except AuthorizationError as exc:
+        raise HTTPException(
+            404,
+            detail={
+                "code": "workspace_unavailable",
+                "message": "Workspace is unavailable.",
+            },
+        ) from exc
+
+    try:
+        authorization.require(Permission.ORGANIZATION_MEMBERS_VIEW)
+    except AuthorizationError as exc:
+        raise HTTPException(
+            403,
+            detail={
+                "code": "permission_denied",
+                "message": "You do not have permission to view organization members.",
+            },
+        ) from exc
+
+    members = []
+    for membership in repository.list_organization_memberships(
+        workspace_id,
+        active_only=True,
+    ):
+        member_user = repository.get_user(membership["user_id"])
+        if member_user is None or not member_user["active"]:
+            continue
+
+        members.append(
+            OrganizationMemberSummary(
+                user_id=member_user["id"],
+                display_name=member_user["display_name"],
+                email=member_user["email"],
+                profile_picture=member_user.get("profile_picture"),
+                membership_role=membership["membership_role"],
+                joined_at=membership["joined_at"],
+            )
+        )
+
+    return OrganizationMemberListResponse(
+        workspace_id=workspace_id,
+        members=members,
+    )
+
+
+@router.patch(
+    "/organizations/{workspace_id}/members/{target_user_id}/role",
+    response_model=OrganizationMemberRoleChanged,
+)
+async def change_organization_member_role(
+    workspace_id: str,
+    target_user_id: str,
+    payload: ChangeOrganizationMemberRoleRequest,
+    request: Request,
+):
+    """Change one active organization member role under repository safeguards."""
+
+    user, _ = auth._authenticated_record(request)
+
+    try:
+        resolve_workspace_authorization(
+            repository,
+            user_id=user["id"],
+            workspace_id=workspace_id,
+        )
+    except AuthorizationError as exc:
+        raise HTTPException(
+            404,
+            detail={
+                "code": "workspace_unavailable",
+                "message": "Workspace is unavailable.",
+            },
+        ) from exc
+
+    try:
+        membership = repository.change_organization_membership_role(
+            workspace_id=workspace_id,
+            actor_user_id=user["id"],
+            target_user_id=target_user_id,
+            new_role=payload.membership_role,
+        )
+    except AuthorizationError as exc:
+        raise HTTPException(
+            403,
+            detail={
+                "code": "permission_denied",
+                "message": "You do not have permission to change this member role.",
+            },
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            409,
+            detail={
+                "code": "role_change_conflict",
+                "message": str(exc),
+            },
+        ) from exc
+
+    return OrganizationMemberRoleChanged(
+        workspace_id=workspace_id,
+        user_id=membership["user_id"],
+        membership_role=membership["membership_role"],
     )
