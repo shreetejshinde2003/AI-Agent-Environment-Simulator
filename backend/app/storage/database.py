@@ -4,7 +4,8 @@ V1 SQLite snapshots are backed up, archived, and projected into the
 current relational schema. Version 3 added local Google identities and
 revocable application sessions. Version 4 added the workspace/tenancy
 foundation. Version 5 added organization memberships. Version 6 adds persisted
-simulation workspace ownership while preserving historical run payloads.
+simulation workspace ownership while preserving historical run payloads. Version 7
+adds the persisted organization admin role and safe role-management primitives.
 """
 
 from __future__ import annotations
@@ -26,7 +27,7 @@ from app.security.workspaces import (
     join_code_digest,
 )
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 
 def normalize_url(url: str | None) -> str:
@@ -93,6 +94,56 @@ class Repository:
             "ON simulations (workspace_id, created_at)"
         )
 
+    @staticmethod
+    def _ensure_admin_membership_role(connection):
+        """Upgrade the membership-role constraint to owner/admin/member.
+
+        SQLite cannot alter CHECK constraints in place, so V5/V6 databases
+        rebuild only the membership table while preserving every row.
+        PostgreSQL can replace the named constraint directly.
+        """
+
+        if "organization_memberships" not in inspect(connection).get_table_names():
+            return
+
+        if connection.dialect.name == "sqlite":
+            connection.exec_driver_sql(
+                "ALTER TABLE organization_memberships "
+                "RENAME TO organization_memberships_v6_archive"
+            )
+            connection.exec_driver_sql(
+                "DROP INDEX IF EXISTS ix_org_memberships_user_active"
+            )
+            connection.exec_driver_sql(
+                "DROP INDEX IF EXISTS ix_org_memberships_workspace_active"
+            )
+
+            dbm.organization_memberships.create(
+                connection,
+                checkfirst=False,
+            )
+
+            connection.exec_driver_sql(
+                "INSERT INTO organization_memberships "
+                "(workspace_id, user_id, membership_role, active, joined_at, added_by_user_id) "
+                "SELECT workspace_id, user_id, membership_role, active, joined_at, added_by_user_id "
+                "FROM organization_memberships_v6_archive"
+            )
+            connection.exec_driver_sql(
+                "DROP TABLE organization_memberships_v6_archive"
+            )
+            return
+
+        connection.exec_driver_sql(
+            "ALTER TABLE organization_memberships "
+            "DROP CONSTRAINT IF EXISTS ck_organization_membership_role"
+        )
+        connection.exec_driver_sql(
+            "ALTER TABLE organization_memberships "
+            "ADD CONSTRAINT ck_organization_membership_role "
+            "CHECK (membership_role IN ('owner', 'admin', 'member'))"
+        )
+
     def initialize(self):
         engine = self.engine
         if engine.dialect.name == "sqlite":
@@ -117,14 +168,15 @@ class Repository:
                         )
                     )
 
-                elif versions in ([2], [3], [4], [5]):
-                    # V6 remains additive. create_all above safely creates
-                    # newer identity/workspace tables; ALTER adds ownership to
-                    # an already-existing simulations table. Historical rows
-                    # remain nullable until deterministic backfill.
+                elif versions in ([2], [3], [4], [5], [6]):
+                    # V7 remains additive. create_all above safely creates
+                    # newer tables; migrations add simulation ownership and,
+                    # for V5/V6 membership tables, widen the role constraint.
                     previous_version = versions[0]
 
                     self._ensure_simulation_workspace_column(connection)
+                    if previous_version >= 5:
+                        self._ensure_admin_membership_role(connection)
 
                     connection.execute(
                         update(dbm.schema_version)
@@ -177,10 +229,12 @@ class Repository:
                     )
                 )
 
-            elif versions in ([2], [3], [4], [5]):
+            elif versions in ([2], [3], [4], [5], [6]):
                 previous_version = versions[0]
 
                 self._ensure_simulation_workspace_column(connection)
+                if previous_version >= 5:
+                    self._ensure_admin_membership_role(connection)
 
                 connection.execute(
                     update(dbm.schema_version)
@@ -1001,6 +1055,143 @@ class Repository:
             dict(row)
             for row in rows
         ]
+
+    def change_organization_membership_role(
+        self,
+        *,
+        workspace_id: str,
+        actor_user_id: str,
+        target_user_id: str,
+        new_role: str,
+    ):
+        """Change one active Organization membership role with RBAC safeguards.
+
+        Role changes are organization-scoped and fail closed. Admin membership
+        changes require an owner. Ownership changes also require an owner, and
+        the final active owner can never be demoted.
+        """
+
+        from app.security.rbac import (
+            AuthorizationError,
+            Permission,
+            WorkspaceAuthorization,
+            WorkspaceRole,
+        )
+
+        try:
+            requested_role = WorkspaceRole(new_role)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Unsupported organization role.") from exc
+
+        with self.engine.begin() as connection:
+            workspace = connection.execute(
+                select(dbm.workspaces).where(
+                    dbm.workspaces.c.id == workspace_id
+                )
+            ).mappings().first()
+
+            if (
+                workspace is None
+                or workspace["kind"] != "organization"
+                or not workspace["active"]
+            ):
+                raise AuthorizationError("Permission denied.")
+
+            actor = connection.execute(
+                select(dbm.organization_memberships).where(
+                    dbm.organization_memberships.c.workspace_id == workspace_id,
+                    dbm.organization_memberships.c.user_id == actor_user_id,
+                )
+            ).mappings().first()
+
+            target = connection.execute(
+                select(dbm.organization_memberships).where(
+                    dbm.organization_memberships.c.workspace_id == workspace_id,
+                    dbm.organization_memberships.c.user_id == target_user_id,
+                )
+            ).mappings().first()
+
+            if (
+                actor is None
+                or not actor["active"]
+                or target is None
+                or not target["active"]
+            ):
+                raise AuthorizationError("Permission denied.")
+
+            try:
+                actor_role = WorkspaceRole(actor["membership_role"])
+                target_role = WorkspaceRole(target["membership_role"])
+            except (TypeError, ValueError) as exc:
+                raise AuthorizationError("Permission denied.") from exc
+
+            authorization = WorkspaceAuthorization(
+                user_id=actor_user_id,
+                workspace_id=workspace_id,
+                workspace_kind="organization",
+                role=actor_role,
+            )
+
+            if (
+                target_role is WorkspaceRole.OWNER
+                or requested_role is WorkspaceRole.OWNER
+            ):
+                authorization.require(
+                    Permission.ORGANIZATION_OWNERSHIP_MANAGE
+                )
+            elif (
+                target_role is WorkspaceRole.ADMIN
+                or requested_role is WorkspaceRole.ADMIN
+            ):
+                authorization.require(
+                    Permission.ORGANIZATION_ADMINS_MANAGE
+                )
+            else:
+                authorization.require(
+                    Permission.ORGANIZATION_MEMBERS_MANAGE
+                )
+
+            if target_role is requested_role:
+                return dict(target)
+
+            if (
+                target_role is WorkspaceRole.OWNER
+                and requested_role is not WorkspaceRole.OWNER
+            ):
+                owner_count = connection.execute(
+                    select(dbm.organization_memberships.c.user_id).where(
+                        dbm.organization_memberships.c.workspace_id == workspace_id,
+                        dbm.organization_memberships.c.membership_role == "owner",
+                        dbm.organization_memberships.c.active.is_(True),
+                    )
+                ).all()
+
+                if len(owner_count) <= 1:
+                    raise ValueError(
+                        "The last active organization owner cannot be demoted."
+                    )
+
+            connection.execute(
+                update(dbm.organization_memberships)
+                .where(
+                    dbm.organization_memberships.c.workspace_id == workspace_id,
+                    dbm.organization_memberships.c.user_id == target_user_id,
+                    dbm.organization_memberships.c.active.is_(True),
+                )
+                .values(
+                    membership_role=requested_role.value,
+                    added_by_user_id=actor_user_id,
+                )
+            )
+
+            updated = connection.execute(
+                select(dbm.organization_memberships).where(
+                    dbm.organization_memberships.c.workspace_id == workspace_id,
+                    dbm.organization_memberships.c.user_id == target_user_id,
+                )
+            ).mappings().one()
+
+            return dict(updated)
 
     def save_auth_session(self, session: dict):
         """Persist only a digest of the browser's opaque session token."""

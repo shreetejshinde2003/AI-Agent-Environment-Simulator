@@ -171,7 +171,7 @@ organization_memberships = Table(
     ),
 
     CheckConstraint(
-        "membership_role IN ('owner', 'member')",
+        "membership_role IN ('owner', 'admin', 'member')",
         name="ck_organization_membership_role",
     ),
 )

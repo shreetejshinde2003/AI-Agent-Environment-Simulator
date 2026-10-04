@@ -62,7 +62,7 @@ def test_fresh_database_contains_auth_tables(tmp_path):
                 "PRAGMA user_version"
             ).fetchone()[0]
             == SCHEMA_VERSION
-            == 6
+            == 7
         )
 
 
@@ -194,7 +194,7 @@ def test_deleting_user_cascades_sessions(tmp_path):
     assert sessions == []
 
 
-def test_schema_v2_database_migrates_additively_to_v6(tmp_path):
+def test_schema_v2_database_migrates_additively_to_v7(tmp_path):
     path = tmp_path / "v2.db"
 
     # Construct a realistic V2 database using the current table metadata
@@ -251,7 +251,7 @@ def test_schema_v2_database_migrates_additively_to_v6(tmp_path):
             select(dbm.schema_version.c.version)
         ).scalar_one()
 
-    assert version == SCHEMA_VERSION == 6
+    assert version == SCHEMA_VERSION == 7
 
     with sqlite3.connect(path) as connection:
         assert (
@@ -259,7 +259,7 @@ def test_schema_v2_database_migrates_additively_to_v6(tmp_path):
                 "PRAGMA user_version"
             ).fetchone()[0]
             == SCHEMA_VERSION
-            == 6
+            == 7
         )
 
 
