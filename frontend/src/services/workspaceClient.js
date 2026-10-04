@@ -55,4 +55,19 @@ export const workspaceClient = {
         body: JSON.stringify({ membershipRole }),
       },
     ),
+  listOrganizationHumanRoles: workspaceId =>
+    workspaceRequest(`/organizations/${encodeURIComponent(workspaceId)}/human-roles`),
+  assignOrganizationHumanRole: (workspaceId, userId, humanRole) =>
+    workspaceRequest(
+      `/organizations/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(userId)}/human-roles`,
+      {
+        method: "POST",
+        body: JSON.stringify({ humanRole }),
+      },
+    ),
+  deactivateOrganizationHumanRole: (workspaceId, userId, humanRole) =>
+    workspaceRequest(
+      `/organizations/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(userId)}/human-roles/${encodeURIComponent(humanRole)}`,
+      { method: "DELETE" },
+    ),
 };

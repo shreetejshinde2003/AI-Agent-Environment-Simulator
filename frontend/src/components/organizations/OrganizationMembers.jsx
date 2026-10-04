@@ -3,6 +3,12 @@ import { Shield, UsersRound } from "lucide-react";
 
 import { workspaceClient } from "../../services/workspaceClient";
 import {
+  canManageHrHumanRoles,
+  HR_HUMAN_ROLE_OPTIONS,
+  humanRoleLabel,
+  humanRolesByUser,
+} from "../../utils/hrHumanRoles";
+import {
   canChangeOrganizationRoles,
   canViewOrganizationMembers,
   organizationRoleLabel,
@@ -14,21 +20,25 @@ function memberName(member) {
 
 export default function OrganizationMembers({ workspace, onMembershipChanged }) {
   const [members, setMembers] = useState([]);
+  const [humanRoleAssignments, setHumanRoleAssignments] = useState([]);
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState(null);
   const [changingUserId, setChangingUserId] = useState(null);
+  const [changingHumanRole, setChangingHumanRole] = useState(null);
   const [notice, setNotice] = useState(null);
 
   const canView =
     workspace?.kind === "organization" &&
     canViewOrganizationMembers(workspace.membershipRole);
   const canChangeRoles = canChangeOrganizationRoles(workspace?.membershipRole);
+  const canManageHumanRoles = canManageHrHumanRoles(workspace?.membershipRole);
 
   useEffect(() => {
     let cancelled = false;
 
     if (!canView) {
       setMembers([]);
+      setHumanRoleAssignments([]);
       setStatus("idle");
       setError(null);
       setNotice(null);
@@ -41,16 +51,20 @@ export default function OrganizationMembers({ workspace, onMembershipChanged }) 
     setError(null);
     setNotice(null);
 
-    workspaceClient
-      .listOrganizationMembers(workspace.id)
-      .then(result => {
+    Promise.all([
+      workspaceClient.listOrganizationMembers(workspace.id),
+      workspaceClient.listOrganizationHumanRoles(workspace.id),
+    ])
+      .then(([memberResult, roleResult]) => {
         if (cancelled) return;
-        setMembers(result.members ?? []);
+        setMembers(memberResult.members ?? []);
+        setHumanRoleAssignments(roleResult.assignments ?? []);
         setStatus("ready");
       })
       .catch(nextError => {
         if (cancelled) return;
         setMembers([]);
+        setHumanRoleAssignments([]);
         setError(nextError);
         setStatus("error");
       });
@@ -63,6 +77,10 @@ export default function OrganizationMembers({ workspace, onMembershipChanged }) 
   const sortedMembers = useMemo(
     () => [...members].sort((a, b) => memberName(a).localeCompare(memberName(b))),
     [members],
+  );
+  const rolesByUser = useMemo(
+    () => humanRolesByUser(humanRoleAssignments),
+    [humanRoleAssignments],
   );
 
   async function changeRole(member, membershipRole) {
@@ -92,6 +110,50 @@ export default function OrganizationMembers({ workspace, onMembershipChanged }) 
       setError(nextError);
     } finally {
       setChangingUserId(null);
+    }
+  }
+
+  async function changeHumanRole(member, humanRole, enabled) {
+    if (!canManageHumanRoles) return;
+
+    const mutationKey = `${member.userId}:${humanRole}`;
+    setChangingHumanRole(mutationKey);
+    setError(null);
+    setNotice(null);
+
+    try {
+      if (enabled) {
+        await workspaceClient.assignOrganizationHumanRole(
+          workspace.id,
+          member.userId,
+          humanRole,
+        );
+        setHumanRoleAssignments(current => {
+          const alreadyAssigned = current.some(
+            item => item.userId === member.userId && item.humanRole === humanRole,
+          );
+          return alreadyAssigned
+            ? current
+            : [...current, { userId: member.userId, humanRole }];
+        });
+        setNotice(`${humanRoleLabel(humanRole)} assigned to ${memberName(member)}.`);
+      } else {
+        await workspaceClient.deactivateOrganizationHumanRole(
+          workspace.id,
+          member.userId,
+          humanRole,
+        );
+        setHumanRoleAssignments(current =>
+          current.filter(
+            item => !(item.userId === member.userId && item.humanRole === humanRole),
+          ),
+        );
+        setNotice(`${humanRoleLabel(humanRole)} removed from ${memberName(member)}.`);
+      }
+    } catch (nextError) {
+      setError(nextError);
+    } finally {
+      setChangingHumanRole(null);
     }
   }
 
@@ -131,9 +193,13 @@ export default function OrganizationMembers({ workspace, onMembershipChanged }) 
           <p className="organizations-eyebrow">{workspace.name}</p>
           <h2 id="member-management-title">Member management</h2>
           <p>
+            Access roles control organization permissions. HR responsibilities are separate
+            domain roles for Recruiter, Reviewer, and Approver duties.
+          </p>
+          <p className="organization-management-note">
             {canChangeRoles
-              ? "Owners can assign Owner, Admin, or Member roles. The backend protects the last active owner."
-              : "Admins can view organization members. Owner/Admin role assignment remains owner-only."}
+              ? "Owners can assign Owner, Admin, or Member roles. Owners can change access roles and manage HR responsibilities. The last active owner cannot be demoted."
+              : "Admins can view organization members. Admins can manage HR responsibilities; Owner/Admin access-role assignment remains owner-only."}
           </p>
         </div>
         <div className="organization-role-badge">
@@ -164,41 +230,70 @@ export default function OrganizationMembers({ workspace, onMembershipChanged }) 
 
       {status === "ready" && sortedMembers.length > 0 && (
         <div className="organization-member-list">
-          {sortedMembers.map(member => (
-            <article className="organization-member-row" key={member.userId}>
-              <div className="organization-member-avatar" aria-hidden="true">
-                {member.profilePicture ? (
-                  <img src={member.profilePicture} alt="" referrerPolicy="no-referrer" />
-                ) : (
-                  <UsersRound size={18} />
-                )}
-              </div>
+          {sortedMembers.map(member => {
+            const assignedRoles = rolesByUser.get(member.userId) ?? new Set();
+            return (
+              <article className="organization-member-row" key={member.userId}>
+                <div className="organization-member-avatar" aria-hidden="true">
+                  {member.profilePicture ? (
+                    <img src={member.profilePicture} alt="" referrerPolicy="no-referrer" />
+                  ) : (
+                    <UsersRound size={18} />
+                  )}
+                </div>
 
-              <div className="organization-member-identity">
-                <strong>{memberName(member)}</strong>
-                <span>{member.email}</span>
-              </div>
+                <div className="organization-member-identity">
+                  <strong>{memberName(member)}</strong>
+                  <span>{member.email}</span>
+                </div>
 
-              {canChangeRoles ? (
-                <label className="organization-role-control">
-                  <select
-                    value={member.membershipRole}
-                    disabled={changingUserId !== null}
-                    onChange={event => changeRole(member, event.target.value)}
-                    aria-label={`Role for ${memberName(member)}`}
-                  >
-                    <option value="owner">Owner</option>
-                    <option value="admin">Admin</option>
-                    <option value="member">Member</option>
-                  </select>
-                </label>
-              ) : (
-                <span className="organization-role-badge is-static">
-                  {organizationRoleLabel(member.membershipRole)}
-                </span>
-              )}
-            </article>
-          ))}
+                <div className="organization-member-access">
+                  <span className="organization-control-label">Access role</span>
+                  {canChangeRoles ? (
+                    <label className="organization-role-control">
+                      <select
+                        value={member.membershipRole}
+                        disabled={changingUserId !== null}
+                        onChange={event => changeRole(member, event.target.value)}
+                        aria-label={`Access role for ${memberName(member)}`}
+                      >
+                        <option value="owner">Owner</option>
+                        <option value="admin">Admin</option>
+                        <option value="member">Member</option>
+                      </select>
+                    </label>
+                  ) : (
+                    <span className="organization-role-badge is-static">
+                      {organizationRoleLabel(member.membershipRole)}
+                    </span>
+                  )}
+                </div>
+
+                <fieldset className="organization-human-roles">
+                  <legend>HR responsibilities</legend>
+                  <div className="organization-human-role-options">
+                    {HR_HUMAN_ROLE_OPTIONS.map(option => {
+                      const checked = assignedRoles.has(option.value);
+                      return (
+                        <label className="organization-human-role-option" key={option.value}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            disabled={!canManageHumanRoles || changingHumanRole !== null}
+                            onChange={event =>
+                              changeHumanRole(member, option.value, event.target.checked)
+                            }
+                            aria-label={`${option.label} for ${memberName(member)}`}
+                          />
+                          <span>{option.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+              </article>
+            );
+          })}
         </div>
       )}
     </section>
