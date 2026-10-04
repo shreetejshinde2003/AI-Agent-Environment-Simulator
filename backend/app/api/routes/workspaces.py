@@ -14,6 +14,10 @@ from app.models.schemas import (
     OrganizationMemberSummary,
     WorkspaceListResponse,
     WorkspaceSummary,
+    AssignOrganizationHumanRoleRequest,
+    OrganizationHumanRoleAssignment,
+    OrganizationHumanRoleChanged,
+    OrganizationHumanRoleListResponse,
 )
 from app.security.rbac import (
     AuthorizationError,
@@ -362,4 +366,156 @@ async def change_organization_member_role(
         workspace_id=workspace_id,
         user_id=membership["user_id"],
         membership_role=membership["membership_role"],
+    )
+
+@router.get(
+    "/organizations/{workspace_id}/human-roles",
+    response_model=OrganizationHumanRoleListResponse,
+)
+async def list_organization_human_roles(
+    workspace_id: str,
+    request: Request,
+):
+    user, _ = auth._authenticated_record(request)
+
+    try:
+        authorization = resolve_workspace_authorization(
+            repository,
+            user_id=user["id"],
+            workspace_id=workspace_id,
+        )
+    except AuthorizationError as exc:
+        raise HTTPException(
+            404,
+            detail={"code": "workspace_unavailable", "message": "Workspace is unavailable."},
+        ) from exc
+
+    try:
+        authorization.require(Permission.ORGANIZATION_HUMAN_ROLES_MANAGE)
+    except AuthorizationError as exc:
+        raise HTTPException(
+            403,
+            detail={"code": "permission_denied", "message": "You do not have permission to manage HR human roles."},
+        ) from exc
+
+    assignments = [
+        OrganizationHumanRoleAssignment(
+            user_id=row["user_id"],
+            human_role=row["human_role"],
+        )
+        for row in repository.list_organization_human_roles(
+            workspace_id,
+            active_only=True,
+        )
+    ]
+    return OrganizationHumanRoleListResponse(
+        workspace_id=workspace_id,
+        assignments=assignments,
+    )
+
+
+@router.post(
+    "/organizations/{workspace_id}/members/{target_user_id}/human-roles",
+    response_model=OrganizationHumanRoleChanged,
+    status_code=201,
+)
+async def assign_organization_human_role(
+    workspace_id: str,
+    target_user_id: str,
+    payload: AssignOrganizationHumanRoleRequest,
+    request: Request,
+):
+    user, _ = auth._authenticated_record(request)
+
+    try:
+        resolve_workspace_authorization(
+            repository,
+            user_id=user["id"],
+            workspace_id=workspace_id,
+        )
+    except AuthorizationError as exc:
+        raise HTTPException(
+            404,
+            detail={"code": "workspace_unavailable", "message": "Workspace is unavailable."},
+        ) from exc
+
+    try:
+        assignment = repository.assign_organization_human_role(
+            workspace_id=workspace_id,
+            actor_user_id=user["id"],
+            target_user_id=target_user_id,
+            human_role=payload.human_role,
+        )
+    except AuthorizationError as exc:
+        raise HTTPException(
+            403,
+            detail={"code": "permission_denied", "message": "You do not have permission to assign this HR human role."},
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            409,
+            detail={"code": "human_role_conflict", "message": str(exc)},
+        ) from exc
+
+    return OrganizationHumanRoleChanged(
+        workspace_id=workspace_id,
+        user_id=assignment["user_id"],
+        human_role=assignment["human_role"],
+        active=True,
+    )
+
+
+@router.delete(
+    "/organizations/{workspace_id}/members/{target_user_id}/human-roles/{human_role}",
+    response_model=OrganizationHumanRoleChanged,
+)
+async def deactivate_organization_human_role(
+    workspace_id: str,
+    target_user_id: str,
+    human_role: str,
+    request: Request,
+):
+    user, _ = auth._authenticated_record(request)
+
+    try:
+        resolve_workspace_authorization(
+            repository,
+            user_id=user["id"],
+            workspace_id=workspace_id,
+        )
+    except AuthorizationError as exc:
+        raise HTTPException(
+            404,
+            detail={"code": "workspace_unavailable", "message": "Workspace is unavailable."},
+        ) from exc
+
+    try:
+        assignment = repository.deactivate_organization_human_role(
+            workspace_id=workspace_id,
+            actor_user_id=user["id"],
+            target_user_id=target_user_id,
+            human_role=human_role,
+        )
+    except AuthorizationError as exc:
+        raise HTTPException(
+            403,
+            detail={"code": "permission_denied", "message": "You do not have permission to change this HR human role."},
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            422,
+            detail={"code": "invalid_human_role", "message": str(exc)},
+        ) from exc
+
+    if assignment is None:
+        raise HTTPException(
+            404,
+            detail={"code": "human_role_assignment_not_found", "message": "HR human role assignment was not found."},
+        )
+
+    return OrganizationHumanRoleChanged(
+        workspace_id=workspace_id,
+        user_id=assignment["user_id"],
+        human_role=assignment["human_role"],
+        active=False,
     )

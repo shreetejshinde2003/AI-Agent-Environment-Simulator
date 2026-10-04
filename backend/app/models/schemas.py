@@ -624,6 +624,34 @@ class OrganizationMemberRoleChanged(CamelModel):
     membership_role: Literal["owner", "admin", "member"]
 
 
+HRHumanRoleValue = Literal[
+    "hr_recruiter",
+    "hr_reviewer",
+    "hr_approver",
+]
+
+
+class OrganizationHumanRoleAssignment(CamelModel):
+    user_id: str
+    human_role: HRHumanRoleValue
+
+
+class OrganizationHumanRoleListResponse(CamelModel):
+    workspace_id: str
+    assignments: list[OrganizationHumanRoleAssignment]
+
+
+class AssignOrganizationHumanRoleRequest(CamelModel):
+    human_role: HRHumanRoleValue
+
+
+class OrganizationHumanRoleChanged(CamelModel):
+    workspace_id: str
+    user_id: str
+    human_role: HRHumanRoleValue
+    active: bool
+
+
 class CreateSimulationRequest(CreateTaskRequest):
     assigned_agent_id: str = "orchestrator"
     execution_mode: TaskExecutionMode = TaskExecutionMode.FIXED
