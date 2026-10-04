@@ -45,6 +45,7 @@ def require_request_permission(
     """
 
     user, _ = auth._authenticated_record(request)
+    request.state.authenticated_user_id = user["id"]
 
     try:
         workspace = repository.resolve_workspace_for_user(
@@ -78,6 +79,18 @@ def require_request_permission(
 
     return workspace
 
+
+
+def request_user_id(request: Request) -> str:
+    """Return the authenticated request principal resolved by the permission gate."""
+
+    user_id = getattr(request.state, "authenticated_user_id", None)
+    if user_id:
+        return user_id
+
+    user, _ = auth._authenticated_record(request)
+    request.state.authenticated_user_id = user["id"]
+    return user["id"]
 
 def resolve_request_workspace(
     request: Request,

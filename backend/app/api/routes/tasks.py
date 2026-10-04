@@ -21,7 +21,7 @@ from app.agents.contracts import CONTRACTS
 from app.agents.routing import inline_source, plan_route, validate_route
 from app.api.routes.messages import record_message
 from app.api.routes.simulation import record_activity, register_task_created, register_task_finished
-from app.api.routes.workspaces import require_request_permission
+from app.api.routes.workspaces import require_request_permission, request_user_id
 from app.core.errors import safe_error
 from app.datasets.registry import context_for_dataset
 from app.models.schemas import (
@@ -51,12 +51,17 @@ def now():
     return datetime.now(timezone.utc)
 
 
-async def emit(task: Task, event_type: str, text: str, agent_id: str | None = None):
+async def emit(task: Task, event_type: str, text: str, agent_id: str | None = None, user_id: str | None = None):
     """Commit authoritative state before notifying clients."""
     event = RunEvent(id=uuid.uuid4().hex, type=event_type, text=text,
                      agent_id=agent_id, timestamp=now())
     task.events.append(event)
-    repository.save(task)
+    if user_id is not None and task.workspace_id is not None:
+        repository.save_for_tenant(
+            task, workspace_id=task.workspace_id, user_id=user_id
+        )
+    else:
+        repository.save(task)
     await manager.broadcast(
         event_type,
         {"simulationId": task.id,
@@ -71,12 +76,19 @@ async def emit(task: Task, event_type: str, text: str, agent_id: str | None = No
     )
 
 
-def get_record(task_id: str, workspace_id: str | None = None) -> Task:
-    task = (
-        repository.get_for_workspace(task_id, workspace_id)
-        if workspace_id is not None
-        else repository.get(task_id)
-    )
+def get_record(
+    task_id: str,
+    workspace_id: str | None = None,
+    user_id: str | None = None,
+) -> Task:
+    if workspace_id is not None and user_id is not None:
+        task = repository.get_for_tenant(
+            task_id, workspace_id=workspace_id, user_id=user_id
+        )
+    elif workspace_id is not None:
+        task = repository.get_for_workspace(task_id, workspace_id)
+    else:
+        task = repository.get(task_id)
     if task is None:
         raise HTTPException(404, "Simulation not found")
     return task
@@ -90,7 +102,10 @@ async def list_tasks(
     workspace = require_request_permission(
         request, x_workspace_id, Permission.SIMULATION_VIEW
     )
-    return repository.list_for_workspace(workspace["id"])
+    return repository.list_for_tenant(
+        workspace_id=workspace["id"],
+        user_id=request_user_id(request),
+    )
 
 
 @router.get("/{task_id}", response_model=Task)
@@ -102,7 +117,9 @@ async def get_task(
     workspace = require_request_permission(
         request, x_workspace_id, Permission.SIMULATION_VIEW
     )
-    return get_record(task_id, workspace["id"])
+    return get_record(
+        task_id, workspace["id"], request_user_id(request)
+    )
 
 
 @router.post("/{task_id}/evaluate", response_model=RunEvaluation)
@@ -116,7 +133,8 @@ async def evaluate_task_quality(
     workspace = require_request_permission(
         request, x_workspace_id, Permission.SIMULATION_EVALUATE
     )
-    task = get_record(task_id, workspace["id"])
+    user_id = request_user_id(request)
+    task = get_record(task_id, workspace["id"], user_id)
 
     if task.execution_mode not in (
         TaskExecutionMode.SINGLE,
@@ -192,7 +210,9 @@ async def evaluate_task_quality(
         quality=quality,
     )
 
-    repository.save(task)
+    repository.save_for_tenant(
+        task, workspace_id=workspace["id"], user_id=user_id
+    )
 
     await manager.broadcast(
         "evaluation_completed",
@@ -364,6 +384,8 @@ def prepare_task(
 async def enqueue_task(
     task: Task,
     background_tasks: BackgroundTasks,
+    *,
+    user_id: str | None = None,
 ) -> Task:
     is_pipeline = task.execution_mode == TaskExecutionMode.FIXED
 
@@ -373,6 +395,7 @@ async def enqueue_task(
         task,
         "simulation_created",
         "Simulation queued",
+        user_id=user_id,
     )
 
     if task.route_plan:
@@ -381,6 +404,7 @@ async def enqueue_task(
             "route_planned",
             " ".join(task.route_plan.reasons),
             "orchestrator",
+            user_id=user_id,
         )
 
     await manager.broadcast(
@@ -389,18 +413,26 @@ async def enqueue_task(
         workspace_id=task.workspace_id,
     )
 
-    await register_task_created(task)
+    await register_task_created(task, user_id=user_id)
 
     await record_activity(
         "orchestrator" if is_pipeline else "simulation",
         f"Queued simulation {task.id}",
         task=task,
+        user_id=user_id,
     )
 
-    repository.save(task)
+    if user_id is not None and task.workspace_id is not None:
+        repository.save_for_tenant(
+            task, workspace_id=task.workspace_id, user_id=user_id
+        )
+    else:
+        repository.save(task)
 
     response = task.model_copy(deep=True)
-    background_tasks.add_task(_run_task, task.id)
+    background_tasks.add_task(
+        _run_task, task.id, task.workspace_id, user_id
+    )
 
     return response
 
@@ -410,10 +442,11 @@ async def create_task(
     background_tasks: BackgroundTasks,
     *,
     workspace_id: str | None = None,
+    user_id: str | None = None,
 ):
     """Internal creation boundary retained for coordinator/unit tests."""
     task = prepare_task(payload, workspace_id=workspace_id)
-    return await enqueue_task(task, background_tasks)
+    return await enqueue_task(task, background_tasks, user_id=user_id)
 
 
 @router.post("", response_model=Task, status_code=201)
@@ -430,15 +463,16 @@ async def create_task_api(
         payload,
         background_tasks,
         workspace_id=workspace["id"],
+        user_id=request_user_id(request),
     )
 
 
-async def _run_stage(task: Task, stage: StageExecution, context: ExecutionContext):
+async def _run_stage(task: Task, stage: StageExecution, context: ExecutionContext, user_id: str | None = None):
     agent = _IMPLEMENTED_AGENTS.get(stage.agent_id)
     stage.status = "active"
     stage.started_at = now()
-    await emit(task, "agent_started", f"{stage.agent_id} started", stage.agent_id)
-    await record_activity(stage.agent_id, "Started processing", task=task)
+    await emit(task, "agent_started", f"{stage.agent_id} started", stage.agent_id, user_id)
+    await record_activity(stage.agent_id, "Started processing", task=task, user_id=user_id)
     started = time.perf_counter()
     token = current_execution.set(stage)
     try:
@@ -466,29 +500,29 @@ async def _run_stage(task: Task, stage: StageExecution, context: ExecutionContex
             for s in task.stages
         ]
         event = "agent_completed" if stage.status == "completed" else "agent_failed"
-        await record_activity(stage.agent_id, f"Stage {stage.status}", task=task)
-        await emit(task, event, f"{stage.agent_id} {stage.status}", stage.agent_id)
+        await record_activity(stage.agent_id, f"Stage {stage.status}", task=task, user_id=user_id)
+        await emit(task, event, f"{stage.agent_id} {stage.status}", stage.agent_id, user_id)
     return result
 
 
-async def _run_pipeline(task: Task) -> str:
+async def _run_pipeline(task: Task, user_id: str | None = None) -> str:
     """Preserved execution order; each exact output enters the next context."""
     context = _prepared_context(task)
     if not task.stages:
         task.stages = [StageExecution(agent_id=aid, output_key=key) for aid, key in _PIPELINE_STAGES]
-    return await _run_sequence(task, context, _PIPELINE_STAGES)
+    return await _run_sequence(task, context, _PIPELINE_STAGES, user_id=user_id)
 
 
-async def _run_sequence(task: Task, context: ExecutionContext, sequence) -> str:
+async def _run_sequence(task: Task, context: ExecutionContext, sequence, user_id: str | None = None) -> str:
     """Shared real handoffs for Fixed and validated Adaptive routes."""
     for index, (agent_id, output_key) in enumerate(sequence):
-        result = await _run_stage(task, task.stages[index], context)
+        result = await _run_stage(task, task.stages[index], context, user_id=user_id)
         context = context.with_output(agent_id, result)
         if index < len(sequence) - 1:
             next_agent = sequence[index + 1][0]
             await record_message(agent_id, next_agent, MessageKind.RESPONSE, result,
-                                 task=task, output_key=output_key)
-            await emit(task, "message_created", f"{agent_id} → {next_agent}: {output_key}", agent_id)
+                                 task=task, output_key=output_key, user_id=user_id)
+            await emit(task, "message_created", f"{agent_id} → {next_agent}: {output_key}", agent_id, user_id)
     return context.output("final_report").text
 
 
@@ -511,18 +545,18 @@ def _prepared_context(task: Task) -> ExecutionContext:
         raise AgentInputError("invalid_context") from exc
 
 
-async def _execute_mode(task: Task) -> str:
+async def _execute_mode(task: Task, user_id: str | None = None) -> str:
     """One lifecycle/persistence boundary; future modes extend this dispatch."""
     if task.execution_mode == TaskExecutionMode.FIXED:
-        return await _run_pipeline(task)
+        return await _run_pipeline(task, user_id=user_id)
     if task.execution_mode == TaskExecutionMode.SINGLE:
         if not task.stages:
             task.stages = [StageExecution(agent_id="direct", output_key="final_answer")]
-        return await _run_stage(task, task.stages[0], _prepared_context(task))
+        return await _run_stage(task, task.stages[0], _prepared_context(task), user_id=user_id)
     if task.execution_mode == TaskExecutionMode.SINGLE_AGENT:
         if not task.stages:
             task.stages = [StageExecution(agent_id=task.assigned_agent_id, output_key="output")]
-        return await _run_stage(task, task.stages[0], _prepared_context(task))
+        return await _run_stage(task, task.stages[0], _prepared_context(task), user_id=user_id)
     if task.execution_mode == TaskExecutionMode.ADAPTIVE:
         context = _prepared_context(task)
         if task.route_plan is None:
@@ -533,12 +567,16 @@ async def _execute_mode(task: Task) -> str:
         sequence = tuple((aid, CONTRACTS[aid].output) for aid in checked.selected_agent_ids)
         if tuple((s.agent_id, s.output_key) for s in task.stages) != sequence:
             raise ValueError("Adaptive stages do not match the validated route")
-        return await _run_sequence(task, context, sequence)
+        return await _run_sequence(task, context, sequence, user_id=user_id)
     raise ValueError("Unsupported execution mode")
 
 
-async def _run_task(task_id: str) -> None:
-    task = _TASKS.get(task_id) or get_record(task_id)
+async def _run_task(
+    task_id: str,
+    workspace_id: str | None = None,
+    user_id: str | None = None,
+) -> None:
+    task = _TASKS.get(task_id) or get_record(task_id, workspace_id, user_id)
     started = time.perf_counter()
 
     task.execution_started_at = now()
@@ -558,10 +596,11 @@ async def _run_task(task_id: str) -> None:
         "simulation_started",
         "Simulation started",
         coordinator,
+        user_id=user_id,
     )
 
     try:
-        result = await _execute_mode(task)
+        result = await _execute_mode(task, user_id=user_id)
 
         task.output = result
         task.status = TaskStatus.COMPLETED
@@ -594,6 +633,7 @@ async def _run_task(task_id: str) -> None:
             coordinator or "simulation",
             f"Simulation {task.status.value}",
             task=task,
+            user_id=user_id,
         )
 
         await emit(
@@ -601,12 +641,14 @@ async def _run_task(task_id: str) -> None:
             "simulation_completed" if successful else "simulation_failed",
             f"Simulation {task.status.value}",
             coordinator,
+            user_id=user_id,
         )
 
         await register_task_finished(
             task,
             task.elapsed_seconds,
             successful,
+            user_id=user_id,
         )
 
         _TASKS.pop(task.id, None)

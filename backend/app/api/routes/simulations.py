@@ -6,7 +6,7 @@ from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
 from fastapi.responses import Response
 from app.api.routes.tasks import create_task, get_record
 from app.api.routes.simulation import aggregate
-from app.api.routes.workspaces import require_request_permission
+from app.api.routes.workspaces import require_request_permission, request_user_id
 from app.models.schemas import CreateSimulationRequest
 from app.storage.database import repository
 from app.security.rbac import Permission
@@ -29,7 +29,12 @@ async def list_simulations(
     workspace = require_request_permission(
         request, x_workspace_id, Permission.SIMULATION_VIEW
     )
-    return [view(task) for task in repository.list_for_workspace(workspace["id"])]
+    return [
+        view(task)
+        for task in repository.list_for_tenant(
+            workspace_id=workspace["id"], user_id=request_user_id(request)
+        )
+    ]
 
 
 @router.post("", status_code=201)
@@ -46,6 +51,7 @@ async def create_simulation(
         payload,
         background_tasks,
         workspace_id=workspace["id"],
+        user_id=request_user_id(request),
     ))
 
 def token_coverage(task):
@@ -69,9 +75,16 @@ def token_coverage(task):
         "tokenCoverage": coverage,
         "tokens": total,
     }
-async def metrics(workspace_id: str | None = None):
+async def metrics(
+    workspace_id: str | None = None,
+    user_id: str | None = None,
+):
     runs = (
-        repository.list_for_workspace(workspace_id)
+        repository.list_for_tenant(
+            workspace_id=workspace_id, user_id=user_id
+        )
+        if workspace_id is not None and user_id is not None
+        else repository.list_for_workspace(workspace_id)
         if workspace_id is not None
         else repository.list()
     )
@@ -112,7 +125,7 @@ async def metrics_api(
     workspace = require_request_permission(
         request, x_workspace_id, Permission.SIMULATION_VIEW
     )
-    return await metrics(workspace["id"])
+    return await metrics(workspace["id"], request_user_id(request))
 
 
 @router.get("/{simulation_id}")
@@ -124,7 +137,9 @@ async def get_simulation(
     workspace = require_request_permission(
         request, x_workspace_id, Permission.SIMULATION_VIEW
     )
-    return view(get_record(simulation_id, workspace["id"]))
+    return view(get_record(
+        simulation_id, workspace["id"], request_user_id(request)
+    ))
 
 
 @router.get("/{simulation_id}/events")
@@ -136,7 +151,9 @@ async def events(
     workspace = require_request_permission(
         request, x_workspace_id, Permission.SIMULATION_VIEW
     )
-    return get_record(simulation_id, workspace["id"]).events
+    return get_record(
+        simulation_id, workspace["id"], request_user_id(request)
+    ).events
 
 
 def csv_safe(value):
@@ -154,7 +171,9 @@ async def export_simulation(
     workspace = require_request_permission(
         request, x_workspace_id, Permission.SIMULATION_EXPORT
     )
-    task = get_record(simulation_id, workspace["id"])
+    task = get_record(
+        simulation_id, workspace["id"], request_user_id(request)
+    )
     if task.status.value not in ("completed", "failed"):
         raise HTTPException(409, "Export is available after the simulation finishes")
     if format == "json":

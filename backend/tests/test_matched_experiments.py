@@ -53,8 +53,15 @@ class MatchedExperimentTests(unittest.TestCase):
             }
         )
 
-        async def persist_without_execution(task, background_tasks):
-            repository.save(task)
+        async def persist_without_execution(
+            task, background_tasks, *, user_id=None
+        ):
+            if user_id is not None and task.workspace_id is not None:
+                repository.save_for_tenant(
+                    task, workspace_id=task.workspace_id, user_id=user_id
+                )
+            else:
+                repository.save(task)
             return task.model_copy(deep=True)
 
         self.enqueue_patch = patch.object(

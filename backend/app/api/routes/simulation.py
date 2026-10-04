@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Header, Query, Request
 from app.models.schemas import ActivityEvent, Task
 from app.api.routes.agents import EXECUTABLE
-from app.api.routes.workspaces import require_request_permission
+from app.api.routes.workspaces import require_request_permission, request_user_id
 from app.storage.database import repository
 from app.security.rbac import Permission
 from app.websocket.manager import manager
@@ -46,7 +46,9 @@ async def get_simulation_stats(
     workspace = require_request_permission(
         request, x_workspace_id, Permission.SIMULATION_VIEW
     )
-    return aggregate(repository.list_for_workspace(workspace["id"]))
+    return aggregate(repository.list_for_tenant(
+        workspace_id=workspace["id"], user_id=request_user_id(request)
+    ))
 
 
 @router.get("/activity", response_model=list[ActivityEvent])
@@ -59,20 +61,30 @@ async def get_activity_feed(
     workspace = require_request_permission(
         request, x_workspace_id, Permission.SIMULATION_VIEW
     )
+    user_id = request_user_id(request)
     runs = (
-        [repository.get_for_workspace(simulation_id, workspace["id"])]
+        [repository.get_for_tenant(
+            simulation_id, workspace_id=workspace["id"], user_id=user_id
+        )]
         if simulation_id
-        else repository.list_for_workspace(workspace["id"])
+        else repository.list_for_tenant(
+            workspace_id=workspace["id"], user_id=user_id
+        )
     )
     activity = [a for run in runs if run for a in run.activities]
     return sorted(activity, key=lambda a: a.timestamp)[-limit:]
 
 
-async def record_activity(agent_id: str, text: str, *, task: Task):
+async def record_activity(agent_id: str, text: str, *, task: Task, user_id: str | None = None):
     event = ActivityEvent(id=f"a-{uuid.uuid4().hex}", agent_id=agent_id, text=text,
                           timestamp=datetime.now(timezone.utc), simulation_id=task.id)
     task.activities.append(event)
-    repository.save(task)
+    if user_id is not None and task.workspace_id is not None:
+        repository.save_for_tenant(
+            task, workspace_id=task.workspace_id, user_id=user_id
+        )
+    else:
+        repository.save(task)
     await manager.broadcast(
         "activity_event",
         event.model_dump(mode="json"),
@@ -80,8 +92,16 @@ async def record_activity(agent_id: str, text: str, *, task: Task):
     )
 
 
-async def register_task_created(task: Task):
-    runs = repository.list_for_workspace(task.workspace_id) if task.workspace_id else []
+async def register_task_created(task: Task, *, user_id: str | None = None):
+    runs = (
+        repository.list_for_tenant(
+            workspace_id=task.workspace_id, user_id=user_id
+        )
+        if task.workspace_id and user_id
+        else repository.list_for_workspace(task.workspace_id)
+        if task.workspace_id
+        else []
+    )
     await manager.broadcast(
         "stats_updated",
         aggregate(runs),
@@ -89,8 +109,18 @@ async def register_task_created(task: Task):
     )
 
 
-async def register_task_finished(task: Task, response_time_seconds: float, success: bool):
-    runs = repository.list_for_workspace(task.workspace_id) if task.workspace_id else []
+async def register_task_finished(
+    task: Task, response_time_seconds: float, success: bool, *, user_id: str | None = None
+):
+    runs = (
+        repository.list_for_tenant(
+            workspace_id=task.workspace_id, user_id=user_id
+        )
+        if task.workspace_id and user_id
+        else repository.list_for_workspace(task.workspace_id)
+        if task.workspace_id
+        else []
+    )
     await manager.broadcast(
         "stats_updated",
         aggregate(runs),

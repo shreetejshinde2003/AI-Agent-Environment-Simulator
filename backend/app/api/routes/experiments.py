@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
 
 from app.api.routes.tasks import enqueue_task, prepare_task
-from app.api.routes.workspaces import require_request_permission
+from app.api.routes.workspaces import require_request_permission, request_user_id
 from app.security.rbac import Permission
 from app.models.schemas import (
     CreateMatchedExperimentRequest,
@@ -90,12 +90,14 @@ async def create_matched_experiment(
 
     input_fingerprint = next(iter(fingerprints))
 
+    user_id = request_user_id(request)
     responses = []
     for task in tasks:
         responses.append(
             await enqueue_task(
                 task,
                 background_tasks,
+                user_id=user_id,
             )
         )
 
