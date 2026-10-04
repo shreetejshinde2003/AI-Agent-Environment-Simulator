@@ -7,6 +7,7 @@ import {
   UserRound,
 } from "lucide-react";
 
+import OrganizationMembers from "../components/organizations/OrganizationMembers";
 import { workspaceClient } from "../services/workspaceClient";
 import { useWorkspace } from "../hooks/useWorkspace";
 import {
@@ -28,7 +29,7 @@ function WorkspaceCard({ workspace, personal = false }) {
         <p>
           {personal
             ? "Private workspace created for your account."
-            : `${workspace.membershipRole === "owner" ? "Owner" : "Member"} · Private organization workspace`}
+            : `${workspace.membershipRole === "owner" ? "Owner" : workspace.membershipRole === "admin" ? "Admin" : "Member"} · Private organization workspace`}
         </p>
       </div>
     </article>
@@ -179,6 +180,11 @@ export default function Organizations() {
           </div>
         )}
       </section>
+
+      <OrganizationMembers
+        workspace={activeWorkspace}
+        onMembershipChanged={() => refreshWorkspaces(activeWorkspace?.id)}
+      />
 
       <div className="organization-actions-grid">
         <section className="organization-action-card" aria-labelledby="create-organization-title">

@@ -45,4 +45,14 @@ export const workspaceClient = {
       method: "POST",
       body: JSON.stringify({ joinCode }),
     }),
+  listOrganizationMembers: workspaceId =>
+    workspaceRequest(`/organizations/${encodeURIComponent(workspaceId)}/members`),
+  changeOrganizationMemberRole: (workspaceId, userId, membershipRole) =>
+    workspaceRequest(
+      `/organizations/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(userId)}/role`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ membershipRole }),
+      },
+    ),
 };

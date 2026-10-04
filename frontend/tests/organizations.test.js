@@ -88,16 +88,22 @@ test("workspace client includes credentials and uses only scoped workspace endpo
     await workspaceClient.list();
     await workspaceClient.createOrganization("IICT");
     await workspaceClient.joinOrganization("ABCD-EFGH-IJKL");
+    await workspaceClient.listOrganizationMembers("WS-IICT");
+    await workspaceClient.changeOrganizationMemberRole("WS-IICT", "USR-2", "admin");
   } finally {
     globalThis.fetch = originalFetch;
   }
 
-  assert.equal(calls.length, 3);
+  assert.equal(calls.length, 5);
   assert.match(calls[0].url, /\/api\/v1\/workspaces$/);
   assert.match(calls[1].url, /\/api\/v1\/workspaces\/organizations$/);
   assert.match(calls[2].url, /\/api\/v1\/workspaces\/organizations\/join$/);
+  assert.match(calls[3].url, /\/api\/v1\/workspaces\/organizations\/WS-IICT\/members$/);
+  assert.match(calls[4].url, /\/api\/v1\/workspaces\/organizations\/WS-IICT\/members\/USR-2\/role$/);
   assert.ok(calls.every(call => call.options.credentials === "include"));
   assert.equal(calls[1].options.method, "POST");
   assert.equal(JSON.parse(calls[1].options.body).name, "IICT");
   assert.equal(JSON.parse(calls[2].options.body).joinCode, "ABCD-EFGH-IJKL");
+  assert.equal(calls[4].options.method, "PATCH");
+  assert.equal(JSON.parse(calls[4].options.body).membershipRole, "admin");
 });
