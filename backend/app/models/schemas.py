@@ -581,6 +581,22 @@ class OrganizationJoined(CamelModel):
     ]
 
 
+class WorkspaceSummary(CamelModel):
+    """Minimal workspace data safe to expose to the current user."""
+
+    id: str
+    kind: Literal["personal", "organization"]
+    name: str
+    membership_role: Literal["owner", "member"] | None = None
+
+
+class WorkspaceListResponse(CamelModel):
+    """Workspace discovery response scoped to the authenticated user."""
+
+    personal_workspace: WorkspaceSummary
+    organizations: list[WorkspaceSummary]
+
+
 class CreateSimulationRequest(CreateTaskRequest):
     assigned_agent_id: str = "orchestrator"
     execution_mode: TaskExecutionMode = TaskExecutionMode.FIXED

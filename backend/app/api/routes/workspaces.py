@@ -8,6 +8,8 @@ from app.models.schemas import (
     JoinOrganizationRequest,
     OrganizationCreated,
     OrganizationJoined,
+    WorkspaceListResponse,
+    WorkspaceSummary,
 )
 from app.storage.database import repository
 
@@ -16,6 +18,60 @@ router = APIRouter(
     prefix="/workspaces",
     tags=["workspaces"],
 )
+
+
+@router.get(
+    "",
+    response_model=WorkspaceListResponse,
+)
+async def list_workspaces(request: Request):
+    """List only workspaces visible to the authenticated user."""
+
+    user, _ = auth._authenticated_record(request)
+
+    personal = repository.ensure_personal_workspace(
+        user["id"]
+    )
+
+    organizations = []
+
+    for membership in (
+        repository.list_organization_memberships_for_user(
+            user["id"],
+            active_only=True,
+        )
+    ):
+        workspace = repository.get_workspace(
+            membership["workspace_id"]
+        )
+
+        if (
+            workspace is None
+            or not workspace["active"]
+            or workspace["kind"] != "organization"
+        ):
+            continue
+
+        organizations.append(
+            WorkspaceSummary(
+                id=workspace["id"],
+                kind="organization",
+                name=workspace["name"],
+                membership_role=membership[
+                    "membership_role"
+                ],
+            )
+        )
+
+    return WorkspaceListResponse(
+        personal_workspace=WorkspaceSummary(
+            id=personal["id"],
+            kind="personal",
+            name=personal["name"],
+            membership_role=None,
+        ),
+        organizations=organizations,
+    )
 
 
 @router.post(
