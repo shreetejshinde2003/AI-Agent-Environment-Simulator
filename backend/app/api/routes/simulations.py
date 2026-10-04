@@ -6,9 +6,10 @@ from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
 from fastapi.responses import Response
 from app.api.routes.tasks import create_task, get_record
 from app.api.routes.simulation import aggregate
-from app.api.routes.workspaces import resolve_request_workspace
+from app.api.routes.workspaces import require_request_permission
 from app.models.schemas import CreateSimulationRequest
 from app.storage.database import repository
+from app.security.rbac import Permission
 from app.experiments.evaluation import token_measurement
 
 router = APIRouter(prefix="/simulations", tags=["simulations"])
@@ -25,7 +26,9 @@ async def list_simulations(
     request: Request,
     x_workspace_id: str | None = Header(default=None),
 ):
-    workspace = resolve_request_workspace(request, x_workspace_id)
+    workspace = require_request_permission(
+        request, x_workspace_id, Permission.SIMULATION_VIEW
+    )
     return [view(task) for task in repository.list_for_workspace(workspace["id"])]
 
 
@@ -36,7 +39,9 @@ async def create_simulation(
     request: Request,
     x_workspace_id: str | None = Header(default=None),
 ):
-    workspace = resolve_request_workspace(request, x_workspace_id)
+    workspace = require_request_permission(
+        request, x_workspace_id, Permission.SIMULATION_CREATE
+    )
     return view(await create_task(
         payload,
         background_tasks,
@@ -104,7 +109,9 @@ async def metrics_api(
     request: Request,
     x_workspace_id: str | None = Header(default=None),
 ):
-    workspace = resolve_request_workspace(request, x_workspace_id)
+    workspace = require_request_permission(
+        request, x_workspace_id, Permission.SIMULATION_VIEW
+    )
     return await metrics(workspace["id"])
 
 
@@ -114,7 +121,9 @@ async def get_simulation(
     request: Request,
     x_workspace_id: str | None = Header(default=None),
 ):
-    workspace = resolve_request_workspace(request, x_workspace_id)
+    workspace = require_request_permission(
+        request, x_workspace_id, Permission.SIMULATION_VIEW
+    )
     return view(get_record(simulation_id, workspace["id"]))
 
 
@@ -124,7 +133,9 @@ async def events(
     request: Request,
     x_workspace_id: str | None = Header(default=None),
 ):
-    workspace = resolve_request_workspace(request, x_workspace_id)
+    workspace = require_request_permission(
+        request, x_workspace_id, Permission.SIMULATION_VIEW
+    )
     return get_record(simulation_id, workspace["id"]).events
 
 
@@ -140,7 +151,9 @@ async def export_simulation(
     format: str = "json",
     x_workspace_id: str | None = Header(default=None),
 ):
-    workspace = resolve_request_workspace(request, x_workspace_id)
+    workspace = require_request_permission(
+        request, x_workspace_id, Permission.SIMULATION_EXPORT
+    )
     task = get_record(simulation_id, workspace["id"])
     if task.status.value not in ("completed", "failed"):
         raise HTTPException(409, "Export is available after the simulation finishes")

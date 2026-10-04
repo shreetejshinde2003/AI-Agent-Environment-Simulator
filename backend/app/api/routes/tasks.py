@@ -21,7 +21,7 @@ from app.agents.contracts import CONTRACTS
 from app.agents.routing import inline_source, plan_route, validate_route
 from app.api.routes.messages import record_message
 from app.api.routes.simulation import record_activity, register_task_created, register_task_finished
-from app.api.routes.workspaces import resolve_request_workspace
+from app.api.routes.workspaces import require_request_permission
 from app.core.errors import safe_error
 from app.datasets.registry import context_for_dataset
 from app.models.schemas import (
@@ -30,6 +30,7 @@ from app.models.schemas import (
     RunEvaluation,
 )
 from app.storage.database import repository
+from app.security.rbac import Permission
 from app.websocket.manager import manager
 from app.agents.llm_client import DEFAULT_MODEL, DEFAULT_MAX_TOKENS
 from app.experiments.provenance import build_run_provenance
@@ -86,7 +87,9 @@ async def list_tasks(
     request: Request,
     x_workspace_id: str | None = Header(default=None),
 ):
-    workspace = resolve_request_workspace(request, x_workspace_id)
+    workspace = require_request_permission(
+        request, x_workspace_id, Permission.SIMULATION_VIEW
+    )
     return repository.list_for_workspace(workspace["id"])
 
 
@@ -96,7 +99,9 @@ async def get_task(
     request: Request,
     x_workspace_id: str | None = Header(default=None),
 ):
-    workspace = resolve_request_workspace(request, x_workspace_id)
+    workspace = require_request_permission(
+        request, x_workspace_id, Permission.SIMULATION_VIEW
+    )
     return get_record(task_id, workspace["id"])
 
 
@@ -108,7 +113,9 @@ async def evaluate_task_quality(
 ):
     """Explicitly run the blinded quality judge for one completed research run."""
 
-    workspace = resolve_request_workspace(request, x_workspace_id)
+    workspace = require_request_permission(
+        request, x_workspace_id, Permission.SIMULATION_EVALUATE
+    )
     task = get_record(task_id, workspace["id"])
 
     if task.execution_mode not in (
@@ -416,7 +423,9 @@ async def create_task_api(
     request: Request,
     x_workspace_id: str | None = Header(default=None),
 ):
-    workspace = resolve_request_workspace(request, x_workspace_id)
+    workspace = require_request_permission(
+        request, x_workspace_id, Permission.SIMULATION_CREATE
+    )
     return await create_task(
         payload,
         background_tasks,

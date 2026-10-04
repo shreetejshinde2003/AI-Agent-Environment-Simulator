@@ -4,8 +4,9 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Header, Query, Request
 from app.models.schemas import ActivityEvent, Task
 from app.api.routes.agents import EXECUTABLE
-from app.api.routes.workspaces import resolve_request_workspace
+from app.api.routes.workspaces import require_request_permission
 from app.storage.database import repository
+from app.security.rbac import Permission
 from app.websocket.manager import manager
 
 router = APIRouter(prefix="/simulation", tags=["simulation"])
@@ -42,7 +43,9 @@ async def get_simulation_stats(
     request: Request,
     x_workspace_id: str | None = Header(default=None),
 ):
-    workspace = resolve_request_workspace(request, x_workspace_id)
+    workspace = require_request_permission(
+        request, x_workspace_id, Permission.SIMULATION_VIEW
+    )
     return aggregate(repository.list_for_workspace(workspace["id"]))
 
 
@@ -53,7 +56,9 @@ async def get_activity_feed(
     simulation_id: str | None = None,
     x_workspace_id: str | None = Header(default=None),
 ):
-    workspace = resolve_request_workspace(request, x_workspace_id)
+    workspace = require_request_permission(
+        request, x_workspace_id, Permission.SIMULATION_VIEW
+    )
     runs = (
         [repository.get_for_workspace(simulation_id, workspace["id"])]
         if simulation_id

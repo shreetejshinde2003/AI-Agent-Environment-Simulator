@@ -29,25 +29,30 @@ router = APIRouter(
 )
 
 
-def resolve_request_workspace(
+def require_request_permission(
     request: Request,
-    workspace_id: str | None = None,
+    workspace_id: str | None,
+    permission: Permission,
 ):
-    """Resolve the authenticated user's requested workspace.
+    """Resolve one workspace and enforce its RBAC permission consistently.
 
-    Missing workspace identity defaults to the user's Personal Workspace.
-    Inaccessible workspaces deliberately return 404 so callers cannot probe
-    whether another tenant exists.
+    Tenant existence remains hidden behind 404. An authenticated user who can
+    access the workspace but lacks the requested action receives 403.
     """
 
     user, _ = auth._authenticated_record(request)
 
     try:
-        return repository.resolve_workspace_for_user(
+        workspace = repository.resolve_workspace_for_user(
             user["id"],
             workspace_id,
         )
-    except (PermissionError, ValueError) as exc:
+        authorization = resolve_workspace_authorization(
+            repository,
+            user_id=user["id"],
+            workspace_id=workspace["id"],
+        )
+    except (PermissionError, ValueError, AuthorizationError) as exc:
         raise HTTPException(
             404,
             detail={
@@ -55,6 +60,32 @@ def resolve_request_workspace(
                 "message": "Workspace is unavailable.",
             },
         ) from exc
+
+    try:
+        authorization.require(permission)
+    except AuthorizationError as exc:
+        raise HTTPException(
+            403,
+            detail={
+                "code": "permission_denied",
+                "message": "You do not have permission to perform this action.",
+            },
+        ) from exc
+
+    return workspace
+
+
+def resolve_request_workspace(
+    request: Request,
+    workspace_id: str | None = None,
+):
+    """Backward-compatible workspace resolver enforcing basic view access."""
+
+    return require_request_permission(
+        request,
+        workspace_id,
+        Permission.WORKSPACE_VIEW,
+    )
 
 
 @router.get(

@@ -2,6 +2,7 @@
 
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -10,6 +11,7 @@ from fastapi.testclient import TestClient
 from app.api.routes import experiments, tasks
 from app.main import app
 from app.models.schemas import RoutePlan
+from app.security.session import create_opaque_token, session_expiry, token_digest
 from app.storage.database import repository
 
 
@@ -24,6 +26,33 @@ class MatchedExperimentTests(unittest.TestCase):
         repository.initialize()
         tasks._TASKS.clear()
 
+        stamp = datetime.now(timezone.utc).isoformat()
+        repository.save_user(
+            {
+                "id": "USR-experiment",
+                "google_sub": "google-experiment",
+                "email": "experiment@example.com",
+                "display_name": "Experiment User",
+                "profile_picture": None,
+                "email_verified": True,
+                "active": True,
+                "created_at": stamp,
+                "last_login_at": stamp,
+            }
+        )
+        self.workspace = repository.ensure_personal_workspace("USR-experiment")
+        token = create_opaque_token()
+        repository.save_auth_session(
+            {
+                "id": "SES-experiment",
+                "user_id": "USR-experiment",
+                "token_digest": token_digest(token),
+                "created_at": stamp,
+                "expires_at": session_expiry().isoformat(),
+                "revoked_at": None,
+            }
+        )
+
         async def persist_without_execution(task, background_tasks):
             repository.save(task)
             return task.model_copy(deep=True)
@@ -36,6 +65,7 @@ class MatchedExperimentTests(unittest.TestCase):
         self.enqueue = self.enqueue_patch.start()
 
         self.client = TestClient(app)
+        self.client.cookies.set("app_session", token)
 
     def tearDown(self):
         self.client.close()
@@ -90,6 +120,11 @@ class MatchedExperimentTests(unittest.TestCase):
         self.assertEqual(
             [task.execution_mode.value for task in persisted],
             ["single", "fixed", "adaptive"],
+        )
+
+        self.assertEqual(
+            {task.workspace_id for task in persisted},
+            {self.workspace["id"]},
         )
 
         self.assertEqual(

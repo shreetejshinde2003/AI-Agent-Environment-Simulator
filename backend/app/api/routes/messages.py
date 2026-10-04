@@ -4,8 +4,9 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Header, Query, Request
 from app.models.schemas import Message, MessageKind, Task
 from app.storage.database import repository
-from app.api.routes.workspaces import resolve_request_workspace
+from app.api.routes.workspaces import require_request_permission
 from app.websocket.manager import manager
+from app.security.rbac import Permission
 
 router = APIRouter(prefix="/messages", tags=["messages"])
 
@@ -33,7 +34,9 @@ async def list_messages(
     simulation_id: str | None = None,
     x_workspace_id: str | None = Header(default=None),
 ):
-    workspace = resolve_request_workspace(request, x_workspace_id)
+    workspace = require_request_permission(
+        request, x_workspace_id, Permission.SIMULATION_VIEW
+    )
     runs = (
         [repository.get_for_workspace(simulation_id, workspace["id"])]
         if simulation_id

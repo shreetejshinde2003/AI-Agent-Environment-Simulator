@@ -3,9 +3,11 @@
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
 
 from app.api.routes.tasks import enqueue_task, prepare_task
+from app.api.routes.workspaces import require_request_permission
+from app.security.rbac import Permission
 from app.models.schemas import (
     CreateMatchedExperimentRequest,
     CreateTaskRequest,
@@ -21,7 +23,12 @@ router = APIRouter(prefix="/experiments", tags=["experiments"])
 async def create_matched_experiment(
     payload: CreateMatchedExperimentRequest,
     background_tasks: BackgroundTasks,
+    request: Request,
+    x_workspace_id: str | None = Header(default=None),
 ):
+    workspace = require_request_permission(
+        request, x_workspace_id, Permission.SIMULATION_CREATE
+    )
     experiment_id = f"E-{uuid.uuid4().hex[:12]}"
     created_at = datetime.now(timezone.utc)
 
@@ -40,6 +47,7 @@ async def create_matched_experiment(
             execution_mode=TaskExecutionMode.SINGLE,
         ),
         experiment_id=experiment_id,
+        workspace_id=workspace["id"],
     )
 
     fixed = prepare_task(
@@ -48,6 +56,7 @@ async def create_matched_experiment(
             execution_mode=TaskExecutionMode.FIXED,
         ),
         experiment_id=experiment_id,
+        workspace_id=workspace["id"],
     )
 
     adaptive = prepare_task(
@@ -56,6 +65,7 @@ async def create_matched_experiment(
             execution_mode=TaskExecutionMode.ADAPTIVE,
         ),
         experiment_id=experiment_id,
+        workspace_id=workspace["id"],
     )
 
     tasks = (single, fixed, adaptive)

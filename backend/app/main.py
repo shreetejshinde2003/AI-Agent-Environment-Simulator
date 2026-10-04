@@ -27,6 +27,7 @@ from app.api.routes import (
 from app.storage.database import repository
 from app.core.config import settings
 from app.websocket.manager import manager
+from app.security.rbac import AuthorizationError, Permission, resolve_workspace_authorization
 
 @asynccontextmanager
 async def lifespan(app):
@@ -81,10 +82,16 @@ async def websocket_endpoint(websocket: WebSocket):
             user["id"],
             workspace_id,
         )
+        authorization = resolve_workspace_authorization(
+            repository,
+            user_id=user["id"],
+            workspace_id=workspace["id"],
+        )
+        authorization.require(Permission.WORKSPACE_VIEW)
     except HTTPException:
         await websocket.close(code=4401)
         return
-    except (PermissionError, ValueError):
+    except (PermissionError, ValueError, AuthorizationError):
         await websocket.close(code=4404)
         return
 
