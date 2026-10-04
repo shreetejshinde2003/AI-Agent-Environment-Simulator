@@ -41,10 +41,12 @@ def test_role_permission_matrix_is_explicit_and_least_privilege():
 
     assert Permission.ORGANIZATION_MEMBERS_MANAGE in admin
     assert Permission.ORGANIZATION_SETTINGS_MANAGE in admin
+    assert Permission.ORGANIZATION_HUMAN_ROLES_MANAGE in admin
     assert Permission.ORGANIZATION_ADMINS_MANAGE not in admin
     assert Permission.ORGANIZATION_OWNERSHIP_MANAGE not in admin
 
     assert Permission.ORGANIZATION_ADMINS_MANAGE in owner
+    assert Permission.ORGANIZATION_HUMAN_ROLES_MANAGE in owner
     assert Permission.ORGANIZATION_OWNERSHIP_MANAGE in owner
     assert member < admin < owner
 
@@ -65,6 +67,7 @@ def test_personal_workspace_owner_can_use_workspace_but_not_org_admin_actions(tm
     assert authz.allows(Permission.WORKSPACE_VIEW)
     assert authz.allows(Permission.SIMULATION_CREATE)
     assert not authz.allows(Permission.ORGANIZATION_MEMBERS_MANAGE)
+    assert not authz.allows(Permission.ORGANIZATION_HUMAN_ROLES_MANAGE)
 
     with pytest.raises(AuthorizationError):
         authz.require(Permission.ORGANIZATION_SETTINGS_MANAGE)

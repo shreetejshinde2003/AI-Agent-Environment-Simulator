@@ -84,17 +84,17 @@ def seeded_repo(tmp_path):
     return repo, workspace, owner, admin, member, outsider
 
 
-def test_fresh_v7_database_persists_admin_role(tmp_path):
+def test_fresh_v8_database_persists_admin_role(tmp_path):
     repo, workspace, owner, admin, _, _ = seeded_repo(tmp_path)
 
     restored = repo.get_organization_membership(workspace["id"], admin["id"])
     assert restored["membership_role"] == "admin"
 
     with sqlite3.connect(repo.path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 7
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 8
 
 
-def test_v6_membership_constraint_migrates_to_v7_and_preserves_rows(tmp_path):
+def test_v6_membership_constraint_migrates_to_v8_and_preserves_rows(tmp_path):
     path = tmp_path / "v6.db"
     repo = Repository(f"sqlite:///{path}")
 

@@ -6,6 +6,7 @@ revocable application sessions. Version 4 added the workspace/tenancy
 foundation. Version 5 added organization memberships. Version 6 adds persisted
 simulation workspace ownership while preserving historical run payloads. Version 7
 adds the persisted organization admin role and safe role-management primitives.
+Version 8 adds organization-scoped HR-domain human role assignments.
 """
 
 from __future__ import annotations
@@ -27,7 +28,7 @@ from app.security.workspaces import (
     join_code_digest,
 )
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 
 def normalize_url(url: str | None) -> str:
@@ -168,14 +169,14 @@ class Repository:
                         )
                     )
 
-                elif versions in ([2], [3], [4], [5], [6]):
-                    # V7 remains additive. create_all above safely creates
+                elif versions in ([2], [3], [4], [5], [6], [7]):
+                    # V8 remains additive. create_all above safely creates
                     # newer tables; migrations add simulation ownership and,
                     # for V5/V6 membership tables, widen the role constraint.
                     previous_version = versions[0]
 
                     self._ensure_simulation_workspace_column(connection)
-                    if previous_version >= 5:
+                    if previous_version in (5, 6):
                         self._ensure_admin_membership_role(connection)
 
                     connection.execute(
@@ -229,11 +230,11 @@ class Repository:
                     )
                 )
 
-            elif versions in ([2], [3], [4], [5], [6]):
+            elif versions in ([2], [3], [4], [5], [6], [7]):
                 previous_version = versions[0]
 
                 self._ensure_simulation_workspace_column(connection)
-                if previous_version >= 5:
+                if previous_version in (5, 6):
                     self._ensure_admin_membership_role(connection)
 
                 connection.execute(
@@ -1192,6 +1193,190 @@ class Repository:
             ).mappings().one()
 
             return dict(updated)
+
+    def assign_organization_human_role(
+        self,
+        *,
+        workspace_id: str,
+        actor_user_id: str,
+        target_user_id: str,
+        human_role: str,
+    ):
+        """Assign or reactivate one HR-domain role for an Organization member."""
+
+        from app.security.hr_roles import HRHumanRole
+        from app.security.rbac import (
+            AuthorizationError,
+            Permission,
+            resolve_workspace_authorization,
+        )
+
+        try:
+            requested_role = HRHumanRole(human_role)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Unsupported HR human role.") from exc
+
+        authorization = resolve_workspace_authorization(
+            self,
+            user_id=actor_user_id,
+            workspace_id=workspace_id,
+        )
+        authorization.require(Permission.ORGANIZATION_HUMAN_ROLES_MANAGE)
+
+        target_membership = self.get_organization_membership(
+            workspace_id,
+            target_user_id,
+        )
+        if target_membership is None or not target_membership.get("active"):
+            raise AuthorizationError("Permission denied.")
+
+        assignment = {
+            "workspace_id": workspace_id,
+            "user_id": target_user_id,
+            "human_role": requested_role.value,
+            "active": True,
+            "assigned_at": timestamp(datetime.now(timezone.utc)),
+            "assigned_by_user_id": actor_user_id,
+        }
+
+        with self.engine.begin() as connection:
+            existing = connection.execute(
+                select(dbm.organization_human_role_assignments).where(
+                    dbm.organization_human_role_assignments.c.workspace_id
+                    == workspace_id,
+                    dbm.organization_human_role_assignments.c.user_id
+                    == target_user_id,
+                    dbm.organization_human_role_assignments.c.human_role
+                    == requested_role.value,
+                )
+            ).mappings().first()
+
+            if existing:
+                connection.execute(
+                    update(dbm.organization_human_role_assignments)
+                    .where(
+                        dbm.organization_human_role_assignments.c.workspace_id
+                        == workspace_id,
+                        dbm.organization_human_role_assignments.c.user_id
+                        == target_user_id,
+                        dbm.organization_human_role_assignments.c.human_role
+                        == requested_role.value,
+                    )
+                    .values(**assignment)
+                )
+            else:
+                connection.execute(
+                    insert(dbm.organization_human_role_assignments).values(
+                        **assignment
+                    )
+                )
+
+        return assignment
+
+    def deactivate_organization_human_role(
+        self,
+        *,
+        workspace_id: str,
+        actor_user_id: str,
+        target_user_id: str,
+        human_role: str,
+    ):
+        """Deactivate one HR-domain role without deleting assignment history."""
+
+        from app.security.hr_roles import HRHumanRole
+        from app.security.rbac import (
+            Permission,
+            resolve_workspace_authorization,
+        )
+
+        try:
+            requested_role = HRHumanRole(human_role)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Unsupported HR human role.") from exc
+
+        authorization = resolve_workspace_authorization(
+            self,
+            user_id=actor_user_id,
+            workspace_id=workspace_id,
+        )
+        authorization.require(Permission.ORGANIZATION_HUMAN_ROLES_MANAGE)
+
+        with self.engine.begin() as connection:
+            existing = connection.execute(
+                select(dbm.organization_human_role_assignments).where(
+                    dbm.organization_human_role_assignments.c.workspace_id
+                    == workspace_id,
+                    dbm.organization_human_role_assignments.c.user_id
+                    == target_user_id,
+                    dbm.organization_human_role_assignments.c.human_role
+                    == requested_role.value,
+                )
+            ).mappings().first()
+
+            if existing is None:
+                return None
+
+            connection.execute(
+                update(dbm.organization_human_role_assignments)
+                .where(
+                    dbm.organization_human_role_assignments.c.workspace_id
+                    == workspace_id,
+                    dbm.organization_human_role_assignments.c.user_id
+                    == target_user_id,
+                    dbm.organization_human_role_assignments.c.human_role
+                    == requested_role.value,
+                )
+                .values(
+                    active=False,
+                    assigned_at=timestamp(datetime.now(timezone.utc)),
+                    assigned_by_user_id=actor_user_id,
+                )
+            )
+
+            updated = connection.execute(
+                select(dbm.organization_human_role_assignments).where(
+                    dbm.organization_human_role_assignments.c.workspace_id
+                    == workspace_id,
+                    dbm.organization_human_role_assignments.c.user_id
+                    == target_user_id,
+                    dbm.organization_human_role_assignments.c.human_role
+                    == requested_role.value,
+                )
+            ).mappings().one()
+
+        return dict(updated)
+
+    def list_organization_human_roles(
+        self,
+        workspace_id: str,
+        *,
+        user_id: str | None = None,
+        active_only: bool = True,
+    ):
+        statement = select(dbm.organization_human_role_assignments).where(
+            dbm.organization_human_role_assignments.c.workspace_id
+            == workspace_id
+        )
+
+        if user_id is not None:
+            statement = statement.where(
+                dbm.organization_human_role_assignments.c.user_id == user_id
+            )
+
+        if active_only:
+            statement = statement.where(
+                dbm.organization_human_role_assignments.c.active.is_(True)
+            )
+
+        statement = statement.order_by(
+            dbm.organization_human_role_assignments.c.user_id,
+            dbm.organization_human_role_assignments.c.human_role,
+        )
+
+        with self.engine.connect() as connection:
+            rows = connection.execute(statement).mappings().all()
+
+        return [dict(row) for row in rows]
 
     def save_auth_session(self, session: dict):
         """Persist only a digest of the browser's opaque session token."""

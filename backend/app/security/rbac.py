@@ -1,9 +1,8 @@
 """Central role and permission semantics for workspace authorization.
 
-Phase 4.3 starts by defining policy independently from member-management UI.
-The database currently persists ``owner`` and ``member`` bootstrap roles; the
-``admin`` role is defined here now and becomes persistable in the next RBAC
-storage checkpoint.
+Workspace IAM roles are intentionally independent from HR-domain human roles
+and AI-agent identities. The database persists owner/admin/member memberships;
+domain responsibilities are assigned separately.
 """
 
 from __future__ import annotations
@@ -29,6 +28,7 @@ class Permission(str, Enum):
     ORGANIZATION_MEMBERS_VIEW = "organization.members.view"
     ORGANIZATION_MEMBERS_MANAGE = "organization.members.manage"
     ORGANIZATION_ADMINS_MANAGE = "organization.admins.manage"
+    ORGANIZATION_HUMAN_ROLES_MANAGE = "organization.human_roles.manage"
     ORGANIZATION_SETTINGS_MANAGE = "organization.settings.manage"
     ORGANIZATION_OWNERSHIP_MANAGE = "organization.ownership.manage"
 
@@ -50,6 +50,7 @@ ROLE_PERMISSIONS: Mapping[WorkspaceRole, frozenset[Permission]] = {
         {
             Permission.ORGANIZATION_MEMBERS_VIEW,
             Permission.ORGANIZATION_MEMBERS_MANAGE,
+            Permission.ORGANIZATION_HUMAN_ROLES_MANAGE,
             Permission.ORGANIZATION_SETTINGS_MANAGE,
         }
     ),
@@ -59,6 +60,7 @@ ROLE_PERMISSIONS: Mapping[WorkspaceRole, frozenset[Permission]] = {
             Permission.ORGANIZATION_MEMBERS_VIEW,
             Permission.ORGANIZATION_MEMBERS_MANAGE,
             Permission.ORGANIZATION_ADMINS_MANAGE,
+            Permission.ORGANIZATION_HUMAN_ROLES_MANAGE,
             Permission.ORGANIZATION_SETTINGS_MANAGE,
             Permission.ORGANIZATION_OWNERSHIP_MANAGE,
         }
@@ -70,6 +72,7 @@ _ORGANIZATION_ONLY = frozenset(
         Permission.ORGANIZATION_MEMBERS_VIEW,
         Permission.ORGANIZATION_MEMBERS_MANAGE,
         Permission.ORGANIZATION_ADMINS_MANAGE,
+        Permission.ORGANIZATION_HUMAN_ROLES_MANAGE,
         Permission.ORGANIZATION_SETTINGS_MANAGE,
         Permission.ORGANIZATION_OWNERSHIP_MANAGE,
     }

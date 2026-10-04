@@ -47,7 +47,7 @@ def make_personal_workspace(user_id="USR-a"):
     }
 
 
-def test_fresh_v7_database_contains_workspaces(tmp_path):
+def test_fresh_v8_database_contains_workspaces(tmp_path):
     repo = Repository(
         f"sqlite:///{tmp_path / 'workspace.db'}"
     )
@@ -66,7 +66,7 @@ def test_fresh_v7_database_contains_workspaces(tmp_path):
                 "PRAGMA user_version"
             ).fetchone()[0]
             == SCHEMA_VERSION
-            == 7
+            == 8
         )
 
 
@@ -192,7 +192,7 @@ def test_personal_workspace_requires_owner(tmp_path):
         repo.save_workspace(bad)
 
 
-def test_schema_v3_migrates_additively_to_v7(tmp_path):
+def test_schema_v3_migrates_additively_to_v8(tmp_path):
     path = tmp_path / "v3.db"
 
     old_tables = [
@@ -237,7 +237,7 @@ def test_schema_v3_migrates_additively_to_v7(tmp_path):
             select(dbm.schema_version.c.version)
         ).scalar_one()
 
-    assert version == SCHEMA_VERSION == 7
+    assert version == SCHEMA_VERSION == 8
 
     with sqlite3.connect(path) as connection:
         assert (
@@ -245,7 +245,7 @@ def test_schema_v3_migrates_additively_to_v7(tmp_path):
                 "PRAGMA user_version"
             ).fetchone()[0]
             == SCHEMA_VERSION
-            == 7
+            == 8
         )
 
 
