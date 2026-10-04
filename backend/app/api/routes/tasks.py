@@ -656,14 +656,12 @@ async def _run_task(
 
 def recover_interrupted():
     """A restart cannot resume an in-flight provider call: record an honest failure."""
+    return repository.recover_interrupted_tasks(_mark_interrupted_failed)
 
-    for task in repository.list():
-        if task.status not in (
-            TaskStatus.QUEUED,
-            TaskStatus.IN_PROGRESS,
-        ):
-            continue
 
+def _mark_interrupted_failed(task: Task):
+    """Pure recovery mutation; the repository owns the scoped locked transaction."""
+    if task.status in (TaskStatus.QUEUED, TaskStatus.IN_PROGRESS):
         timestamp = now()
 
         task.status = TaskStatus.FAILED
@@ -672,6 +670,7 @@ def recover_interrupted():
             "create a new run to retry."
         )
         task.completed_at = timestamp
+        task.output = None
 
         if task.execution_started_at:
             task.elapsed_seconds = (
@@ -708,5 +707,3 @@ def recover_interrupted():
                 text=task.error,
             )
         )
-
-        repository.save(task)

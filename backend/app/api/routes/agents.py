@@ -1,9 +1,11 @@
 """Agent roster and persistent execution statistics; metadata is not an implementation."""
 import uuid
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Request
 from app.models.schemas import Agent, AgentRelationship, AgentRuntimeStats, AgentStatus, CreateAgentRequest
 from app.storage.database import repository
 from app.websocket.manager import manager
+from app.api.routes.workspaces import require_request_permission, request_user_id
+from app.security.rbac import Permission
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 _ROSTER = [
@@ -15,9 +17,17 @@ _ROSTER = [
 ]
 EXECUTABLE = {"research", "data", "analysis", "summarizer", "report", "direct"}
 
+
+def _workspace_runs(request: Request, workspace_id: str | None):
+    workspace = require_request_permission(request, workspace_id, Permission.SIMULATION_VIEW)
+    return repository.list_for_tenant(
+        workspace_id=workspace["id"], user_id=request_user_id(request)
+    )
+
 @router.get("", response_model=list[Agent])
-async def list_agents():
-    active = {s.agent_id for r in repository.list() for s in r.stages if s.status == "active"}
+async def list_agents(request: Request, x_workspace_id: str | None = Header(default=None)):
+    active = {s.agent_id for r in _workspace_runs(request, x_workspace_id)
+              for s in r.stages if s.status == "active"}
     agents = [Agent(id=aid, name=name, role=aid, color=color,
                     status=AgentStatus.ACTIVE if aid in active else AgentStatus.IDLE,
                     implemented=aid in EXECUTABLE) for aid, name, color in _ROSTER]
@@ -30,8 +40,8 @@ async def list_agent_relationships():
             for a, b in zip(sequence, sequence[1:])]
 
 @router.get("/stats", response_model=list[AgentRuntimeStats])
-async def list_agent_stats():
-    runs = repository.list()
+async def list_agent_stats(request: Request, x_workspace_id: str | None = Header(default=None)):
+    runs = _workspace_runs(request, x_workspace_id)
     result = []
     for aid, _, _ in _ROSTER:
         stages = [s for r in runs for s in r.stages if s.agent_id == aid and s.started_at]
@@ -48,15 +58,15 @@ async def list_agent_stats():
     return result
 
 @router.get("/{agent_id}/stats", response_model=AgentRuntimeStats)
-async def get_agent_stats(agent_id: str):
-    result = next((s for s in await list_agent_stats() if s.agent_id == agent_id), None)
+async def get_agent_stats(agent_id: str, request: Request, x_workspace_id: str | None = Header(default=None)):
+    result = next((s for s in await list_agent_stats(request, x_workspace_id) if s.agent_id == agent_id), None)
     if result is None:
         raise HTTPException(404, "Agent not found")
     return result
 
 @router.get("/{agent_id}", response_model=Agent)
-async def get_agent(agent_id: str):
-    result = next((a for a in await list_agents() if a.id == agent_id), None)
+async def get_agent(agent_id: str, request: Request, x_workspace_id: str | None = Header(default=None)):
+    result = next((a for a in await list_agents(request, x_workspace_id) if a.id == agent_id), None)
     if result is None:
         raise HTTPException(404, "Agent not found")
     return result

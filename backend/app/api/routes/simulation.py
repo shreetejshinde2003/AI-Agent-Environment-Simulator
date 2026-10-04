@@ -132,6 +132,10 @@ async def register_task_finished(
 @router.post("/pause")
 @router.post("/resume")
 @router.post("/stop")
-async def unavailable_control():
-    return {**aggregate(), "supported": False,
+async def unavailable_control(request: Request, x_workspace_id: str | None = Header(default=None)):
+    workspace = require_request_permission(request, x_workspace_id, Permission.SIMULATION_VIEW)
+    runs = repository.list_for_tenant(
+        workspace_id=workspace["id"], user_id=request_user_id(request)
+    )
+    return {**aggregate(runs), "supported": False,
             "detail": "Execution controls are unavailable; active LLM calls run to completion."}

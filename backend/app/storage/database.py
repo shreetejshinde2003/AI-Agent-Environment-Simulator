@@ -16,6 +16,7 @@ import sqlite3
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Callable
 
 from sqlalchemy import create_engine, delete, event, inspect, insert, select, update
 from sqlalchemy.exc import IntegrityError
@@ -23,13 +24,15 @@ from sqlalchemy.exc import IntegrityError
 from app.core.config import settings
 from app.models.schemas import Task, UploadedContext
 from app.storage import models as dbm
-from app.security.tenant_db_context import tenant_transaction
+from app.security.tenant_db_context import TenantContextError, tenant_transaction
+from app.security.postgres_rls import install_data_plane_rls_policies, require_rls_runtime_role
 from app.security.workspaces import (
     generate_join_code,
     join_code_digest,
 )
 
 SCHEMA_VERSION = 8
+STARTUP_RECOVERY_PRINCIPAL = "system:startup-recovery"
 
 
 def normalize_url(url: str | None) -> str:
@@ -155,6 +158,7 @@ class Repository:
             with engine.begin() as connection:
                 # Serialize concurrent Railway workers during startup/migration.
                 connection.exec_driver_sql("SELECT pg_advisory_xact_lock(721842)")
+                require_rls_runtime_role(connection)
 
                 dbm.metadata.create_all(connection)
 
@@ -198,6 +202,8 @@ class Repository:
                     raise RuntimeError(
                         "Unsupported PostgreSQL schema version"
                     )
+
+                install_data_plane_rls_policies(connection)
 
     def _initialize_sqlite(self):
         with sqlite3.connect(self.path) as raw:
@@ -360,6 +366,7 @@ class Repository:
             total_tokens=sum(measured) if measured else None, measured_stages=len(measured)))
 
     def save(self, task: Task):
+        self._require_legacy_sqlite()
         with self.engine.begin() as connection:
             self._save_task(connection, task)
 
@@ -450,6 +457,7 @@ class Repository:
         return task
 
     def get(self, task_id: str):
+        self._require_legacy_sqlite()
         with self.engine.connect() as connection:
             row = connection.execute(
                 select(
@@ -460,6 +468,7 @@ class Repository:
         return self._task_from_row(row)
 
     def get_for_workspace(self, task_id: str, workspace_id: str):
+        self._require_legacy_sqlite()
         with self.engine.connect() as connection:
             row = connection.execute(
                 select(
@@ -473,6 +482,7 @@ class Repository:
         return self._task_from_row(row)
 
     def list(self):
+        self._require_legacy_sqlite()
         with self.engine.connect() as connection:
             rows = connection.execute(
                 select(
@@ -486,6 +496,7 @@ class Repository:
         return [self._task_from_row(row) for row in rows]
 
     def list_for_workspace(self, workspace_id: str):
+        self._require_legacy_sqlite()
         with self.engine.connect() as connection:
             rows = connection.execute(
                 select(
@@ -500,6 +511,57 @@ class Repository:
             ).mappings().all()
         return [self._task_from_row(row) for row in rows]
 
+    def _require_legacy_sqlite(self):
+        """Legacy fixture/development methods cannot open unscoped PG access."""
+        if self.engine.dialect.name == "postgresql":
+            raise TenantContextError(
+                "PostgreSQL simulation access requires trusted workspace and user context."
+            )
+
+    def recover_interrupted_tasks(self, recover: Callable[[Task], None]) -> int:
+        """Startup-only maintenance; never a request-facing global run scan.
+
+        PostgreSQL enumerates the deferred workspace catalog (including inactive
+        workspaces), then locks pending rows inside each tenant. The principal is
+        explicitly system maintenance, not an impersonated human or bypass role.
+        SQLite also preserves historical workspace-less local run recovery.
+        """
+        engine = self.engine
+        pending = ("queued", "in_progress")
+        count = 0
+
+        def recover_rows(connection, workspace_id=None):
+            nonlocal count
+            statement = select(
+                dbm.simulations.c.workspace_id, dbm.simulations.c.payload
+            ).where(dbm.simulations.c.status.in_(pending))
+            if workspace_id is not None:
+                statement = statement.where(
+                    dbm.simulations.c.workspace_id == workspace_id
+                ).with_for_update()
+            rows = connection.execute(statement).mappings().all()
+            for row in rows:
+                task = self._task_from_row(row)
+                recover(task)
+                self._save_task(connection, task)
+                count += 1
+
+        if engine.dialect.name == "postgresql":
+            with engine.connect() as connection:
+                workspace_ids = connection.execute(
+                    select(dbm.workspaces.c.id).order_by(dbm.workspaces.c.id)
+                ).scalars().all()
+            for workspace_id in workspace_ids:
+                with tenant_transaction(
+                    engine, workspace_id=workspace_id,
+                    user_id=STARTUP_RECOVERY_PRINCIPAL,
+                ) as connection:
+                    recover_rows(connection, workspace_id)
+        else:
+            with engine.begin() as connection:
+                recover_rows(connection)
+        return count
+
     def backfill_legacy_simulations_for_user(self, user_id: str) -> int:
         """Move legacy unowned runs to the oldest local user's Personal Workspace.
 
@@ -507,6 +569,11 @@ class Repository:
         workspace. The oldest local identity is therefore the deterministic
         migration owner; later accounts must never race to claim those rows.
         """
+
+        # PostgreSQL ownership must be resolved explicitly before first RLS
+        # activation. Login cannot perform a hidden global ownership write.
+        if self.engine.dialect.name == "postgresql":
+            return 0
 
         user = self.get_user(user_id)
         if user is None or not user["active"]:

@@ -603,9 +603,9 @@ async def google_callback(
         user["id"]
     )
 
-    # Legacy simulations predate authenticated workspaces. Only the oldest
-    # local identity may receive those shared historical rows, preventing a
-    # later account from racing to claim them.
+    # SQLite-only legacy backfill: only the oldest local identity may claim
+    # shared historical rows. PostgreSQL ownership is explicitly migrated by
+    # an operator before data-plane RLS activation, never by a login request.
     repository.backfill_legacy_simulations_for_user(
         user["id"]
     )

@@ -90,3 +90,13 @@ or migration activation call `install_postgres_rls_policies(...)`.
 
 This sequencing keeps the deployment fail-closed without breaking the current
 application between commits.
+
+### Phase 4.5.4C update
+
+The section above records Phase 4.5.3's historical sequencing. Startup now uses
+**`install_data_plane_rls_policies(...)`**, not the full-set installer. Only
+`simulations` and its seven child tables are automatically activated after
+readiness preflight. Bootstrap/membership/HR-role policies remain definitions;
+uploads still require schema hardening. See
+[data-plane activation and recovery](PHASE4_DATA_PLANE_RLS_ACTIVATION.md) for
+runtime role requirements, deferred boundaries, recovery, and validation limits.

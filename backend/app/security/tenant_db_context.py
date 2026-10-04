@@ -3,7 +3,9 @@
 The application remains responsible for authenticating the user and resolving an
 accessible workspace before opening a tenant transaction.  This module carries
 that already-authorized identity into PostgreSQL using transaction-local custom
-settings.  Future RLS policies can read those settings with ``current_setting``.
+settings. Data-plane RLS policies read those settings with ``current_setting``.
+Startup maintenance uses an explicit system principal and workspace IDs from the
+trusted catalog; it never impersonates an authenticated user or bypasses RLS.
 
 SQLite intentionally receives no database session variables so local development
 and the existing SQLite test suite continue to work.
@@ -109,8 +111,9 @@ def tenant_transaction(
 ) -> Iterator[Connection]:
     """Open one transaction carrying the trusted tenant context.
 
-    Callers must pass identities obtained from authenticated workspace resolution,
-    never raw client-supplied IDs.  Validation occurs before ``engine.begin()`` so
+    Callers must pass identities obtained from authenticated workspace resolution
+    or trusted startup maintenance, never raw client-supplied IDs. Validation
+    occurs before ``engine.begin()`` so
     malformed/missing identity cannot open a tenant transaction.
     """
 
