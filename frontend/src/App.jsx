@@ -8,12 +8,13 @@ import Messages from "./pages/Messages";
 import Logs from "./pages/Logs";
 import Replay from "./pages/Replay";
 import Settings from "./pages/Settings";
+import Organizations from "./pages/Organizations";
 import { PrivacyPolicy, TermsOfService } from "./pages/LegalPages";
 import Login from "./pages/Login";
 import { useAuth } from "./hooks/useAuth";
 import "./components/dashboard/SimulationWorkspace.css";
 const PAGES = {live: LiveSimulation, "task-summary": TaskSummary, agents: Agents,
-  messages: Messages, logs: Logs, replay: Replay, settings: Settings};
+  messages: Messages, logs: Logs, replay: Replay, organizations: Organizations, settings: Settings};
 function AppContent({ authUser, onSignOut }) {
   const {
     activePage,
