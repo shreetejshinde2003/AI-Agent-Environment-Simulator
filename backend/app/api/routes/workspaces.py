@@ -127,7 +127,7 @@ async def list_workspaces(request: Request):
         )
     ):
         workspace = repository.get_workspace(
-            membership["workspace_id"]
+            membership["workspace_id"], user_id=user["id"],
         )
 
         if (
@@ -300,6 +300,7 @@ async def list_organization_members(
     for membership in repository.list_organization_memberships(
         workspace_id,
         active_only=True,
+        actor_user_id=user["id"],
     ):
         member_user = repository.get_user(membership["user_id"])
         if member_user is None or not member_user["active"]:

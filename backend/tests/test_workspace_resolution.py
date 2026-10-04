@@ -149,7 +149,7 @@ def test_user_cannot_resolve_another_users_personal_workspace(
 
     with pytest.raises(
         PermissionError,
-        match="access denied",
+        match="unavailable",
     ):
         repo.resolve_workspace_for_user(
             first["id"],
@@ -230,7 +230,7 @@ def test_nonmember_cannot_resolve_organization(
 
     with pytest.raises(
         PermissionError,
-        match="access denied",
+        match="unavailable",
     ):
         repo.resolve_workspace_for_user(
             outsider["id"],
@@ -276,7 +276,7 @@ def test_inactive_membership_cannot_resolve_organization(
 
     with pytest.raises(
         PermissionError,
-        match="access denied",
+        match="unavailable",
     ):
         repo.resolve_workspace_for_user(
             member["id"],

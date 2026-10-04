@@ -88,6 +88,12 @@ def test_postgresql_context_is_parameterized_and_transaction_local():
         "workspace_id": "WS-tenant",
         "user_setting": "app.current_user_id",
         "user_id": "USR-user",
+        "invitation_setting": "app.invitation_digest",
+        "invitation_digest": "",
+        "invitation_workspace_setting": "app.invitation_workspace_id",
+        "invitation_workspace_id": "",
+        "recovery_setting": "app.recovery_owner_user_id",
+        "recovery_owner_user_id": "",
     }
 
 

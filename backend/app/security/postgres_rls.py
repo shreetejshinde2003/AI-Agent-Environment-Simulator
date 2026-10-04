@@ -1,7 +1,7 @@
 """PostgreSQL row-level security policy definitions for tenant-owned data.
 
-Phase 4.5.3 defines the complete policy contract. Phase 4.5.4C activates only
-the simulation data plane; bootstrap and HR-role tables remain deferred.
+Phase 4.5.5A activates user-bound bootstrap alongside the simulation data plane.
+HR-role tables remain deferred; uploads still require schema hardening.
 """
 
 from __future__ import annotations
@@ -9,7 +9,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from sqlalchemy import text
 
-from app.security.tenant_db_context import CURRENT_USER_SQL, CURRENT_WORKSPACE_SQL
+from app.security.tenant_db_context import (
+    CURRENT_USER_SQL, CURRENT_WORKSPACE_SQL, INVITATION_DIGEST_SQL,
+    INVITATION_WORKSPACE_SQL, RECOVERY_OWNER_SQL, STARTUP_RECOVERY_PRINCIPAL,
+)
 from app.security.tenant_isolation import IsolationScope, TABLE_ISOLATION_RULES
 
 POLICY_NAME = "fm_tenant_isolation"
@@ -34,33 +37,45 @@ class PostgresRLSPolicy:
 
 
 def _workspace_root_policy() -> PostgresRLSPolicy:
-    # Selected-workspace access is the normal path. The user clauses are the
-    # bootstrap path required for Personal Workspace and organization discovery.
+    # Membership policy never queries workspaces: avoid recursive RLS expansion.
     visible = (
+        f"{CURRENT_USER_SQL} IS NOT NULL AND ("
         f"id = {CURRENT_WORKSPACE_SQL} OR "
-        f"personal_owner_user_id = {CURRENT_USER_SQL} OR "
-        "EXISTS ("
+        f"({CURRENT_WORKSPACE_SQL} IS NULL AND ("
+        f"(active = TRUE AND kind = 'personal' AND personal_owner_user_id = {CURRENT_USER_SQL}) OR "
+        "(active = TRUE AND kind = 'organization' AND EXISTS ("
         "SELECT 1 FROM organization_memberships AS om "
         "WHERE om.workspace_id = workspaces.id "
         f"AND om.user_id = {CURRENT_USER_SQL} AND om.active = TRUE"
-        ")"
+        ")) OR "
+        f"(active = TRUE AND kind = 'organization' AND join_code_digest = {INVITATION_DIGEST_SQL}) OR "
+        f"({CURRENT_USER_SQL} = '{STARTUP_RECOVERY_PRINCIPAL}' AND "
+        f"(created_by_user_id = {RECOVERY_OWNER_SQL} OR personal_owner_user_id = {RECOVERY_OWNER_SQL}))"
+        ")))"
     )
     writable = (
-        f"id = {CURRENT_WORKSPACE_SQL} OR "
-        f"personal_owner_user_id = {CURRENT_USER_SQL} OR "
-        f"created_by_user_id = {CURRENT_USER_SQL}"
+        f"{CURRENT_USER_SQL} IS NOT NULL AND (id = {CURRENT_WORKSPACE_SQL} OR "
+        f"({CURRENT_WORKSPACE_SQL} IS NULL AND active = TRUE AND "
+        f"created_by_user_id = {CURRENT_USER_SQL} AND "
+        f"((kind = 'personal' AND personal_owner_user_id = {CURRENT_USER_SQL}) OR "
+        "(kind = 'organization' AND personal_owner_user_id IS NULL))))"
     )
     return PostgresRLSPolicy("workspaces", visible, writable)
 
 
 def _membership_policy() -> PostgresRLSPolicy:
-    # A user may read their own membership rows during workspace discovery.
-    # Writes remain selected-workspace scoped.
+    # Discovery exposes only active own memberships. Invitation access permits
+    # own inactive rows for reactivation, not other members or a selected tenant.
     visible = (
-        f"workspace_id = {CURRENT_WORKSPACE_SQL} OR "
-        f"user_id = {CURRENT_USER_SQL}"
+        f"{CURRENT_USER_SQL} IS NOT NULL AND (workspace_id = {CURRENT_WORKSPACE_SQL} OR "
+        f"({CURRENT_WORKSPACE_SQL} IS NULL AND ((user_id = {CURRENT_USER_SQL} AND active = TRUE) OR "
+        f"(user_id = {CURRENT_USER_SQL} AND workspace_id = {INVITATION_WORKSPACE_SQL}))))"
     )
-    writable = f"workspace_id = {CURRENT_WORKSPACE_SQL}"
+    writable = (
+        f"{CURRENT_USER_SQL} IS NOT NULL AND (workspace_id = {CURRENT_WORKSPACE_SQL} OR "
+        f"(workspace_id = {INVITATION_WORKSPACE_SQL} AND user_id = {CURRENT_USER_SQL} "
+        f"AND added_by_user_id = {CURRENT_USER_SQL} AND active = TRUE))"
+    )
     return PostgresRLSPolicy("organization_memberships", visible, writable)
 
 
@@ -112,7 +127,9 @@ DATA_PLANE_RLS_TABLES = frozenset({
     "simulations", "tasks", "agent_executions", "agent_messages",
     "activity_events", "run_events", "simulation_metrics", "simulation_uploads",
 })
-DEFERRED_RLS_TABLES = POSTGRES_RLS_TABLES - DATA_PLANE_RLS_TABLES
+BOOTSTRAP_RLS_TABLES = frozenset({"workspaces", "organization_memberships"})
+ACTIVE_RLS_TABLES = DATA_PLANE_RLS_TABLES | BOOTSTRAP_RLS_TABLES
+DEFERRED_RLS_TABLES = POSTGRES_RLS_TABLES - ACTIVE_RLS_TABLES
 
 
 def require_rls_runtime_role(connection) -> None:
@@ -136,6 +153,8 @@ def require_rls_runtime_role(connection) -> None:
 def install_data_plane_rls_policies(connection) -> None:
     """Preflight and activate the ready subset inside initialization's transaction.
 
+    Historical entrypoint name retained: the subset now includes the two ready
+    bootstrap tables as well as the eight simulation data-plane tables.
     Unknown policies can OR together with our permissive policy. Refuse them,
     rather than weakening the boundary or deleting operator-owned DDL. Unassigned
     legacy history must be explicitly migrated before first activation.
@@ -152,9 +171,9 @@ def install_data_plane_rls_policies(connection) -> None:
         states[table] = state
         if table in DEFERRED_RLS_TABLES and state["relrowsecurity"]:
             raise RuntimeError(
-                f"RLS on {table} requires a bootstrap/HR-role readiness checkpoint."
+                f"RLS on {table} requires an HR-role readiness checkpoint."
             )
-        if table in DATA_PLANE_RLS_TABLES:
+        if table in ACTIVE_RLS_TABLES:
             names = connection.execute(text(
                 "SELECT polname FROM pg_policy WHERE polrelid = to_regclass(:table)"
             ), {"table": table}).scalars().all()
@@ -172,7 +191,7 @@ def install_data_plane_rls_policies(connection) -> None:
             )
 
     for policy in POSTGRES_RLS_POLICIES:
-        if policy.table in DATA_PLANE_RLS_TABLES:
+        if policy.table in ACTIVE_RLS_TABLES:
             for statement in policy.ddl():
                 connection.exec_driver_sql(statement)
 
@@ -186,7 +205,7 @@ def install_postgres_rls_policies(connection) -> None:
 
     Definition/testing utility only: repository startup uses the narrower,
     preflighted install_data_plane_rls_policies instead. Do not use this full-set
-    installer before bootstrap and HR-role context are ready.
+    installer before HR-role context is ready.
     """
 
     if connection.dialect.name != "postgresql":

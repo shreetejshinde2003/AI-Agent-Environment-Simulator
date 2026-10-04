@@ -88,6 +88,7 @@ def test_pg_recovery_control_flow_uses_only_catalog_globally_and_locks_each_tena
     contexts = []
     active_context = []
     reads = []
+    catalog_context = []
 
     class RecordingEngine:
         dialect = SimpleNamespace(name="postgresql")
@@ -106,6 +107,15 @@ def test_pg_recovery_control_flow_uses_only_catalog_globally_and_locks_each_tena
         finally:
             active_context.clear()
 
+    @contextmanager
+    def recording_catalog_transaction(engine, *, owner_user_id):
+        catalog_context.append(owner_user_id)
+        try:
+            with sqlite_engine.begin() as connection:
+                yield connection
+        finally:
+            catalog_context.clear()
+
     def record_query(connection, statement, *args):
         if getattr(statement, "is_select", False):
             sql = str(statement)
@@ -115,11 +125,15 @@ def test_pg_recovery_control_flow_uses_only_catalog_globally_and_locks_each_tena
                     assert statement._for_update_arg is not None
                     assert "simulations.workspace_id =" in sql
                     reads.append(active_context[0])
+            elif "FROM workspaces" in sql:
+                assert len(catalog_context) == 1
+                assert "workspaces.created_by_user_id =" in sql
             elif not active_context:
-                assert "FROM workspaces" in sql
+                assert "FROM users" in sql
 
     event.listen(sqlite_engine, "before_execute", record_query)
     monkeypatch.setattr(database, "tenant_transaction", recording_tenant_transaction)
+    monkeypatch.setattr(database, "recovery_catalog_transaction", recording_catalog_transaction)
     monkeypatch.setattr(repo, "_engine", RecordingEngine())
     try:
         assert repo.recover_interrupted_tasks(tasks._mark_interrupted_failed) == 2

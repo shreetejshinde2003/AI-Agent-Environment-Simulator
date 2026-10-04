@@ -1,5 +1,11 @@
 # Phase 4.5.4C — Data-plane RLS activation and startup recovery
 
+Historical checkpoint record: local 4.5.5A additionally activates workspace and
+membership bootstrap RLS and replaces the deferred global catalog read with
+bounded creator/owner discovery. The sections below describe 4.5.4C, not the
+expanded current set. See [the bootstrap checkpoint](PHASE4_WORKSPACE_BOOTSTRAP_RLS.md)
+for current behavior and verification limits. No new production verification is claimed.
+
 ## Status and scope
 
 COMPLETED (implementation): PostgreSQL initialization now installs the explicitly

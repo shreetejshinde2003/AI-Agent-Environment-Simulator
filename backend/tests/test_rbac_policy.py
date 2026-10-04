@@ -149,7 +149,7 @@ def test_inactive_or_unrelated_membership_fails_closed(tmp_path):
 
 def test_unknown_membership_role_fails_closed():
     class FakeRepository:
-        def get_workspace(self, workspace_id):
+        def get_workspace(self, workspace_id, *, user_id):
             return {
                 "id": workspace_id,
                 "kind": "organization",

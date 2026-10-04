@@ -105,7 +105,7 @@ class WorkspaceAuthorization:
 
 
 class WorkspaceRepository(Protocol):
-    def get_workspace(self, workspace_id: str): ...
+    def get_workspace(self, workspace_id: str, *, user_id: str): ...
 
     def get_organization_membership(
         self,
@@ -136,7 +136,7 @@ def resolve_workspace_authorization(
     membership and a recognized role.
     """
 
-    workspace = repository.get_workspace(workspace_id)
+    workspace = repository.get_workspace(workspace_id, user_id=user_id)
 
     if workspace is None or not workspace.get("active"):
         raise AuthorizationError("Permission denied.")

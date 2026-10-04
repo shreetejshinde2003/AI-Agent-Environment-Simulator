@@ -1,5 +1,11 @@
 # Phase 4.5.3 — PostgreSQL Row-Level Security Policies
 
+Historical policy-definition checkpoint. The current local 4.5.5A refinement
+activates workspace/membership bootstrap alongside the existing eight data-plane
+tables, with user-bound discovery and bounded invitation/recovery capabilities.
+See [current bootstrap behavior](PHASE4_WORKSPACE_BOOTSTRAP_RLS.md); HR-role and
+upload hardening remain deferred, and live PostgreSQL verification remains partial.
+
 ## Purpose
 
 This checkpoint defines the database-level workspace boundary that will sit below

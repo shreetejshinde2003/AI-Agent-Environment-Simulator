@@ -31,7 +31,7 @@ from app.security.rbac import AuthorizationError, Permission, resolve_workspace_
 
 @asynccontextmanager
 async def lifespan(app):
-    # PG initialization preflights and activates only the ready data plane;
+    # PG initialization activates the ready data plane and user-bound bootstrap;
     # recovery then uses workspace-scoped locked maintenance transactions.
     repository.initialize()
     tasks.recover_interrupted()

@@ -24,7 +24,12 @@ from sqlalchemy.exc import IntegrityError
 from app.core.config import settings
 from app.models.schemas import Task, UploadedContext
 from app.storage import models as dbm
-from app.security.tenant_db_context import TenantContextError, tenant_transaction
+from app.security.tenant_db_context import (
+    TenantContextError, tenant_transaction, bootstrap_transaction,
+    apply_tenant_session_context, invitation_transaction,
+    apply_invitation_membership_context, recovery_catalog_transaction,
+    STARTUP_RECOVERY_PRINCIPAL,
+)
 from app.security.postgres_rls import install_data_plane_rls_policies, require_rls_runtime_role
 from app.security.workspaces import (
     generate_join_code,
@@ -32,7 +37,6 @@ from app.security.workspaces import (
 )
 
 SCHEMA_VERSION = 8
-STARTUP_RECOVERY_PRINCIPAL = "system:startup-recovery"
 
 
 def normalize_url(url: str | None) -> str:
@@ -521,8 +525,8 @@ class Repository:
     def recover_interrupted_tasks(self, recover: Callable[[Task], None]) -> int:
         """Startup-only maintenance; never a request-facing global run scan.
 
-        PostgreSQL enumerates the deferred workspace catalog (including inactive
-        workspaces), then locks pending rows inside each tenant. The principal is
+        PostgreSQL enumerates identity IDs, then a bounded creator/owner catalog
+        scope (including inactive workspaces), then locks pending rows per tenant. The principal is
         explicitly system maintenance, not an impersonated human or bypass role.
         SQLite also preserves historical workspace-less local run recovery.
         """
@@ -548,10 +552,19 @@ class Repository:
 
         if engine.dialect.name == "postgresql":
             with engine.connect() as connection:
-                workspace_ids = connection.execute(
-                    select(dbm.workspaces.c.id).order_by(dbm.workspaces.c.id)
+                owner_ids = connection.execute(
+                    select(dbm.users.c.id).order_by(dbm.users.c.id)
                 ).scalars().all()
-            for workspace_id in workspace_ids:
+            workspace_ids = set()
+            for owner_id in owner_ids:
+                with recovery_catalog_transaction(engine, owner_user_id=owner_id) as connection:
+                    workspace_ids.update(connection.execute(
+                        select(dbm.workspaces.c.id).where(
+                            (dbm.workspaces.c.created_by_user_id == owner_id)
+                            | (dbm.workspaces.c.personal_owner_user_id == owner_id)
+                        )
+                    ).scalars().all())
+            for workspace_id in sorted(workspace_ids):
                 with tenant_transaction(
                     engine, workspace_id=workspace_id,
                     user_id=STARTUP_RECOVERY_PRINCIPAL,
@@ -633,7 +646,8 @@ class Repository:
         return dict(row) if row else None
 
     def save_workspace(self, workspace: dict):
-        """Create or update one workspace identity."""
+        """SQLite fixture compatibility; PostgreSQL uses authorized workflows."""
+        self._require_legacy_sqlite()
 
         with self.engine.begin() as connection:
             self._upsert(
@@ -643,14 +657,28 @@ class Repository:
                 workspace,
             )
 
-    def get_workspace(self, workspace_id: str):
-        with self.engine.connect() as connection:
-            row = connection.execute(
-                select(dbm.workspaces).where(
-                    dbm.workspaces.c.id
-                    == workspace_id
+    def get_workspace(self, workspace_id: str, *, user_id: str | None = None):
+        if user_id is None:
+            self._require_legacy_sqlite()
+        transaction = (
+            bootstrap_transaction(self.engine, user_id=user_id)
+            if user_id is not None else self.engine.begin()
+        )
+        with transaction as connection:
+            statement = select(dbm.workspaces).where(dbm.workspaces.c.id == workspace_id)
+            if user_id is not None:
+                own_membership = select(dbm.organization_memberships.c.user_id).where(
+                    dbm.organization_memberships.c.workspace_id == dbm.workspaces.c.id,
+                    dbm.organization_memberships.c.user_id == user_id,
+                    dbm.organization_memberships.c.active.is_(True),
+                ).exists()
+                statement = statement.where(
+                    dbm.workspaces.c.active.is_(True),
+                    ((dbm.workspaces.c.kind == "personal")
+                     & (dbm.workspaces.c.personal_owner_user_id == user_id))
+                    | ((dbm.workspaces.c.kind == "organization") & own_membership),
                 )
-            ).mappings().first()
+            row = connection.execute(statement).mappings().first()
 
         return dict(row) if row else None
 
@@ -658,7 +686,7 @@ class Repository:
         self,
         user_id: str,
     ):
-        with self.engine.connect() as connection:
+        with bootstrap_transaction(self.engine, user_id=user_id) as connection:
             row = connection.execute(
                 select(dbm.workspaces).where(
                     dbm.workspaces.c.kind
@@ -714,7 +742,7 @@ class Repository:
         }
 
         try:
-            with self.engine.begin() as connection:
+            with bootstrap_transaction(self.engine, user_id=user_id) as connection:
                 connection.execute(
                     insert(dbm.workspaces).values(
                         **workspace
@@ -776,7 +804,7 @@ class Repository:
             return workspace
 
         workspace = self.get_workspace(
-            workspace_id
+            workspace_id, user_id=user_id,
         )
 
         if workspace is None or not workspace["active"]:
@@ -888,7 +916,7 @@ class Repository:
             }
 
             try:
-                with self.engine.begin() as connection:
+                with bootstrap_transaction(self.engine, user_id=creator_user_id) as connection:
                     connection.execute(
                         insert(
                             dbm.workspaces
@@ -897,6 +925,11 @@ class Repository:
                         )
                     )
 
+                    # The freshly inserted, server-generated ID is trusted for
+                    # the atomic first owner membership; no discovery bypass.
+                    apply_tenant_session_context(
+                        connection, workspace_id=workspace["id"], user_id=creator_user_id,
+                    )
                     connection.execute(
                         insert(
                             dbm.organization_memberships
@@ -948,7 +981,7 @@ class Repository:
             datetime.now(timezone.utc)
         )
 
-        with self.engine.begin() as connection:
+        with invitation_transaction(self.engine, user_id=user_id, digest=digest) as connection:
             workspace_row = connection.execute(
                 select(
                     dbm.workspaces
@@ -968,6 +1001,9 @@ class Repository:
 
             workspace = dict(
                 workspace_row
+            )
+            apply_invitation_membership_context(
+                connection, user_id=user_id, workspace_id=workspace["id"], digest=digest,
             )
 
             membership_row = connection.execute(
@@ -1043,6 +1079,7 @@ class Repository:
         membership: dict,
     ):
         """Persist membership only for an active Organization workspace."""
+        self._require_legacy_sqlite()
 
         workspace = self.get_workspace(
             membership["workspace_id"]
@@ -1115,8 +1152,16 @@ class Repository:
         self,
         workspace_id: str,
         user_id: str,
+        *,
+        actor_user_id: str | None = None,
     ):
-        with self.engine.connect() as connection:
+        if actor_user_id is not None:
+            self.resolve_workspace_for_user(actor_user_id, workspace_id)
+        transaction = (
+            tenant_transaction(self.engine, workspace_id=workspace_id, user_id=actor_user_id)
+            if actor_user_id is not None else bootstrap_transaction(self.engine, user_id=user_id)
+        )
+        with transaction as connection:
             row = connection.execute(
                 select(
                     dbm.organization_memberships
@@ -1155,7 +1200,7 @@ class Repository:
                 dbm.organization_memberships.c.active.is_(True)
             )
 
-        with self.engine.connect() as connection:
+        with bootstrap_transaction(self.engine, user_id=user_id) as connection:
             rows = connection.execute(
                 statement
             ).mappings().all()
@@ -1170,6 +1215,7 @@ class Repository:
         workspace_id: str,
         *,
         active_only: bool = True,
+        actor_user_id: str | None = None,
     ):
         statement = (
             select(
@@ -1190,7 +1236,15 @@ class Repository:
                 dbm.organization_memberships.c.active.is_(True)
             )
 
-        with self.engine.connect() as connection:
+        if actor_user_id is None:
+            self._require_legacy_sqlite()
+        else:
+            self.resolve_workspace_for_user(actor_user_id, workspace_id)
+        transaction = (
+            tenant_transaction(self.engine, workspace_id=workspace_id, user_id=actor_user_id)
+            if actor_user_id is not None else self.engine.begin()
+        )
+        with transaction as connection:
             rows = connection.execute(
                 statement
             ).mappings().all()
@@ -1227,7 +1281,11 @@ class Repository:
         except (TypeError, ValueError) as exc:
             raise ValueError("Unsupported organization role.") from exc
 
-        with self.engine.begin() as connection:
+        # Resolve from user-bound discovery before carrying a selected workspace.
+        # The atomic operation below still rechecks membership and IAM permissions.
+        from app.security.rbac import resolve_workspace_authorization
+        resolve_workspace_authorization(self, user_id=actor_user_id, workspace_id=workspace_id)
+        with tenant_transaction(self.engine, workspace_id=workspace_id, user_id=actor_user_id) as connection:
             workspace = connection.execute(
                 select(dbm.workspaces).where(
                     dbm.workspaces.c.id == workspace_id
@@ -1369,6 +1427,7 @@ class Repository:
         target_membership = self.get_organization_membership(
             workspace_id,
             target_user_id,
+            actor_user_id=actor_user_id,
         )
         if target_membership is None or not target_membership.get("active"):
             raise AuthorizationError("Permission denied.")

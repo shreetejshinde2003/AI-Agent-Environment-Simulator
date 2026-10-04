@@ -68,7 +68,7 @@ class HRHumanAuthorization:
 
 
 class HRRoleRepository(Protocol):
-    def get_workspace(self, workspace_id: str): ...
+    def get_workspace(self, workspace_id: str, *, user_id: str): ...
 
     def get_organization_membership(self, workspace_id: str, user_id: str): ...
 
@@ -94,7 +94,7 @@ def resolve_hr_human_authorization(
     capability.
     """
 
-    workspace = repository.get_workspace(workspace_id)
+    workspace = repository.get_workspace(workspace_id, user_id=user_id)
     if (
         workspace is None
         or workspace.get("kind") != "organization"

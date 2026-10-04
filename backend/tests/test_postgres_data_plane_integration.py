@@ -17,7 +17,7 @@ from sqlalchemy.exc import DBAPIError
 
 from app.api.routes.tasks import _mark_interrupted_failed
 from app.models.schemas import TaskStatus
-from app.security.postgres_rls import DATA_PLANE_RLS_TABLES, DEFERRED_RLS_TABLES, require_rls_runtime_role
+from app.security.postgres_rls import ACTIVE_RLS_TABLES, DATA_PLANE_RLS_TABLES, DEFERRED_RLS_TABLES, require_rls_runtime_role
 from app.security.tenant_db_context import CURRENT_USER_SQL, CURRENT_WORKSPACE_SQL, tenant_transaction
 from app.storage import models as dbm
 from app.storage.database import Repository, normalize_url
@@ -74,11 +74,11 @@ def seed(repo, task_id, uid):
 def test_live_activation_force_and_deferred_tables(pg_repo):
     pg_repo.initialize()  # Repeat activation remains safe.
     with pg_repo.engine.connect() as connection:
-        for table in sorted(DATA_PLANE_RLS_TABLES | DEFERRED_RLS_TABLES | {"uploads"}):
+        for table in sorted(ACTIVE_RLS_TABLES | DEFERRED_RLS_TABLES | {"uploads"}):
             row = connection.execute(text(
                 "SELECT relrowsecurity, relforcerowsecurity FROM pg_class WHERE oid = to_regclass(:table)"
             ), {"table": table}).one()
-            assert tuple(row) == ((True, True) if table in DATA_PLANE_RLS_TABLES else (False, False))
+            assert tuple(row) == ((True, True) if table in ACTIVE_RLS_TABLES else (False, False))
 
 
 def test_live_data_plane_filters_unscoped_queries_and_other_tenants(pg_repo):
