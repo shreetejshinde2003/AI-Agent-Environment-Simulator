@@ -13,7 +13,7 @@ from app.datasets.registry import BENCHMARK_DIR, context_for_dataset, register_a
 from app.models.schemas import (ActivityEvent, Message, MessageKind, RunEvent,
                                 StageExecution, Task, TaskPriority, TaskStatus,
                                 UploadedContext)
-from app.storage.database import Repository, normalize_url
+from app.storage.database import Repository, SCHEMA_VERSION, normalize_url
 from app.storage import models as dbm
 
 HAS_LOCAL_BENCHMARKS = all((BENCHMARK_DIR / f"{family}_{size}.json").is_file()
@@ -105,7 +105,7 @@ def test_v1_snapshot_migration_preserves_data(tmp_path):
         inspect(repo.engine).get_table_names())
     assert len(list(tmp_path.glob("legacy.db.v1.*.db"))) == 1
     with sqlite3.connect(path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
     repo.initialize()  # idempotent
 
 

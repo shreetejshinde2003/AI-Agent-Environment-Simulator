@@ -603,6 +603,13 @@ async def google_callback(
         user["id"]
     )
 
+    # Legacy simulations predate authenticated workspaces. Only the oldest
+    # local identity may receive those shared historical rows, preventing a
+    # later account from racing to claim them.
+    repository.backfill_legacy_simulations_for_user(
+        user["id"]
+    )
+
     opaque_session_token = create_opaque_token()
     expires_at = session_expiry()
 

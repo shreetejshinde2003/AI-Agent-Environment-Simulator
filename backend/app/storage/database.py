@@ -3,8 +3,8 @@
 V1 SQLite snapshots are backed up, archived, and projected into the
 current relational schema. Version 3 added local Google identities and
 revocable application sessions. Version 4 added the workspace/tenancy
-foundation. Version 5 adds organization memberships without changing
-existing simulation ownership yet.
+foundation. Version 5 added organization memberships. Version 6 adds persisted
+simulation workspace ownership while preserving historical run payloads.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from sqlalchemy import create_engine, delete, event, insert, select, update
+from sqlalchemy import create_engine, delete, event, inspect, insert, select, update
 from sqlalchemy.exc import IntegrityError
 
 from app.core.config import settings
@@ -26,7 +26,7 @@ from app.security.workspaces import (
     join_code_digest,
 )
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 
 def normalize_url(url: str | None) -> str:
@@ -73,6 +73,26 @@ class Repository:
             self._engine_url = url
         return self._engine
 
+    @staticmethod
+    def _ensure_simulation_workspace_column(connection):
+        """Add the nullable V6 workspace ownership column to existing databases."""
+
+        columns = {
+            column["name"]
+            for column in inspect(connection).get_columns("simulations")
+        }
+
+        if "workspace_id" not in columns:
+            connection.exec_driver_sql(
+                "ALTER TABLE simulations ADD COLUMN workspace_id VARCHAR(80) "
+                "REFERENCES workspaces(id) ON DELETE RESTRICT"
+            )
+
+        connection.exec_driver_sql(
+            "CREATE INDEX IF NOT EXISTS ix_simulations_workspace_created "
+            "ON simulations (workspace_id, created_at)"
+        )
+
     def initialize(self):
         engine = self.engine
         if engine.dialect.name == "sqlite":
@@ -97,13 +117,14 @@ class Repository:
                         )
                     )
 
-                elif versions in ([2], [3], [4]):
-                    # V5 remains additive. create_all above safely creates:
-                    #   V2 -> auth + workspaces + memberships
-                    #   V3 -> workspaces + memberships
-                    #   V4 -> memberships
-                    # Existing simulation and benchmark records are preserved.
+                elif versions in ([2], [3], [4], [5]):
+                    # V6 remains additive. create_all above safely creates
+                    # newer identity/workspace tables; ALTER adds ownership to
+                    # an already-existing simulations table. Historical rows
+                    # remain nullable until deterministic backfill.
                     previous_version = versions[0]
+
+                    self._ensure_simulation_workspace_column(connection)
 
                     connection.execute(
                         update(dbm.schema_version)
@@ -156,8 +177,10 @@ class Repository:
                     )
                 )
 
-            elif versions in ([2], [3], [4]):
+            elif versions in ([2], [3], [4], [5]):
                 previous_version = versions[0]
+
+                self._ensure_simulation_workspace_column(connection)
 
                 connection.execute(
                     update(dbm.schema_version)
@@ -235,7 +258,8 @@ class Repository:
         for upload in task.uploads:
             self._save_upload(connection, upload)
         self._upsert(connection, dbm.simulations, "id", dict(
-            id=task.id, owner_id=task.owner_id, dataset_id=task.dataset_id,
+            id=task.id, owner_id=task.owner_id, workspace_id=task.workspace_id,
+            dataset_id=task.dataset_id,
             dataset_checksum=task.dataset_checksum, status=task.status.value,
             execution_mode=task.execution_mode.value, task_type=task.task_type,
             created_at=timestamp(task.created_at or task.started_at),
@@ -283,16 +307,101 @@ class Repository:
         with self.engine.begin() as connection:
             self._save_task(connection, task)
 
+    @staticmethod
+    def _task_from_row(row):
+        if row is None:
+            return None
+        task = Task.model_validate(row["payload"])
+        if task.workspace_id != row["workspace_id"]:
+            task = task.model_copy(
+                update={"workspace_id": row["workspace_id"]}
+            )
+        return task
+
     def get(self, task_id: str):
         with self.engine.connect() as connection:
-            payload = connection.execute(select(dbm.simulations.c.payload).where(dbm.simulations.c.id == task_id)).scalar_one_or_none()
-        return Task.model_validate(payload) if payload is not None else None
+            row = connection.execute(
+                select(
+                    dbm.simulations.c.workspace_id,
+                    dbm.simulations.c.payload,
+                ).where(dbm.simulations.c.id == task_id)
+            ).mappings().first()
+        return self._task_from_row(row)
+
+    def get_for_workspace(self, task_id: str, workspace_id: str):
+        with self.engine.connect() as connection:
+            row = connection.execute(
+                select(
+                    dbm.simulations.c.workspace_id,
+                    dbm.simulations.c.payload,
+                ).where(
+                    dbm.simulations.c.id == task_id,
+                    dbm.simulations.c.workspace_id == workspace_id,
+                )
+            ).mappings().first()
+        return self._task_from_row(row)
 
     def list(self):
         with self.engine.connect() as connection:
-            rows = connection.execute(select(dbm.simulations.c.payload).order_by(
-                dbm.simulations.c.created_at, dbm.simulations.c.id)).scalars().all()
-        return [Task.model_validate(row) for row in rows]
+            rows = connection.execute(
+                select(
+                    dbm.simulations.c.workspace_id,
+                    dbm.simulations.c.payload,
+                ).order_by(
+                    dbm.simulations.c.created_at,
+                    dbm.simulations.c.id,
+                )
+            ).mappings().all()
+        return [self._task_from_row(row) for row in rows]
+
+    def list_for_workspace(self, workspace_id: str):
+        with self.engine.connect() as connection:
+            rows = connection.execute(
+                select(
+                    dbm.simulations.c.workspace_id,
+                    dbm.simulations.c.payload,
+                ).where(
+                    dbm.simulations.c.workspace_id == workspace_id
+                ).order_by(
+                    dbm.simulations.c.created_at,
+                    dbm.simulations.c.id,
+                )
+            ).mappings().all()
+        return [self._task_from_row(row) for row in rows]
+
+    def backfill_legacy_simulations_for_user(self, user_id: str) -> int:
+        """Move legacy unowned runs to the oldest local user's Personal Workspace.
+
+        Before authentication existed, simulation history was one shared
+        workspace. The oldest local identity is therefore the deterministic
+        migration owner; later accounts must never race to claim those rows.
+        """
+
+        user = self.get_user(user_id)
+        if user is None or not user["active"]:
+            raise ValueError("Workspace user is unavailable.")
+
+        with self.engine.connect() as connection:
+            first_user_id = connection.execute(
+                select(dbm.users.c.id)
+                .where(dbm.users.c.active.is_(True))
+                .order_by(dbm.users.c.created_at, dbm.users.c.id)
+                .limit(1)
+            ).scalar_one_or_none()
+
+        if first_user_id != user_id:
+            return 0
+
+        personal = self.ensure_personal_workspace(user_id)
+
+        with self.engine.begin() as connection:
+            result = connection.execute(
+                update(dbm.simulations)
+                .where(dbm.simulations.c.workspace_id.is_(None))
+                .values(workspace_id=personal["id"])
+            )
+
+        return int(result.rowcount or 0)
 
     def save_user(self, user: dict):
         """Create or update one locally persisted Google identity."""

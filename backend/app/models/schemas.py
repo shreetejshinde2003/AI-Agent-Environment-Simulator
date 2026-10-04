@@ -408,7 +408,8 @@ class Task(CamelModel):
     # surfaces real failures to the dashboard instead of a silent hang.
     error: str | None = None
     simulation_id: str | None = None
-    owner_id: str | None = None  # Shared workspace; no authentication claim.
+    owner_id: str | None = None  # Legacy metadata; not an authorization boundary.
+    workspace_id: str | None = None
     created_at: datetime | None = None
     execution_started_at: datetime | None = None
     completed_at: datetime | None = None

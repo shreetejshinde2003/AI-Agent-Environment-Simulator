@@ -1,4 +1,4 @@
-"""Version 5 operational tables; benchmark records never enter this schema."""
+"""Version 6 operational tables; benchmark records never enter this schema."""
 
 from sqlalchemy import (JSON, Boolean, CheckConstraint, Column, Float, ForeignKey,
                         Index, Integer, MetaData, String, Table, Text)
@@ -197,12 +197,14 @@ dataset_registry = Table("dataset_registry", metadata,
     Column("quality", json_type, nullable=False))
 simulations = Table("simulations", metadata,
     Column("id", String(80), primary_key=True), Column("owner_id", String(80)),
+    Column("workspace_id", String(80), ForeignKey("workspaces.id", ondelete="RESTRICT")),
     Column("dataset_id", String(80), ForeignKey("dataset_registry.dataset_id", ondelete="SET NULL")),
     Column("dataset_checksum", String(64)), Column("status", String(30), nullable=False),
     Column("execution_mode", String(30), nullable=False), Column("task_type", String(80)),
     Column("created_at", String(40), nullable=False), Column("started_at", String(40)),
     Column("completed_at", String(40)), Column("payload", json_type, nullable=False))
 Index("ix_simulations_status_created", simulations.c.status, simulations.c.created_at)
+Index("ix_simulations_workspace_created", simulations.c.workspace_id, simulations.c.created_at)
 Index("ix_simulations_dataset", simulations.c.dataset_id)
 tasks = Table("tasks", metadata,
     Column("id", String(80), primary_key=True),
