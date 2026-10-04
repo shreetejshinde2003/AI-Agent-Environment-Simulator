@@ -2,10 +2,11 @@
 import csv
 import io
 import json
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
 from fastapi.responses import Response
 from app.api.routes.tasks import create_task, get_record
 from app.api.routes.simulation import aggregate
+from app.api.routes.workspaces import resolve_request_workspace
 from app.models.schemas import CreateSimulationRequest
 from app.storage.database import repository
 from app.experiments.evaluation import token_measurement
@@ -20,13 +21,27 @@ def view(task):
 
 
 @router.get("")
-async def list_simulations():
-    return [view(task) for task in repository.list()]
+async def list_simulations(
+    request: Request,
+    x_workspace_id: str | None = Header(default=None),
+):
+    workspace = resolve_request_workspace(request, x_workspace_id)
+    return [view(task) for task in repository.list_for_workspace(workspace["id"])]
 
 
 @router.post("", status_code=201)
-async def create_simulation(payload: CreateSimulationRequest, background_tasks: BackgroundTasks):
-    return view(await create_task(payload, background_tasks))
+async def create_simulation(
+    payload: CreateSimulationRequest,
+    background_tasks: BackgroundTasks,
+    request: Request,
+    x_workspace_id: str | None = Header(default=None),
+):
+    workspace = resolve_request_workspace(request, x_workspace_id)
+    return view(await create_task(
+        payload,
+        background_tasks,
+        workspace_id=workspace["id"],
+    ))
 
 def token_coverage(task):
     started = [
@@ -49,9 +64,12 @@ def token_coverage(task):
         "tokenCoverage": coverage,
         "tokens": total,
     }
-@router.get("/metrics")
-async def metrics():
-    runs = repository.list()
+async def metrics(workspace_id: str | None = None):
+    runs = (
+        repository.list_for_workspace(workspace_id)
+        if workspace_id is not None
+        else repository.list()
+    )
     by_agent = []
     for agent_id in ("research", "data", "analysis", "summarizer", "report", "direct"):
         stages = [s for r in runs for s in r.stages if s.agent_id == agent_id and s.started_at]
@@ -68,7 +86,7 @@ async def metrics():
             averageLatency=sum(times)/len(times) if times else None,
             lastExecution=stages[-1].model_dump(mode="json") if stages else None,
         ))
-    return {"summary": aggregate(), "agents": by_agent, "history": [
+    return {"summary": aggregate(runs), "agents": by_agent, "history": [
         dict(id=r.id, title=r.title, createdAt=(r.created_at or r.started_at).isoformat(), status=r.status.value,
              executionMode=r.execution_mode.value, invocationCount=sum(s.started_at is not None for s in r.stages),
              taskType=r.task_type, datasetId=r.dataset_id, handoffCount=r.handoff_count,
@@ -81,14 +99,33 @@ async def metrics():
     ]}
 
 
+@router.get("/metrics")
+async def metrics_api(
+    request: Request,
+    x_workspace_id: str | None = Header(default=None),
+):
+    workspace = resolve_request_workspace(request, x_workspace_id)
+    return await metrics(workspace["id"])
+
+
 @router.get("/{simulation_id}")
-async def get_simulation(simulation_id: str):
-    return view(get_record(simulation_id))
+async def get_simulation(
+    simulation_id: str,
+    request: Request,
+    x_workspace_id: str | None = Header(default=None),
+):
+    workspace = resolve_request_workspace(request, x_workspace_id)
+    return view(get_record(simulation_id, workspace["id"]))
 
 
 @router.get("/{simulation_id}/events")
-async def events(simulation_id: str):
-    return get_record(simulation_id).events
+async def events(
+    simulation_id: str,
+    request: Request,
+    x_workspace_id: str | None = Header(default=None),
+):
+    workspace = resolve_request_workspace(request, x_workspace_id)
+    return get_record(simulation_id, workspace["id"]).events
 
 
 def csv_safe(value):
@@ -97,8 +134,14 @@ def csv_safe(value):
 
 
 @router.get("/{simulation_id}/export")
-async def export_simulation(simulation_id: str, format: str = "json"):
-    task = get_record(simulation_id)
+async def export_simulation(
+    simulation_id: str,
+    request: Request,
+    format: str = "json",
+    x_workspace_id: str | None = Header(default=None),
+):
+    workspace = resolve_request_workspace(request, x_workspace_id)
+    task = get_record(simulation_id, workspace["id"])
     if task.status.value not in ("completed", "failed"):
         raise HTTPException(409, "Export is available after the simulation finishes")
     if format == "json":

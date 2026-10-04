@@ -81,6 +81,7 @@ class RoutingTests(unittest.TestCase):
 class AdaptiveExecutionTests(unittest.IsolatedAsyncioTestCase):
     setUp = pipeline_support.PipelineTests.setUp
     tearDown = pipeline_support.PipelineTests.tearDown
+    authenticate_client = pipeline_support.PipelineTests.authenticate_client
 
     async def create(self, directive="Analyze supplied data", **kwargs):
         upload = parse_upload("table.csv", b"department,count\nEngineering,4")
@@ -171,6 +172,7 @@ class AdaptiveExecutionTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_api_exports_and_legacy_snapshot(self):
         with TestClient(app) as client:
+            self.authenticate_client(client)
             response = client.post("/api/v1/simulations", json={"directive": "Summarize\nSource: Two tests passed.",
                                    "executionMode": "adaptive", "title": "Test results"})
             self.assertEqual(response.status_code, 201, response.text)
@@ -205,6 +207,7 @@ class AdaptiveExecutionTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(benchmark_directory(), private_dir.resolve())
             register_all(repository)
             with TestClient(app) as client:
+                self.authenticate_client(client)
                 registered = client.get("/api/v1/datasets").json()
                 self.assertEqual(len(registered), 6)
             queued = await self.create(dataset_id="employee_small")

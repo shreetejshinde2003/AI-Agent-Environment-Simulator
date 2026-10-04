@@ -4,7 +4,7 @@ import time
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
 from pydantic import ValidationError
 from app.experiments.evaluation import (
     build_run_evaluation,
@@ -21,6 +21,7 @@ from app.agents.contracts import CONTRACTS
 from app.agents.routing import inline_source, plan_route, validate_route
 from app.api.routes.messages import record_message
 from app.api.routes.simulation import record_activity, register_task_created, register_task_finished
+from app.api.routes.workspaces import resolve_request_workspace
 from app.core.errors import safe_error
 from app.datasets.registry import context_for_dataset
 from app.models.schemas import (
@@ -61,28 +62,46 @@ async def emit(task: Task, event_type: str, text: str, agent_id: str | None = No
     await manager.broadcast("task_updated", task.model_dump(mode="json"))
 
 
-def get_record(task_id: str) -> Task:
-    task = repository.get(task_id)
+def get_record(task_id: str, workspace_id: str | None = None) -> Task:
+    task = (
+        repository.get_for_workspace(task_id, workspace_id)
+        if workspace_id is not None
+        else repository.get(task_id)
+    )
     if task is None:
         raise HTTPException(404, "Simulation not found")
     return task
 
 
 @router.get("", response_model=list[Task])
-async def list_tasks():
-    return repository.list()
+async def list_tasks(
+    request: Request,
+    x_workspace_id: str | None = Header(default=None),
+):
+    workspace = resolve_request_workspace(request, x_workspace_id)
+    return repository.list_for_workspace(workspace["id"])
 
 
 @router.get("/{task_id}", response_model=Task)
-async def get_task(task_id: str):
-    return get_record(task_id)
+async def get_task(
+    task_id: str,
+    request: Request,
+    x_workspace_id: str | None = Header(default=None),
+):
+    workspace = resolve_request_workspace(request, x_workspace_id)
+    return get_record(task_id, workspace["id"])
 
 
 @router.post("/{task_id}/evaluate", response_model=RunEvaluation)
-async def evaluate_task_quality(task_id: str):
+async def evaluate_task_quality(
+    task_id: str,
+    request: Request,
+    x_workspace_id: str | None = Header(default=None),
+):
     """Explicitly run the blinded quality judge for one completed research run."""
 
-    task = get_record(task_id)
+    workspace = resolve_request_workspace(request, x_workspace_id)
+    task = get_record(task_id, workspace["id"])
 
     if task.execution_mode not in (
         TaskExecutionMode.SINGLE,
@@ -180,6 +199,7 @@ def prepare_task(
     payload: CreateTaskRequest,
     *,
     experiment_id: str | None = None,
+    workspace_id: str | None = None,
 ) -> Task:
     if not payload.directive.strip():
         raise HTTPException(422, "Directive must not be blank")
@@ -261,6 +281,7 @@ def prepare_task(
             ]
         ),
         experiment_id=experiment_id,
+        workspace_id=workspace_id,
     )
 
     if is_adaptive:
@@ -366,13 +387,30 @@ async def enqueue_task(
     return response
 
 
-@router.post("", response_model=Task, status_code=201)
 async def create_task(
     payload: CreateTaskRequest,
     background_tasks: BackgroundTasks,
+    *,
+    workspace_id: str | None = None,
 ):
-    task = prepare_task(payload)
+    """Internal creation boundary retained for coordinator/unit tests."""
+    task = prepare_task(payload, workspace_id=workspace_id)
     return await enqueue_task(task, background_tasks)
+
+
+@router.post("", response_model=Task, status_code=201)
+async def create_task_api(
+    payload: CreateTaskRequest,
+    background_tasks: BackgroundTasks,
+    request: Request,
+    x_workspace_id: str | None = Header(default=None),
+):
+    workspace = resolve_request_workspace(request, x_workspace_id)
+    return await create_task(
+        payload,
+        background_tasks,
+        workspace_id=workspace["id"],
+    )
 
 
 async def _run_stage(task: Task, stage: StageExecution, context: ExecutionContext):

@@ -22,6 +22,7 @@ from app.models.schemas import (
     TaskStatus,
 )
 from app.storage.database import repository
+from app.security.session import create_opaque_token, session_expiry, token_digest
 
 
 def quality_judgment(output: str) -> QualityJudgment:
@@ -78,6 +79,30 @@ class QualityEvaluationApiTests(unittest.TestCase):
 
         self.path_patch.start()
         repository.initialize()
+
+        now = datetime.now(timezone.utc).isoformat()
+        self.user_id = "USR-quality"
+        repository.save_user({
+            "id": self.user_id,
+            "google_sub": "google-USR-quality",
+            "email": "quality@example.com",
+            "display_name": "Quality User",
+            "profile_picture": None,
+            "email_verified": True,
+            "active": True,
+            "created_at": now,
+            "last_login_at": now,
+        })
+        self.personal_workspace = repository.ensure_personal_workspace(self.user_id)
+        self.session_token = create_opaque_token()
+        repository.save_auth_session({
+            "id": "SES-quality",
+            "user_id": self.user_id,
+            "token_digest": token_digest(self.session_token),
+            "created_at": now,
+            "expires_at": session_expiry().isoformat(),
+            "revoked_at": None,
+        })
 
     def tearDown(self):
         tasks._TASKS.clear()
@@ -137,6 +162,7 @@ class QualityEvaluationApiTests(unittest.TestCase):
             ),
             stages=[stage],
             output=output,
+            workspace_id=self.personal_workspace["id"],
         )
 
         if mode in (
@@ -161,6 +187,7 @@ class QualityEvaluationApiTests(unittest.TestCase):
             return_value=judgment,
         ) as judge:
             with TestClient(app) as client:
+                client.cookies.set("app_session", self.session_token)
                 response = client.post(
                     f"/api/v1/tasks/{task.id}/evaluate"
                 )
@@ -220,6 +247,7 @@ class QualityEvaluationApiTests(unittest.TestCase):
             return_value=judgment,
         ) as judge:
             with TestClient(app) as client:
+                client.cookies.set("app_session", self.session_token)
                 first = client.post(
                     f"/api/v1/tasks/{task.id}/evaluate"
                 )
@@ -253,6 +281,7 @@ class QualityEvaluationApiTests(unittest.TestCase):
             new_callable=AsyncMock,
         ) as judge:
             with TestClient(app) as client:
+                client.cookies.set("app_session", self.session_token)
                 response = client.post(
                     f"/api/v1/tasks/{task.id}/evaluate"
                 )
@@ -280,6 +309,7 @@ class QualityEvaluationApiTests(unittest.TestCase):
             new_callable=AsyncMock,
         ) as judge:
             with TestClient(app) as client:
+                client.cookies.set("app_session", self.session_token)
                 response = client.post(
                     f"/api/v1/tasks/{task.id}/evaluate"
                 )
@@ -308,6 +338,7 @@ class QualityEvaluationApiTests(unittest.TestCase):
             ),
         ):
             with TestClient(app) as client:
+                client.cookies.set("app_session", self.session_token)
                 response = client.post(
                     f"/api/v1/tasks/{task.id}/evaluate"
                 )
@@ -340,6 +371,7 @@ class QualityEvaluationApiTests(unittest.TestCase):
             ),
         ):
             with TestClient(app) as client:
+                client.cookies.set("app_session", self.session_token)
                 response = client.post(
                     f"/api/v1/tasks/{task.id}/evaluate"
                 )

@@ -1,17 +1,18 @@
 """Legacy aggregate endpoints derived from persisted simulation records."""
 import uuid
 from datetime import datetime, timezone
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Header, Query, Request
 from app.models.schemas import ActivityEvent, Task
 from app.api.routes.agents import EXECUTABLE
+from app.api.routes.workspaces import resolve_request_workspace
 from app.storage.database import repository
 from app.websocket.manager import manager
 
 router = APIRouter(prefix="/simulation", tags=["simulation"])
 
 
-def aggregate():
-    runs = repository.list()
+def aggregate(runs=None):
+    runs = repository.list() if runs is None else runs
     finished = [r for r in runs if r.status.value in ("completed", "failed")]
     completed = sum(r.status.value == "completed" for r in runs)
     stages = [s for r in runs for s in r.stages if s.started_at]
@@ -37,13 +38,27 @@ def aggregate():
 
 
 @router.get("/stats")
-async def get_simulation_stats():
-    return aggregate()
+async def get_simulation_stats(
+    request: Request,
+    x_workspace_id: str | None = Header(default=None),
+):
+    workspace = resolve_request_workspace(request, x_workspace_id)
+    return aggregate(repository.list_for_workspace(workspace["id"]))
 
 
 @router.get("/activity", response_model=list[ActivityEvent])
-async def get_activity_feed(limit: int = Query(20, ge=1, le=1000), simulation_id: str | None = None):
-    runs = [repository.get(simulation_id)] if simulation_id else repository.list()
+async def get_activity_feed(
+    request: Request,
+    limit: int = Query(20, ge=1, le=1000),
+    simulation_id: str | None = None,
+    x_workspace_id: str | None = Header(default=None),
+):
+    workspace = resolve_request_workspace(request, x_workspace_id)
+    runs = (
+        [repository.get_for_workspace(simulation_id, workspace["id"])]
+        if simulation_id
+        else repository.list_for_workspace(workspace["id"])
+    )
     activity = [a for run in runs if run for a in run.activities]
     return sorted(activity, key=lambda a: a.timestamp)[-limit:]
 

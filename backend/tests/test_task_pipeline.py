@@ -1,6 +1,7 @@
 """Isolated coordinator/API tests; no Groq requests or user database writes."""
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 from fastapi import BackgroundTasks
@@ -14,6 +15,7 @@ from app.main import app
 from app.models.schemas import CreateTaskRequest, TaskExecutionMode
 from app.storage.database import repository, Repository
 from app.storage import models as dbm
+from app.security.session import create_opaque_token, session_expiry, token_digest
 
 class FakeAgent:
     def __init__(self, name, order, failure=None):
@@ -57,6 +59,31 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.agent_patch.stop()
         self.path_patch.stop()
         self.temp.cleanup()
+    def authenticate_client(self, client, user_id="USR-test"):
+        now = datetime.now(timezone.utc).isoformat()
+        repository.save_user({
+            "id": user_id,
+            "google_sub": f"google-{user_id}",
+            "email": f"{user_id.lower()}@example.com",
+            "display_name": user_id,
+            "profile_picture": None,
+            "email_verified": True,
+            "active": True,
+            "created_at": now,
+            "last_login_at": now,
+        })
+        personal = repository.ensure_personal_workspace(user_id)
+        token = create_opaque_token()
+        repository.save_auth_session({
+            "id": f"SES-{user_id}",
+            "user_id": user_id,
+            "token_digest": token_digest(token),
+            "created_at": now,
+            "expires_at": session_expiry().isoformat(),
+            "revoked_at": None,
+        })
+        client.cookies.set("app_session", token)
+        return personal["id"]
     async def run_task(self, agent="orchestrator", mode="full_pipeline", uploads=None):
         queued = await tasks.create_task(CreateTaskRequest(
             directive="Original goal", assigned_agent_id=agent,
@@ -311,6 +338,7 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
             self.assertNotIn(excluded, context)
     async def test_api_mode_contract_and_invalid_adaptive_guard(self):
         with TestClient(app) as client:
+            self.authenticate_client(client)
             adaptive = client.post("/api/v1/simulations", json={
                 "directive": "Summarize", "executionMode": "adaptive"})
             self.assertEqual(adaptive.status_code, 422)
@@ -379,6 +407,7 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
             self.skipTest("Private benchmark JSON files are not provisioned")
         register_all(repository)
         with TestClient(app) as client:
+            self.authenticate_client(client)
             listed = client.get("/api/v1/datasets")
             self.assertEqual(listed.status_code, 200)
             self.assertEqual(len(listed.json()), 6)
@@ -429,6 +458,7 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.socket_patch.stop()
         try:
             with TestClient(app) as client:
+                self.authenticate_client(client)
                 with client.websocket_connect("/ws/live") as websocket:
                     response = client.post("/api/v1/simulations", json={"directive": "Socket test"})
                     self.assertEqual(response.status_code, 201)
@@ -450,6 +480,7 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.socket_patch.stop()
         try:
             with TestClient(app) as client:
+                self.authenticate_client(client)
                 with client.websocket_connect("/ws/live") as websocket:
                     response = client.post("/api/v1/simulations", json={
                         "directive": "Socket baseline", "executionMode": "single"})
@@ -472,6 +503,7 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
             self.socket_patch.start()
     async def test_api_upload_export_and_camel_case(self):
         with TestClient(app) as client:
+            self.authenticate_client(client)
             upload = client.post("/api/v1/uploads?filename=reference.csv",
                 content=b"name,value\na,42\n", headers={"Content-Type": "text/csv"})
             self.assertEqual(upload.status_code, 201, upload.text)

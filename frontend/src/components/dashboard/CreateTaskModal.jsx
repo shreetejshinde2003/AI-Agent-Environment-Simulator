@@ -3,6 +3,7 @@ import Modal from "../common/Modal";
 import Button from "../common/Button";
 import { apiClient } from "../../services/apiClient";
 import { useSimulation } from "../../context/SimulationContext";
+import { useWorkspace } from "../../hooks/useWorkspace";
 import { datasetOptions, DATASET_EMPTY } from "../../utils/runs";
 import {ADAPTIVE_CATEGORIES, createRequestLock, EXECUTION_STRATEGIES, runRequest, specialistAgents, validateReferenceFiles, validateRunDraft} from "../../utils/runComposer";
 import "./AgentActionForms.css";
@@ -86,6 +87,7 @@ export function RunConfigurationForm({draft, onChange, agents, datasets, dataset
 
 export default function CreateTaskModal({agents, onClose}) {
   const {openCreatedRun} = useSimulation();
+  const {activeWorkspaceId, activeWorkspace} = useWorkspace();
   const [draft, setDraft] = useState({directive: "", title: "", executionMode: "fixed", assignedAgentId: "research", datasetId: "", taskType: ""});
   const [uploads, setUploads] = useState([]);
   const [datasets, setDatasets] = useState(null);
@@ -128,13 +130,15 @@ export default function CreateTaskModal({agents, onClose}) {
     if (!lock.current.acquire()) return;
     setWork("submitting"); setError(null);
     try {
-      const run = await apiClient.createTask(runRequest(draft, uploads));
+      if (!activeWorkspaceId) throw new Error("Workspace is still resolving. Try again.");
+      const run = await apiClient.createTask(runRequest(draft, uploads), activeWorkspaceId);
       returnFocus.current = "[data-run-heading]";
       openCreatedRun(run); onClose();
     } catch (err) { setError(err); }
     finally { lock.current.release(); setWork(null); }
   }
   return <Modal title="New run" className="run-composer-dialog" onClose={onClose} canDismiss={!work} returnFocusRef={returnFocus}>
+    <p className="muted">Run workspace: <strong>{activeWorkspace?.name ?? "Resolving…"}</strong></p>
     <RunConfigurationForm draft={draft} onChange={patch => setDraft(previous => ({...previous, ...patch}))}
       agents={agents} datasets={datasets} datasetError={datasetError} uploads={uploads} work={work} error={error}
       onSubmit={submit} onUpload={uploadFiles} onDetach={id => setUploads(previous => previous.filter(upload => upload.id !== id))} onClose={onClose}/>

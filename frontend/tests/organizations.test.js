@@ -51,7 +51,7 @@ test("organization page exposes only private create/join membership actions", ()
   assert.match(html, /Create Organization/);
   assert.match(html, /Join Organization/);
   assert.match(html, /private code provided directly/);
-  assert.match(html, /simulation history is\s*not yet partitioned by workspace/);
+  assert.match(html, /Simulation history and new runs are scoped to this active workspace/);
   assert.doesNotMatch(html, /Browse organizations|Search organizations|Discover organizations/i);
 
 });

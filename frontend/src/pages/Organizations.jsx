@@ -241,8 +241,7 @@ export default function Organizations() {
 
       <p className="organization-boundary-note">
         Active workspace: <strong>{activeWorkspace?.name ?? "Resolving…"}</strong>.
-        Workspace selection is available now, but existing simulation history is
-        not yet partitioned by workspace.
+        Simulation history and new runs are scoped to this active workspace.
       </p>
     </div>
   );

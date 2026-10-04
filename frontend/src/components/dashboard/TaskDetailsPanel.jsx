@@ -15,7 +15,7 @@ export default function TaskDetailsPanel({task, view = "overview", onInspect}) {
   const [exporting, setExporting] = useState(false);
   async function download(format) {
     setExporting(true); setError(null);
-    try { await apiClient.exportRun(task.id, format); }
+    try { await apiClient.exportRun(task.id, format, task.workspaceId); }
     catch (err) { setError(err.message); }
     finally { setExporting(false); }
   }
@@ -42,7 +42,7 @@ export default function TaskDetailsPanel({task, view = "overview", onInspect}) {
       <dt>Measured duration</dt><dd>{duration(task.elapsedSeconds)}</dd>
       <dt>Recorded tokens</dt><dd>{tokens.total == null ? "Not recorded" : tokens.total.toLocaleString()}</dd>
       {stages.length > 0 && <><dt>Token coverage</dt><dd>{tokens.measured} of {stages.length} stage records</dd></>}
-      {view === "overview" && <><dt>Owner</dt><dd>{task.ownerId ?? "Shared workspace"}</dd></>}
+      {view === "overview" && <><dt>Workspace</dt><dd><code>{task.workspaceId ?? "Not recorded"}</code></dd></>}
     </dl>
     {view === "overview" && <>
     {task.executionMode === "single" && <p className="muted">One direct-answer baseline agent; no specialist handoffs or route decision.</p>}

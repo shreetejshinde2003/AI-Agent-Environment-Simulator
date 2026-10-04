@@ -20,6 +20,34 @@ router = APIRouter(
 )
 
 
+def resolve_request_workspace(
+    request: Request,
+    workspace_id: str | None = None,
+):
+    """Resolve the authenticated user's requested workspace.
+
+    Missing workspace identity defaults to the user's Personal Workspace.
+    Inaccessible workspaces deliberately return 404 so callers cannot probe
+    whether another tenant exists.
+    """
+
+    user, _ = auth._authenticated_record(request)
+
+    try:
+        return repository.resolve_workspace_for_user(
+            user["id"],
+            workspace_id,
+        )
+    except (PermissionError, ValueError) as exc:
+        raise HTTPException(
+            404,
+            detail={
+                "code": "workspace_unavailable",
+                "message": "Workspace is unavailable.",
+            },
+        ) from exc
+
+
 @router.get(
     "",
     response_model=WorkspaceListResponse,
