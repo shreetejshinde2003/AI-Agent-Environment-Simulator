@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Building2,
   KeyRound,
@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 
 import { workspaceClient } from "../services/workspaceClient";
+import { useWorkspace } from "../hooks/useWorkspace";
 import {
   JOIN_CODE_MAX,
   ORGANIZATION_NAME_MAX,
@@ -35,9 +36,13 @@ function WorkspaceCard({ workspace, personal = false }) {
 }
 
 export default function Organizations() {
-  const [workspaceData, setWorkspaceData] = useState(null);
-  const [loadState, setLoadState] = useState("loading");
-  const [loadError, setLoadError] = useState(null);
+  const {
+    workspaceData,
+    activeWorkspace,
+    status: loadState,
+    error: loadError,
+    refreshWorkspaces,
+  } = useWorkspace();
   const [organizationName, setOrganizationName] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [action, setAction] = useState(null);
@@ -45,21 +50,6 @@ export default function Organizations() {
   const [createdOrganization, setCreatedOrganization] = useState(null);
   const [notice, setNotice] = useState(null);
 
-  const refresh = useCallback(async () => {
-    setLoadState("loading");
-    setLoadError(null);
-    try {
-      setWorkspaceData(await workspaceClient.list());
-      setLoadState("ready");
-    } catch (error) {
-      setLoadError(error);
-      setLoadState("error");
-    }
-  }, []);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
 
   async function handleCreate(event) {
     event.preventDefault();
@@ -79,7 +69,7 @@ export default function Organizations() {
       );
       setCreatedOrganization(created);
       setOrganizationName("");
-      await refresh();
+      await refreshWorkspaces(created.id);
     } catch (error) {
       setActionError(error.message || "Unable to create organization.");
     } finally {
@@ -103,7 +93,7 @@ export default function Organizations() {
       const joined = await workspaceClient.joinOrganization(joinCode.trim());
       setJoinCode("");
       setNotice(`Joined ${joined.name} as ${joined.membershipRole}.`);
-      await refresh();
+      await refreshWorkspaces(joined.id);
     } catch (error) {
       setActionError(error.message || "Unable to join organization.");
     } finally {
@@ -164,7 +154,7 @@ export default function Organizations() {
             <p>Only workspaces available to your authenticated account are listed.</p>
           </div>
           {loadState === "error" && (
-            <button type="button" className="organization-secondary-button" onClick={refresh}>
+            <button type="button" className="organization-secondary-button" onClick={() => refreshWorkspaces().catch(() => {})}>
               Retry
             </button>
           )}
@@ -207,7 +197,7 @@ export default function Organizations() {
               disabled={busy}
               autoComplete="organization"
               onChange={event => setOrganizationName(event.target.value)}
-              placeholder="Example: Acme Research"
+              placeholder="Example: IICT"
             />
             <button
               type="submit"
@@ -250,8 +240,9 @@ export default function Organizations() {
       </div>
 
       <p className="organization-boundary-note">
-        Selecting which workspace is active comes next in Phase 4.2.8. This page
-        manages membership only and does not change simulation ownership yet.
+        Active workspace: <strong>{activeWorkspace?.name ?? "Resolving…"}</strong>.
+        Workspace selection is available now, but existing simulation history is
+        not yet partitioned by workspace.
       </p>
     </div>
   );

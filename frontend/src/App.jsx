@@ -1,6 +1,8 @@
 import AppShell from "./layout/AppShell";
 import RunPicker from "./components/dashboard/RunPicker";
 import { SimulationProvider, useSimulation } from "./context/SimulationContext";
+import WorkspaceProvider from "./context/WorkspaceProvider";
+import { useWorkspace } from "./hooks/useWorkspace";
 import LiveSimulation from "./pages/LiveSimulation";
 import TaskSummary from "./pages/TaskSummary";
 import Agents from "./pages/Agents";
@@ -16,6 +18,7 @@ import "./components/dashboard/SimulationWorkspace.css";
 const PAGES = {live: LiveSimulation, "task-summary": TaskSummary, agents: Agents,
   messages: Messages, logs: Logs, replay: Replay, organizations: Organizations, settings: Settings};
 function AppContent({ authUser, onSignOut }) {
+  const workspace = useWorkspace();
   const {
     activePage,
     setActivePage,
@@ -45,6 +48,7 @@ function AppContent({ authUser, onSignOut }) {
       activePage={activePage}
       onNavigate={setActivePage}
       user={user}
+      workspace={workspace}
       topbarProps={{
         goal:
           activePage === "live"
@@ -124,12 +128,14 @@ function AuthenticatedApp() {
   }
 
   return (
-    <SimulationProvider>
-      <AppContent
-        authUser={user}
-        onSignOut={signOut}
-      />
-    </SimulationProvider>
+    <WorkspaceProvider>
+      <SimulationProvider>
+        <AppContent
+          authUser={user}
+          onSignOut={signOut}
+        />
+      </SimulationProvider>
+    </WorkspaceProvider>
   );
 }
 

@@ -186,3 +186,58 @@
 .sidebar-legal-links a:hover {
   color: var(--text-primary);
 }
+
+/* --- Workspace switcher --- */
+.workspace-switcher {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.workspace-switcher > label {
+  display: block;
+  margin: 0 var(--space-1) var(--space-2);
+  color: var(--text-tertiary);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.workspace-switcher-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+}
+
+.workspace-switcher-control svg {
+  flex: 0 0 auto;
+}
+
+.workspace-switcher-control select {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.workspace-switcher-control select:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.workspace-switcher > p {
+  margin: var(--space-2) var(--space-1) 0;
+  color: var(--text-tertiary);
+  font-size: 0.68rem;
+  line-height: 1.35;
+}

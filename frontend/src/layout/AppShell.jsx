@@ -21,6 +21,7 @@ export default function AppShell({
   onNavigate,
   topbarProps = {},
   user,
+  workspace,
   children,
 }) {
   // AppShell is the one place allowed to reach into context directly —
@@ -31,7 +32,13 @@ export default function AppShell({
 
   return (
     <div className="app-shell">
-      <Sidebar activePage={activePage} onNavigate={onNavigate} user={user} stats={stats} />
+      <Sidebar
+        activePage={activePage}
+        onNavigate={onNavigate}
+        user={user}
+        workspace={workspace}
+        stats={stats}
+      />
       <div className="app-shell-main">
         <Topbar {...topbarProps} connectionStatus={connectionStatus} isDemoMode={isDemoMode} />
         <main className="app-shell-content" tabIndex={-1}>{children}</main>

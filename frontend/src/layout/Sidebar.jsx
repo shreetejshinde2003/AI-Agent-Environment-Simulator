@@ -1,5 +1,6 @@
 import { Activity, ClipboardList, Users, MessageSquare, ScrollText, RotateCcw, Settings, Bot, LogOut, Building2 } from "lucide-react";
 import SimulationInfoPanel from "../components/dashboard/SimulationInfoPanel";
+import WorkspaceSwitcher from "./WorkspaceSwitcher";
 import "./Sidebar.css";
 
 const NAV_ITEMS = [
@@ -24,7 +25,7 @@ const NAV_ITEMS = [
  *  - stats: SimulationStats | undefined — if provided, renders the
  *    "Simulation Info" block above the user footer (see reference image)
  */
-export default function Sidebar({ activePage = "live", onNavigate = () => {}, user, stats }) {
+export default function Sidebar({ activePage = "live", onNavigate = () => {}, user, workspace, stats }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
@@ -36,6 +37,14 @@ export default function Sidebar({ activePage = "live", onNavigate = () => {}, us
           <span className="sidebar-brand-subtitle">Environment Simulator</span>
         </div>
       </div>
+
+      <WorkspaceSwitcher
+        workspaces={workspace?.workspaces}
+        activeWorkspace={workspace?.activeWorkspace}
+        status={workspace?.status}
+        error={workspace?.error}
+        onSelect={workspace?.selectWorkspace}
+      />
 
       <nav className="sidebar-nav" aria-label="Main navigation">
         {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
