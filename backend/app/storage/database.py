@@ -23,6 +23,7 @@ from sqlalchemy.exc import IntegrityError
 from app.core.config import settings
 from app.models.schemas import Task, UploadedContext
 from app.storage import models as dbm
+from app.security.tenant_db_context import tenant_transaction
 from app.security.workspaces import (
     generate_join_code,
     join_code_digest,
@@ -361,6 +362,81 @@ class Repository:
     def save(self, task: Task):
         with self.engine.begin() as connection:
             self._save_task(connection, task)
+
+    def save_for_tenant(
+        self,
+        task: Task,
+        *,
+        workspace_id: str,
+        user_id: str,
+    ):
+        """Persist one simulation inside an explicit trusted tenant context.
+
+        The task payload must already belong to the selected workspace.  The
+        mismatch check happens before opening a transaction so caller mistakes
+        cannot be hidden by PostgreSQL RLS.
+        """
+
+        if task.workspace_id != workspace_id:
+            raise ValueError("Task workspace does not match tenant context.")
+
+        with tenant_transaction(
+            self.engine,
+            workspace_id=workspace_id,
+            user_id=user_id,
+        ) as connection:
+            self._save_task(connection, task)
+
+    def get_for_tenant(
+        self,
+        task_id: str,
+        *,
+        workspace_id: str,
+        user_id: str,
+    ):
+        """Read one simulation through a transaction carrying tenant context."""
+
+        with tenant_transaction(
+            self.engine,
+            workspace_id=workspace_id,
+            user_id=user_id,
+        ) as connection:
+            row = connection.execute(
+                select(
+                    dbm.simulations.c.workspace_id,
+                    dbm.simulations.c.payload,
+                ).where(
+                    dbm.simulations.c.id == task_id,
+                    dbm.simulations.c.workspace_id == workspace_id,
+                )
+            ).mappings().first()
+        return self._task_from_row(row)
+
+    def list_for_tenant(
+        self,
+        *,
+        workspace_id: str,
+        user_id: str,
+    ):
+        """List simulations only inside the selected trusted tenant context."""
+
+        with tenant_transaction(
+            self.engine,
+            workspace_id=workspace_id,
+            user_id=user_id,
+        ) as connection:
+            rows = connection.execute(
+                select(
+                    dbm.simulations.c.workspace_id,
+                    dbm.simulations.c.payload,
+                ).where(
+                    dbm.simulations.c.workspace_id == workspace_id
+                ).order_by(
+                    dbm.simulations.c.created_at,
+                    dbm.simulations.c.id,
+                )
+            ).mappings().all()
+        return [self._task_from_row(row) for row in rows]
 
     @staticmethod
     def _task_from_row(row):
