@@ -53,13 +53,14 @@ def test_simulation_derived_tables_are_joinable_to_the_workspace_root():
         assert "simulation_id" in dbm.metadata.tables[table_name].c
 
 
-def test_uploads_are_explicitly_blocked_from_rls_until_ownership_is_added():
+def test_uploads_are_direct_tenant_owned_after_v9_hardening():
     rule = TABLE_ISOLATION_RULES["uploads"]
-
-    assert rule.scope == IsolationScope.REQUIRES_SCHEMA_HARDENING
-    assert rule.workspace_column is None
-    assert "workspace_id" not in dbm.uploads.c
-    assert "owner_user_id" not in dbm.uploads.c
+    assert rule.scope == IsolationScope.TENANT_DIRECT
+    assert rule.workspace_column == "workspace_id"
+    assert "workspace_id" in dbm.uploads.c
+    assert "created_by_user_id" in dbm.uploads.c
+    assert dbm.uploads.c.workspace_id.nullable
+    assert dbm.uploads.c.created_by_user_id.nullable
 
 
 def test_global_and_identity_tables_are_not_mistaken_for_tenant_business_data():

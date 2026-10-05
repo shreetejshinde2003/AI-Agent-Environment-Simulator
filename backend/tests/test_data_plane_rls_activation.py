@@ -42,9 +42,18 @@ class Result:
 class ActivationConnection:
     dialect = SimpleNamespace(name="postgresql")
 
-    def __init__(self, *, unsafe_role=False, unassigned=False, enabled=(), policies=None):
+    def __init__(
+        self,
+        *,
+        unsafe_role=False,
+        unassigned=False,
+        unresolved_uploads=False,
+        enabled=(),
+        policies=None,
+    ):
         self.unsafe_role = unsafe_role
         self.unassigned = unassigned
+        self.unresolved_uploads = unresolved_uploads
         self.enabled = set(enabled)
         self.policies = policies or {}
         self.queries = []
@@ -62,17 +71,19 @@ class ActivationConnection:
                            "relforcerowsecurity": False})
         if "FROM pg_policy" in sql:
             return Result(self.policies.get(parameters["table"], []))
-        if "workspace_id IS NULL" in sql:
+        if "FROM uploads WHERE workspace_id IS NULL" in sql:
+            return Result(self.unresolved_uploads)
+        if "FROM simulations WHERE workspace_id IS NULL" in sql:
             return Result(self.unassigned)
         if "schema_version.version" in sql:
-            return Result([8])
+            return Result([9])
         pytest.fail(f"Unexpected activation query: {sql}")
 
     def exec_driver_sql(self, statement):
         self.ddl.append(statement)
 
 
-def test_activation_keeps_data_and_bootstrap_tables_and_adds_hr_roles_only():
+def test_activation_includes_data_bootstrap_hr_roles_and_uploads():
     assert DATA_PLANE_RLS_TABLES == {
         "simulations", "tasks", "agent_executions", "agent_messages",
         "activity_events", "run_events", "simulation_metrics", "simulation_uploads",
@@ -80,13 +91,13 @@ def test_activation_keeps_data_and_bootstrap_tables_and_adds_hr_roles_only():
     assert BOOTSTRAP_RLS_TABLES == {"workspaces", "organization_memberships"}
     assert HR_ROLE_RLS_TABLES == {"organization_human_role_assignments"}
     assert DEFERRED_RLS_TABLES == set()
-    assert "uploads" not in ACTIVE_RLS_TABLES
+    assert "uploads" in ACTIVE_RLS_TABLES
     connection = ActivationConnection()
     install_data_plane_rls_policies(connection)
     expected = tuple(sql for policy in POSTGRES_RLS_POLICIES
                      if policy.table in ACTIVE_RLS_TABLES for sql in policy.ddl())
     assert tuple(connection.ddl) == expected
-    assert len(expected) == 46
+    assert len(expected) == 50
     for table in ACTIVE_RLS_TABLES:
         assert f'ALTER TABLE "{table}" FORCE ROW LEVEL SECURITY' in connection.ddl
     assert not any(f'ON "{table}"' in sql for table in DEFERRED_RLS_TABLES
@@ -110,7 +121,7 @@ def test_hr_policy_refresh_restores_force_without_disabling_an_activated_table()
     assert not any("DISABLE ROW" in sql or "NO FORCE" in sql for sql in connection.ddl)
 
 
-@pytest.mark.parametrize("table", ["tasks", "workspaces", "organization_memberships", "organization_human_role_assignments"])
+@pytest.mark.parametrize("table", ["tasks", "workspaces", "organization_memberships", "organization_human_role_assignments", "uploads"])
 def test_unknown_policy_is_not_ored_with_tenant_policy_or_deleted(table):
     connection = ActivationConnection(policies={table: [POLICY_NAME, "allow_all"]})
     with pytest.raises(RuntimeError, match="Unreviewed"):
@@ -132,12 +143,25 @@ def test_unassigned_legacy_history_blocks_first_activation_without_claiming_it()
     assert connection.ddl == []
 
 
+def test_unresolved_legacy_uploads_block_first_upload_rls_activation():
+    connection = ActivationConnection(unresolved_uploads=True)
+    with pytest.raises(RuntimeError, match="Legacy uploads have no workspace ownership"):
+        install_data_plane_rls_policies(connection)
+    assert connection.ddl == []
+
+
 def test_repeat_activation_restores_force_without_unscoped_payload_read():
-    connection = ActivationConnection(enabled=DATA_PLANE_RLS_TABLES,
-                                      policies={t: [POLICY_NAME] for t in DATA_PLANE_RLS_TABLES})
+    connection = ActivationConnection(
+        enabled=ACTIVE_RLS_TABLES,
+        policies={t: [POLICY_NAME] for t in ACTIVE_RLS_TABLES},
+    )
     install_data_plane_rls_policies(connection)
-    assert len(connection.ddl) == 46
-    assert not any("FROM simulations" in sql for sql, _ in connection.queries)
+    assert len(connection.ddl) == 50
+    assert not any(
+        "FROM simulations WHERE workspace_id IS NULL" in sql
+        or "FROM uploads WHERE workspace_id IS NULL" in sql
+        for sql, _ in connection.queries
+    )
 
 
 def test_sqlite_activation_is_a_noop():
@@ -190,7 +214,7 @@ def test_postgresql_initialize_installs_only_after_role_and_schema_preflight(mon
     repo.initialize()
     assert created == [connection]
     assert connection.ddl[0] == "SELECT pg_advisory_xact_lock(721842)"
-    assert len(connection.ddl) == 47
+    assert len(connection.ddl) == 51
     connection.unsafe_role = True
     created.clear()
     with pytest.raises(RuntimeError, match="NOSUPERUSER"):

@@ -237,6 +237,7 @@ def prepare_task(
     *,
     experiment_id: str | None = None,
     workspace_id: str | None = None,
+    user_id: str | None = None,
 ) -> Task:
     if not payload.directive.strip():
         raise HTTPException(422, "Directive must not be blank")
@@ -252,7 +253,16 @@ def prepare_task(
 
     uploads = []
     for upload_id in dict.fromkeys(payload.upload_ids):
-        upload = repository.get_upload(upload_id)
+        if workspace_id is not None and user_id is not None:
+            upload = repository.get_upload_for_tenant(
+                upload_id,
+                workspace_id=workspace_id,
+                user_id=user_id,
+            )
+        elif workspace_id is not None:
+            upload = repository.get_upload_for_workspace(upload_id, workspace_id)
+        else:
+            upload = repository.get_upload(upload_id)
         if upload is None:
             raise HTTPException(404, "Uploaded context not found")
         uploads.append(upload)
@@ -445,7 +455,11 @@ async def create_task(
     user_id: str | None = None,
 ):
     """Internal creation boundary retained for coordinator/unit tests."""
-    task = prepare_task(payload, workspace_id=workspace_id)
+    task = prepare_task(
+        payload,
+        workspace_id=workspace_id,
+        user_id=user_id,
+    )
     return await enqueue_task(task, background_tasks, user_id=user_id)
 
 

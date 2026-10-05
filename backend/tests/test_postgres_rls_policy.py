@@ -12,7 +12,7 @@ from app.security.postgres_rls import (
 from app.security.tenant_isolation import IsolationScope, TABLE_ISOLATION_RULES
 
 
-def test_rls_covers_every_current_workspace_owned_table_except_blocked_uploads():
+def test_rls_covers_every_current_workspace_owned_table_including_uploads():
     expected = {
         rule.table
         for rule in TABLE_ISOLATION_RULES.values()
@@ -24,7 +24,7 @@ def test_rls_covers_every_current_workspace_owned_table_except_blocked_uploads()
         }
     }
     assert POSTGRES_RLS_TABLES == expected
-    assert "uploads" not in POSTGRES_RLS_TABLES
+    assert "uploads" in POSTGRES_RLS_TABLES
 
 
 def test_every_rls_table_enables_and_forces_row_level_security():
@@ -40,6 +40,7 @@ def test_direct_tenant_policies_compare_against_transaction_workspace_context():
     for table in (
         "organization_human_role_assignments",
         "simulations",
+        "uploads",
     ):
         policy = policies[table]
         assert "current_setting('app.current_workspace_id', true)" in policy.using_sql

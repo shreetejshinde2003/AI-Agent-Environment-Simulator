@@ -120,10 +120,11 @@ TABLE_ISOLATION_RULES: dict[str, TableIsolationRule] = {
     ),
     "uploads": TableIsolationRule(
         "uploads",
-        IsolationScope.REQUIRES_SCHEMA_HARDENING,
+        IsolationScope.TENANT_DIRECT,
+        workspace_column="workspace_id",
         notes=(
-            "Uploads can exist before attachment to a simulation and currently carry no "
-            "workspace_id or owner_user_id. Add explicit ownership before relying on RLS."
+            "V9 explicit workspace ownership is API-scoped and ready for direct PostgreSQL RLS. "
+            "Startup refuses first activation while unresolved legacy workspace ownership remains."
         ),
     ),
     "agent_roster": TableIsolationRule(

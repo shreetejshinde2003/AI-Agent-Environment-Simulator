@@ -36,7 +36,7 @@ from app.security.workspaces import (
     join_code_digest,
 )
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 
 
 def normalize_url(url: str | None) -> str:
@@ -153,6 +153,63 @@ class Repository:
             "CHECK (membership_role IN ('owner', 'admin', 'member'))"
         )
 
+    @staticmethod
+    def _ensure_upload_ownership_columns(connection):
+        """Add V9 upload ownership without inventing historical actor identity."""
+        if "uploads" not in inspect(connection).get_table_names():
+            return
+
+        columns = {
+            column["name"]
+            for column in inspect(connection).get_columns("uploads")
+        }
+
+        if "workspace_id" not in columns:
+            connection.exec_driver_sql(
+                "ALTER TABLE uploads ADD COLUMN workspace_id VARCHAR(80) "
+                "REFERENCES workspaces(id) ON DELETE RESTRICT"
+            )
+
+        if "created_by_user_id" not in columns:
+            connection.exec_driver_sql(
+                "ALTER TABLE uploads ADD COLUMN created_by_user_id VARCHAR(80) "
+                "REFERENCES users(id) ON DELETE RESTRICT"
+            )
+
+        connection.exec_driver_sql(
+            "CREATE INDEX IF NOT EXISTS ix_uploads_workspace_created "
+            "ON uploads (workspace_id, created_at)"
+        )
+
+        connection.exec_driver_sql(
+            "CREATE INDEX IF NOT EXISTS ix_uploads_created_by "
+            "ON uploads (created_by_user_id)"
+        )
+
+        # Recover workspace ownership only when every linked simulation
+        # agrees on one non-null workspace.
+        # Historical uploader identity cannot be reconstructed and remains NULL.
+        connection.exec_driver_sql(
+            """
+            UPDATE uploads
+            SET workspace_id = (
+                SELECT MIN(s.workspace_id)
+                FROM simulation_uploads AS su
+                JOIN simulations AS s ON s.id = su.simulation_id
+                WHERE su.upload_id = uploads.id
+                  AND s.workspace_id IS NOT NULL
+            )
+            WHERE workspace_id IS NULL
+              AND (
+                SELECT COUNT(DISTINCT s.workspace_id)
+                FROM simulation_uploads AS su
+                JOIN simulations AS s ON s.id = su.simulation_id
+                WHERE su.upload_id = uploads.id
+                  AND s.workspace_id IS NOT NULL
+              ) = 1
+            """
+        )
+
     def initialize(self):
         engine = self.engine
         if engine.dialect.name == "sqlite":
@@ -178,8 +235,8 @@ class Repository:
                         )
                     )
 
-                elif versions in ([2], [3], [4], [5], [6], [7]):
-                    # V8 remains additive. create_all above safely creates
+                elif versions in ([2], [3], [4], [5], [6], [7], [8]):
+                    # V9 remains additive. create_all above safely creates
                     # newer tables; migrations add simulation ownership and,
                     # for V5/V6 membership tables, widen the role constraint.
                     previous_version = versions[0]
@@ -187,6 +244,7 @@ class Repository:
                     self._ensure_simulation_workspace_column(connection)
                     if previous_version in (5, 6):
                         self._ensure_admin_membership_role(connection)
+                    self._ensure_upload_ownership_columns(connection)
 
                     connection.execute(
                         update(dbm.schema_version)
@@ -241,12 +299,13 @@ class Repository:
                     )
                 )
 
-            elif versions in ([2], [3], [4], [5], [6], [7]):
+            elif versions in ([2], [3], [4], [5], [6], [7], [8]):
                 previous_version = versions[0]
 
                 self._ensure_simulation_workspace_column(connection)
                 if previous_version in (5, 6):
                     self._ensure_admin_membership_role(connection)
+                self._ensure_upload_ownership_columns(connection)
 
                 connection.execute(
                     update(dbm.schema_version)
@@ -305,24 +364,113 @@ class Repository:
         else:
             connection.execute(insert(table).values(**values))
 
-    def _save_upload(self, connection, upload: UploadedContext):
-        self._upsert(connection, dbm.uploads, "id", dict(
-            id=upload.id, filename=upload.filename, format=upload.format,
-            size_bytes=upload.size_bytes, created_at=timestamp(upload.created_at),
-            payload=upload.model_dump(mode="json")))
+    def _save_upload(
+        self,
+        connection,
+        upload: UploadedContext,
+        *,
+        workspace_id: str | None = None,
+        created_by_user_id: str | None = None,
+    ):
+        values = dict(
+            id=upload.id,
+            filename=upload.filename,
+            format=upload.format,
+            size_bytes=upload.size_bytes,
+            created_at=timestamp(upload.created_at),
+            payload=upload.model_dump(mode="json"),
+        )
+        if workspace_id is not None:
+            values["workspace_id"] = workspace_id
+        if created_by_user_id is not None:
+            values["created_by_user_id"] = created_by_user_id
+        self._upsert(connection, dbm.uploads, "id", values)
 
     def save_upload(self, upload: UploadedContext):
+        self._require_legacy_sqlite()
         with self.engine.begin() as connection:
             self._save_upload(connection, upload)
 
+    def save_upload_for_tenant(
+        self,
+        upload: UploadedContext,
+        *,
+        workspace_id: str,
+        user_id: str,
+    ):
+        if not workspace_id or not user_id:
+            raise ValueError("Upload tenant ownership requires workspace and user.")
+        with tenant_transaction(
+            self.engine,
+            workspace_id=workspace_id,
+            user_id=user_id,
+        ) as connection:
+            self._save_upload(
+                connection,
+                upload,
+                workspace_id=workspace_id,
+                created_by_user_id=user_id,
+            )
+
     def get_upload(self, upload_id: str):
+        self._require_legacy_sqlite()
         with self.engine.connect() as connection:
-            payload = connection.execute(select(dbm.uploads.c.payload).where(dbm.uploads.c.id == upload_id)).scalar_one_or_none()
+            payload = connection.execute(
+                select(dbm.uploads.c.payload).where(dbm.uploads.c.id == upload_id)
+            ).scalar_one_or_none()
+        return UploadedContext.model_validate(payload) if payload is not None else None
+
+    def get_upload_for_workspace(self, upload_id: str, workspace_id: str):
+        """Legacy SQLite-only workspace filter retained for unit compatibility."""
+        self._require_legacy_sqlite()
+        if not workspace_id:
+            raise ValueError("Workspace is required for tenant upload lookup.")
+        with self.engine.connect() as connection:
+            payload = connection.execute(
+                select(dbm.uploads.c.payload).where(
+                    dbm.uploads.c.id == upload_id,
+                    dbm.uploads.c.workspace_id == workspace_id,
+                )
+            ).scalar_one_or_none()
+        return UploadedContext.model_validate(payload) if payload is not None else None
+
+    def get_upload_for_tenant(
+        self,
+        upload_id: str,
+        *,
+        workspace_id: str,
+        user_id: str,
+    ):
+        """Read one upload through the same trusted context enforced by PostgreSQL RLS."""
+        with tenant_transaction(
+            self.engine,
+            workspace_id=workspace_id,
+            user_id=user_id,
+        ) as connection:
+            payload = connection.execute(
+                select(dbm.uploads.c.payload).where(
+                    dbm.uploads.c.id == upload_id,
+                    dbm.uploads.c.workspace_id == workspace_id,
+                )
+            ).scalar_one_or_none()
         return UploadedContext.model_validate(payload) if payload is not None else None
 
     def _save_task(self, connection, task: Task):
         for upload in task.uploads:
-            self._save_upload(connection, upload)
+            if task.workspace_id is None:
+                self._save_upload(connection, upload)
+                continue
+
+            upload_workspace = connection.execute(
+                select(dbm.uploads.c.workspace_id).where(
+                    dbm.uploads.c.id == upload.id
+                )
+            ).scalar_one_or_none()
+            if upload_workspace != task.workspace_id:
+                raise ValueError(
+                    "Task upload does not belong to the task workspace."
+                )
+
         self._upsert(connection, dbm.simulations, "id", dict(
             id=task.id, owner_id=task.owner_id, workspace_id=task.workspace_id,
             dataset_id=task.dataset_id,

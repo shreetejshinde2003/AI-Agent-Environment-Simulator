@@ -1,4 +1,4 @@
-"""Version 8 operational tables; benchmark records never enter this schema."""
+"""Version 9 operational tables; benchmark records never enter this schema."""
 
 from sqlalchemy import (JSON, Boolean, CheckConstraint, Column, Float, ForeignKey,
                         Index, Integer, MetaData, String, Table, Text)
@@ -292,9 +292,19 @@ simulation_metrics = Table("simulation_metrics", metadata,
     Column("elapsed_seconds", Float), Column("total_tokens", Integer),
     Column("measured_stages", Integer, nullable=False))
 uploads = Table("uploads", metadata,
-    Column("id", String(80), primary_key=True), Column("filename", String(255), nullable=False),
-    Column("format", String(20), nullable=False), Column("size_bytes", Integer, nullable=False),
-    Column("created_at", String(40), nullable=False), Column("payload", json_type, nullable=False))
+    Column("id", String(80), primary_key=True),
+    Column("workspace_id", String(80),
+           ForeignKey("workspaces.id", ondelete="RESTRICT"), nullable=True),
+    Column("created_by_user_id", String(80),
+           ForeignKey("users.id", ondelete="RESTRICT"), nullable=True),
+    Column("filename", String(255), nullable=False),
+    Column("format", String(20), nullable=False),
+    Column("size_bytes", Integer, nullable=False),
+    Column("created_at", String(40), nullable=False),
+    Column("payload", json_type, nullable=False))
+
+Index("ix_uploads_workspace_created", uploads.c.workspace_id, uploads.c.created_at)
+Index("ix_uploads_created_by", uploads.c.created_by_user_id)
 simulation_uploads = Table("simulation_uploads", metadata,
     Column("simulation_id", String(80), ForeignKey("simulations.id", ondelete="CASCADE"), primary_key=True),
     Column("upload_id", String(80), ForeignKey("uploads.id", ondelete="RESTRICT"), primary_key=True))

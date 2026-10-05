@@ -7,9 +7,11 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import PurePath
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Header, HTTPException, Request
 from app.models.schemas import UploadedContext
+from app.security.rbac import Permission
 from app.storage.database import repository
+from app.api.routes.workspaces import require_request_permission, request_user_id
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
 MAX_BYTES = 256 * 1024
@@ -57,7 +59,17 @@ def parse_upload(filename: str, content: bytes):
 
 
 @router.post("", status_code=201)
-async def upload_context(request: Request, filename: str):
+async def upload_context(
+    request: Request,
+    filename: str,
+    x_workspace_id: str | None = Header(default=None, alias="X-Workspace-Id"),
+):
+    workspace = require_request_permission(
+        request,
+        x_workspace_id,
+        Permission.SIMULATION_CREATE,
+    )
+    user_id = request_user_id(request)
     # Raw File request avoids an additional multipart dependency and permits
     # enforcing the byte limit while streaming, before buffering the full body.
     allowed_types = {"text/plain", "text/csv", "application/json", "application/octet-stream",
@@ -71,13 +83,30 @@ async def upload_context(request: Request, filename: str):
             raise HTTPException(413, "Maximum upload size is 256 KiB")
         data.extend(chunk)
     upload = parse_upload(filename, bytes(data))
-    repository.save_upload(upload)
+    repository.save_upload_for_tenant(
+        upload,
+        workspace_id=workspace["id"],
+        user_id=user_id,
+    )
     return upload
 
 
 @router.get("/{upload_id}")
-async def get_upload(upload_id: str):
-    upload = repository.get_upload(upload_id)
+async def get_upload(
+    upload_id: str,
+    request: Request,
+    x_workspace_id: str | None = Header(default=None, alias="X-Workspace-Id"),
+):
+    workspace = require_request_permission(
+        request,
+        x_workspace_id,
+        Permission.SIMULATION_VIEW,
+    )
+    upload = repository.get_upload_for_tenant(
+        upload_id,
+        workspace_id=workspace["id"],
+        user_id=request_user_id(request),
+    )
     if upload is None:
         raise HTTPException(404, "Upload not found")
     return upload

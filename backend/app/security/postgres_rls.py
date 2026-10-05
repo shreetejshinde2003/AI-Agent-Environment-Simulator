@@ -177,7 +177,13 @@ DATA_PLANE_RLS_TABLES = frozenset({
 })
 BOOTSTRAP_RLS_TABLES = frozenset({"workspaces", "organization_memberships"})
 HR_ROLE_RLS_TABLES = frozenset({"organization_human_role_assignments"})
-ACTIVE_RLS_TABLES = DATA_PLANE_RLS_TABLES | BOOTSTRAP_RLS_TABLES | HR_ROLE_RLS_TABLES
+UPLOAD_RLS_TABLES = frozenset({"uploads"})
+ACTIVE_RLS_TABLES = (
+    DATA_PLANE_RLS_TABLES
+    | BOOTSTRAP_RLS_TABLES
+    | HR_ROLE_RLS_TABLES
+    | UPLOAD_RLS_TABLES
+)
 DEFERRED_RLS_TABLES = POSTGRES_RLS_TABLES - ACTIVE_RLS_TABLES
 
 
@@ -238,6 +244,16 @@ def install_data_plane_rls_policies(connection) -> None:
             raise RuntimeError(
                 "Legacy simulations have no workspace ownership. Back up and "
                 "explicitly assign their workspace before activating data-plane RLS."
+            )
+
+    if not states["uploads"]["relrowsecurity"]:
+        unresolved_uploads = connection.execute(text(
+            "SELECT EXISTS (SELECT 1 FROM uploads WHERE workspace_id IS NULL)"
+        )).scalar_one()
+        if unresolved_uploads:
+            raise RuntimeError(
+                "Legacy uploads have no workspace ownership. Back up and explicitly "
+                "resolve or remove them before activating upload RLS."
             )
 
     for policy in POSTGRES_RLS_POLICIES:

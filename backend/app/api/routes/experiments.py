@@ -31,6 +31,7 @@ async def create_matched_experiment(
     )
     experiment_id = f"E-{uuid.uuid4().hex[:12]}"
     created_at = datetime.now(timezone.utc)
+    user_id = request_user_id(request)
 
     common = dict(
         directive=payload.directive,
@@ -48,6 +49,7 @@ async def create_matched_experiment(
         ),
         experiment_id=experiment_id,
         workspace_id=workspace["id"],
+        user_id=user_id,
     )
 
     fixed = prepare_task(
@@ -57,6 +59,7 @@ async def create_matched_experiment(
         ),
         experiment_id=experiment_id,
         workspace_id=workspace["id"],
+        user_id=user_id,
     )
 
     adaptive = prepare_task(
@@ -66,6 +69,7 @@ async def create_matched_experiment(
         ),
         experiment_id=experiment_id,
         workspace_id=workspace["id"],
+        user_id=user_id,
     )
 
     tasks = (single, fixed, adaptive)
@@ -90,7 +94,6 @@ async def create_matched_experiment(
 
     input_fingerprint = next(iter(fingerprints))
 
-    user_id = request_user_id(request)
     responses = []
     for task in tasks:
         responses.append(

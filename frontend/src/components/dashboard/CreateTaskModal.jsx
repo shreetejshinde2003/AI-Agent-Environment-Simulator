@@ -116,8 +116,9 @@ export default function CreateTaskModal({agents, onClose}) {
     if (!lock.current.acquire()) return;
     setWork("uploading"); setError(null);
     try {
+      if (!activeWorkspaceId) throw new Error("Workspace is still resolving. Try again.");
       for (const file of files) {
-        const uploaded = await apiClient.upload(file);
+        const uploaded = await apiClient.upload(file, activeWorkspaceId);
         setUploads(previous => [...previous, uploaded]);
       }
     } catch (err) { setError(err); }

@@ -33,8 +33,9 @@ export const apiClient = {
   getMessages: (limit = 50, workspaceId) => request("/messages?limit=" + limit, {headers: workspaceHeaders(workspaceId)}),
   getSimulationStats: workspaceId => request("/simulation/stats", {headers: workspaceHeaders(workspaceId)}),
   getActivityFeed: (limit = 20, workspaceId) => request("/simulation/activity?limit=" + limit, {headers: workspaceHeaders(workspaceId)}),
-  upload: file => request("/uploads?filename=" + encodeURIComponent(file.name),
-    {method: "POST", body: file, headers: {"Content-Type": file.type || "application/octet-stream"}}),
+  upload: (file, workspaceId) => request("/uploads?filename=" + encodeURIComponent(file.name),
+    {method: "POST", body: file, headers: {...workspaceHeaders(workspaceId),
+      "Content-Type": file.type || "application/octet-stream"}}),
   async exportRun(id, format, workspaceId) {
     const response = await fetch(API_BASE_URL + "/api/v1/simulations/" + encodeURIComponent(id) +
       "/export?format=" + format, {credentials: "include", headers: workspaceHeaders(workspaceId), signal: AbortSignal.timeout(15000)});

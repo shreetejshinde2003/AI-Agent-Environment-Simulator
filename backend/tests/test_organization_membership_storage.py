@@ -88,7 +88,7 @@ def make_membership(
     }
 
 
-def test_fresh_v8_database_contains_membership_table(
+def test_fresh_v9_database_contains_membership_table(
     tmp_path,
 ):
     repo = Repository(
@@ -109,7 +109,7 @@ def test_fresh_v8_database_contains_membership_table(
                 "PRAGMA user_version"
             ).fetchone()[0]
             == SCHEMA_VERSION
-            == 8
+            == 9
         )
 
 
@@ -499,7 +499,7 @@ def test_deleting_organization_cascades_memberships(
     assert rows == []
 
 
-def test_schema_v4_migrates_additively_to_v8(
+def test_schema_v4_migrates_additively_to_v9(
     tmp_path,
 ):
     path = tmp_path / "v4.db"
@@ -554,7 +554,7 @@ def test_schema_v4_migrates_additively_to_v8(
             )
         ).scalar_one()
 
-    assert version == SCHEMA_VERSION == 8
+    assert version == SCHEMA_VERSION == 9
 
     with sqlite3.connect(path) as connection:
         assert (
@@ -562,5 +562,5 @@ def test_schema_v4_migrates_additively_to_v8(
                 "PRAGMA user_version"
             ).fetchone()[0]
             == SCHEMA_VERSION
-            == 8
+            == 9
         )
