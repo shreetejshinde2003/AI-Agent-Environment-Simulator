@@ -11,6 +11,7 @@ from app.models.schemas import (
     OrganizationJoined,
     OrganizationMemberListResponse,
     OrganizationMemberRoleChanged,
+    OrganizationMemberDeactivated,
     OrganizationMemberSummary,
     WorkspaceListResponse,
     WorkspaceSummary,
@@ -381,6 +382,64 @@ async def change_organization_member_role(
         user_id=membership["user_id"],
         membership_role=membership["membership_role"],
     )
+
+@router.delete(
+    "/organizations/{workspace_id}/members/{target_user_id}",
+    response_model=OrganizationMemberDeactivated,
+)
+async def deactivate_organization_member(
+    workspace_id: str,
+    target_user_id: str,
+    request: Request,
+):
+    """Soft-remove one active organization member under RBAC safeguards."""
+
+    user, _ = auth._authenticated_record(request)
+
+    try:
+        resolve_workspace_authorization(
+            repository,
+            user_id=user["id"],
+            workspace_id=workspace_id,
+        )
+    except AuthorizationError as exc:
+        raise HTTPException(
+            404,
+            detail={
+                "code": "workspace_unavailable",
+                "message": "Workspace is unavailable.",
+            },
+        ) from exc
+
+    try:
+        membership = repository.deactivate_organization_membership(
+            workspace_id=workspace_id,
+            actor_user_id=user["id"],
+            target_user_id=target_user_id,
+        )
+    except AuthorizationError as exc:
+        raise HTTPException(
+            403,
+            detail={
+                "code": "permission_denied",
+                "message": "You do not have permission to remove this organization member.",
+            },
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            409,
+            detail={
+                "code": "member_removal_conflict",
+                "message": str(exc),
+            },
+        ) from exc
+
+    return OrganizationMemberDeactivated(
+        workspace_id=workspace_id,
+        user_id=membership["user_id"],
+        active=membership["active"],
+    )
+
 
 @router.get(
     "/organizations/{workspace_id}/human-roles",

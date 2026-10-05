@@ -1543,6 +1543,153 @@ class Repository:
 
             return dict(updated)
 
+    def deactivate_organization_membership(
+        self,
+        *,
+        workspace_id: str,
+        actor_user_id: str,
+        target_user_id: str,
+    ):
+        """Deactivate one Organization membership without deleting its history.
+
+        Member removal is organization-scoped and fail-closed. Admins may remove
+        ordinary members only. Owners may remove members, admins, or owners, but
+        the final active owner can never be removed. Any active HR-domain roles
+        held by the removed member are deactivated atomically.
+        """
+
+        from app.security.rbac import (
+            AuthorizationError,
+            Permission,
+            WorkspaceAuthorization,
+            WorkspaceRole,
+            resolve_workspace_authorization,
+        )
+
+        resolve_workspace_authorization(
+            self,
+            user_id=actor_user_id,
+            workspace_id=workspace_id,
+        )
+
+        with tenant_transaction(
+            self.engine,
+            workspace_id=workspace_id,
+            user_id=actor_user_id,
+        ) as connection:
+            workspace = connection.execute(
+                select(dbm.workspaces).where(
+                    dbm.workspaces.c.id == workspace_id
+                )
+            ).mappings().first()
+
+            if (
+                workspace is None
+                or workspace["kind"] != "organization"
+                or not workspace["active"]
+            ):
+                raise AuthorizationError("Permission denied.")
+
+            actor = connection.execute(
+                select(dbm.organization_memberships).where(
+                    dbm.organization_memberships.c.workspace_id == workspace_id,
+                    dbm.organization_memberships.c.user_id == actor_user_id,
+                )
+            ).mappings().first()
+
+            target = connection.execute(
+                select(dbm.organization_memberships).where(
+                    dbm.organization_memberships.c.workspace_id == workspace_id,
+                    dbm.organization_memberships.c.user_id == target_user_id,
+                )
+            ).mappings().first()
+
+            if (
+                actor is None
+                or not actor["active"]
+                or target is None
+                or not target["active"]
+            ):
+                raise AuthorizationError("Permission denied.")
+
+            try:
+                actor_role = WorkspaceRole(actor["membership_role"])
+                target_role = WorkspaceRole(target["membership_role"])
+            except (TypeError, ValueError) as exc:
+                raise AuthorizationError("Permission denied.") from exc
+
+            authorization = WorkspaceAuthorization(
+                user_id=actor_user_id,
+                workspace_id=workspace_id,
+                workspace_kind="organization",
+                role=actor_role,
+            )
+
+            if target_role is WorkspaceRole.OWNER:
+                authorization.require(
+                    Permission.ORGANIZATION_OWNERSHIP_MANAGE
+                )
+            elif target_role is WorkspaceRole.ADMIN:
+                authorization.require(
+                    Permission.ORGANIZATION_ADMINS_MANAGE
+                )
+            else:
+                authorization.require(
+                    Permission.ORGANIZATION_MEMBERS_MANAGE
+                )
+
+            if target_role is WorkspaceRole.OWNER:
+                owner_count = connection.execute(
+                    select(dbm.organization_memberships.c.user_id).where(
+                        dbm.organization_memberships.c.workspace_id == workspace_id,
+                        dbm.organization_memberships.c.membership_role == "owner",
+                        dbm.organization_memberships.c.active.is_(True),
+                    )
+                ).all()
+
+                if len(owner_count) <= 1:
+                    raise ValueError(
+                        "The last active organization owner cannot be removed."
+                    )
+
+            connection.execute(
+                update(dbm.organization_human_role_assignments)
+                .where(
+                    dbm.organization_human_role_assignments.c.workspace_id
+                    == workspace_id,
+                    dbm.organization_human_role_assignments.c.user_id
+                    == target_user_id,
+                    dbm.organization_human_role_assignments.c.active.is_(True),
+                )
+                .values(
+                    active=False,
+                    assigned_at=timestamp(datetime.now(timezone.utc)),
+                    assigned_by_user_id=actor_user_id,
+                )
+            )
+
+            connection.execute(
+                update(dbm.organization_memberships)
+                .where(
+                    dbm.organization_memberships.c.workspace_id == workspace_id,
+                    dbm.organization_memberships.c.user_id == target_user_id,
+                    dbm.organization_memberships.c.active.is_(True),
+                )
+                .values(
+                    active=False,
+                    added_by_user_id=actor_user_id,
+                )
+            )
+
+            updated = connection.execute(
+                select(dbm.organization_memberships).where(
+                    dbm.organization_memberships.c.workspace_id == workspace_id,
+                    dbm.organization_memberships.c.user_id == target_user_id,
+                )
+            ).mappings().one()
+
+            return dict(updated)
+
     @staticmethod
     def _hr_authorization_in_transaction(connection, *, workspace_id, actor_user_id):
         """Recheck the actor's current IAM boundary on the HR operation connection.

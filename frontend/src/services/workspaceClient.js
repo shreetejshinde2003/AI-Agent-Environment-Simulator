@@ -55,6 +55,11 @@ export const workspaceClient = {
         body: JSON.stringify({ membershipRole }),
       },
     ),
+  removeOrganizationMember: (workspaceId, userId) =>
+    workspaceRequest(
+      `/organizations/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(userId)}`,
+      { method: "DELETE" },
+    ),
   listOrganizationHumanRoles: workspaceId =>
     workspaceRequest(`/organizations/${encodeURIComponent(workspaceId)}/human-roles`),
   assignOrganizationHumanRole: (workspaceId, userId, humanRole) =>

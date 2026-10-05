@@ -11,3 +11,7 @@ export const canViewOrganizationMembers = role =>
   role === "owner" || role === "admin";
 
 export const canChangeOrganizationRoles = role => role === "owner";
+
+export const canRemoveOrganizationMember = (actorRole, targetRole) =>
+  actorRole === "owner" ||
+  (actorRole === "admin" && targetRole === "member");

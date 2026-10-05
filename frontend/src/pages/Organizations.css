@@ -429,3 +429,25 @@
     grid-column: 2;
   }
 }
+
+.organization-remove-member-btn {
+  margin-top: var(--space-2);
+  padding: 6px 9px;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--status-danger);
+  font: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.organization-remove-member-btn:hover:not(:disabled) {
+  background: var(--status-danger-soft);
+  border-color: var(--status-danger);
+}
+
+.organization-remove-member-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

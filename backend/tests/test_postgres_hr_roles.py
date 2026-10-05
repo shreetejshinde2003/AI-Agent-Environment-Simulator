@@ -10,7 +10,7 @@ from sqlalchemy.exc import DBAPIError
 
 from app.security.hr_roles import HRHumanPermission, resolve_hr_human_authorization
 from app.security.postgres_rls import POLICY_NAME, WRITE_POLICY_NAME
-from app.security.rbac import AuthorizationError
+from app.security.rbac import AuthorizationError, resolve_workspace_authorization
 from app.security.tenant_db_context import (
     bootstrap_transaction, tenant_transaction, CURRENT_USER_SQL,
     CURRENT_WORKSPACE_SQL, INVITATION_DIGEST_SQL, INVITATION_WORKSPACE_SQL,
@@ -176,3 +176,76 @@ def test_live_rolled_back_hr_deactivation_preserves_saved_permission(hr_orgs):
             ).values(active=False, assigned_by_user_id="USR-b"))
             raise Abort()
     assert resolve_hr_human_authorization(repo, user_id="USR-a", workspace_id=a).allows(HRHumanPermission.JD_APPROVE)
+
+def test_live_member_removal_deactivates_membership_and_hr_roles_atomically(hr_orgs):
+    repo, a, _, _ = hr_orgs
+
+    removed = repo.deactivate_organization_membership(
+        workspace_id=a,
+        actor_user_id="USR-b",
+        target_user_id="USR-a",
+    )
+
+    assert removed["active"] is False
+
+    with tenant_transaction(
+        repo.engine,
+        workspace_id=a,
+        user_id="USR-b",
+    ) as connection:
+        membership = connection.execute(
+            select(dbm.organization_memberships).where(
+                dbm.organization_memberships.c.workspace_id == a,
+                dbm.organization_memberships.c.user_id == "USR-a",
+            )
+        ).mappings().one()
+
+        assignments = connection.execute(
+            select(dbm.organization_human_role_assignments).where(
+                dbm.organization_human_role_assignments.c.workspace_id == a,
+                dbm.organization_human_role_assignments.c.user_id == "USR-a",
+            )
+        ).mappings().all()
+
+    assert membership["active"] is False
+    assert assignments
+    assert all(row["active"] is False for row in assignments)
+    assert all(row["assigned_by_user_id"] == "USR-b" for row in assignments)
+
+    with pytest.raises(AuthorizationError):
+        resolve_workspace_authorization(
+            repo,
+            user_id="USR-a",
+            workspace_id=a,
+        )
+
+    assert not resolve_hr_human_authorization(
+        repo,
+        user_id="USR-a",
+        workspace_id=a,
+    ).roles
+
+
+def test_live_admin_member_removal_obeys_iam_boundary(hr_orgs):
+    repo, a, _, _ = hr_orgs
+
+    removed = repo.deactivate_organization_membership(
+        workspace_id=a,
+        actor_user_id="USR-admin",
+        target_user_id="USR-a",
+    )
+    assert removed["active"] is False
+
+    with pytest.raises(AuthorizationError):
+        repo.deactivate_organization_membership(
+            workspace_id=a,
+            actor_user_id="USR-admin",
+            target_user_id="USR-admin",
+        )
+
+    with pytest.raises(AuthorizationError):
+        repo.deactivate_organization_membership(
+            workspace_id=a,
+            actor_user_id="USR-admin",
+            target_user_id="USR-b",
+        )

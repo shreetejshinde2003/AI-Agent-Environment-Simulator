@@ -281,3 +281,140 @@ def test_role_change_is_scoped_to_one_organization(tmp_path):
 
     assert repo.get_organization_membership(other["id"], member["id"])["membership_role"] == "member"
     assert repo.get_organization_membership(workspace["id"], member["id"])["membership_role"] == "member"
+
+def test_owner_can_deactivate_member_and_hr_roles_atomically(tmp_path):
+    repo, workspace, owner, _, member, _ = seeded_repo(tmp_path)
+
+    repo.assign_organization_human_role(
+        workspace_id=workspace["id"],
+        actor_user_id=owner["id"],
+        target_user_id=member["id"],
+        human_role="hr_recruiter",
+    )
+
+    removed = repo.deactivate_organization_membership(
+        workspace_id=workspace["id"],
+        actor_user_id=owner["id"],
+        target_user_id=member["id"],
+    )
+
+    assert removed["active"] is False
+
+    roles = repo.list_organization_human_roles(
+        workspace["id"],
+        user_id=member["id"],
+        active_only=False,
+        actor_user_id=owner["id"],
+    )
+    recruiter = next(
+        row for row in roles
+        if row["human_role"] == "hr_recruiter"
+    )
+    assert recruiter["active"] is False
+
+
+def test_admin_can_remove_member_but_not_admin_or_owner(tmp_path):
+    repo, workspace, owner, admin, member, _ = seeded_repo(tmp_path)
+
+    removed = repo.deactivate_organization_membership(
+        workspace_id=workspace["id"],
+        actor_user_id=admin["id"],
+        target_user_id=member["id"],
+    )
+    assert removed["active"] is False
+
+    with pytest.raises(AuthorizationError):
+        repo.deactivate_organization_membership(
+            workspace_id=workspace["id"],
+            actor_user_id=admin["id"],
+            target_user_id=admin["id"],
+        )
+
+    with pytest.raises(AuthorizationError):
+        repo.deactivate_organization_membership(
+            workspace_id=workspace["id"],
+            actor_user_id=admin["id"],
+            target_user_id=owner["id"],
+        )
+
+
+def test_member_and_outsider_cannot_remove_members(tmp_path):
+    repo, workspace, _, _, member, outsider = seeded_repo(tmp_path)
+
+    for actor_id in (member["id"], outsider["id"]):
+        with pytest.raises(AuthorizationError):
+            repo.deactivate_organization_membership(
+                workspace_id=workspace["id"],
+                actor_user_id=actor_id,
+                target_user_id=member["id"],
+            )
+
+
+def test_last_active_owner_cannot_be_removed(tmp_path):
+    repo, workspace, owner, _, _, _ = seeded_repo(tmp_path)
+
+    with pytest.raises(ValueError, match="last active organization owner"):
+        repo.deactivate_organization_membership(
+            workspace_id=workspace["id"],
+            actor_user_id=owner["id"],
+            target_user_id=owner["id"],
+        )
+
+
+def test_owner_can_remove_self_when_second_owner_exists(tmp_path):
+    repo, workspace, owner, _, member, _ = seeded_repo(tmp_path)
+
+    repo.change_organization_membership_role(
+        workspace_id=workspace["id"],
+        actor_user_id=owner["id"],
+        target_user_id=member["id"],
+        new_role="owner",
+    )
+
+    removed = repo.deactivate_organization_membership(
+        workspace_id=workspace["id"],
+        actor_user_id=owner["id"],
+        target_user_id=owner["id"],
+    )
+
+    assert removed["active"] is False
+    assert repo.get_organization_membership(
+        workspace["id"], member["id"]
+    )["active"] is True
+
+
+def test_membership_removal_is_scoped_to_one_organization(tmp_path):
+    repo, workspace, owner, _, member, outsider = seeded_repo(tmp_path)
+
+    other = make_workspace(outsider["id"], "WS-remove-other")
+    repo.save_workspace(other)
+    repo.save_organization_membership(
+        membership(
+            other["id"],
+            outsider["id"],
+            "owner",
+            outsider["id"],
+        )
+    )
+    repo.save_organization_membership(
+        membership(
+            other["id"],
+            member["id"],
+            "member",
+            outsider["id"],
+        )
+    )
+
+    with pytest.raises(AuthorizationError):
+        repo.deactivate_organization_membership(
+            workspace_id=other["id"],
+            actor_user_id=owner["id"],
+            target_user_id=member["id"],
+        )
+
+    assert repo.get_organization_membership(
+        other["id"], member["id"]
+    )["active"] is True
+    assert repo.get_organization_membership(
+        workspace["id"], member["id"]
+    )["active"] is True

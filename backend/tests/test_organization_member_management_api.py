@@ -211,3 +211,81 @@ def test_role_payload_rejects_unknown_role_before_storage():
         assert response.status_code == 422
     finally:
         teardown_case(temp, old_path, old_engine, old_engine_url, clients)
+
+def test_owner_can_remove_member_and_removed_member_loses_workspace_access():
+    temp, old_path, old_engine, old_engine_url, workspace, clients = setup_case()
+    try:
+        response = clients["USR-owner"].delete(
+            f"/api/v1/workspaces/organizations/{workspace['id']}/members/USR-member"
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "workspaceId": workspace["id"],
+            "userId": "USR-member",
+            "active": False,
+        }
+
+        membership = repository.get_organization_membership(
+            workspace["id"], "USR-member"
+        )
+        assert membership["active"] is False
+
+        discovery = clients["USR-member"].get("/api/v1/workspaces")
+        assert discovery.status_code == 200
+        assert workspace["id"] not in {
+            item["id"] for item in discovery.json()["organizations"]
+        }
+    finally:
+        teardown_case(temp, old_path, old_engine, old_engine_url, clients)
+
+
+def test_admin_can_remove_member_but_cannot_remove_admin_or_owner():
+    temp, old_path, old_engine, old_engine_url, workspace, clients = setup_case()
+    try:
+        member = clients["USR-admin"].delete(
+            f"/api/v1/workspaces/organizations/{workspace['id']}/members/USR-member"
+        )
+        assert member.status_code == 200
+        assert member.json()["active"] is False
+
+        admin = clients["USR-admin"].delete(
+            f"/api/v1/workspaces/organizations/{workspace['id']}/members/USR-admin"
+        )
+        assert admin.status_code == 403
+
+        owner = clients["USR-admin"].delete(
+            f"/api/v1/workspaces/organizations/{workspace['id']}/members/USR-owner"
+        )
+        assert owner.status_code == 403
+    finally:
+        teardown_case(temp, old_path, old_engine, old_engine_url, clients)
+
+
+def test_member_and_outsider_cannot_remove_organization_members():
+    temp, old_path, old_engine, old_engine_url, workspace, clients = setup_case()
+    try:
+        denied = clients["USR-member"].delete(
+            f"/api/v1/workspaces/organizations/{workspace['id']}/members/USR-admin"
+        )
+        assert denied.status_code == 403
+
+        hidden = clients["USR-outsider"].delete(
+            f"/api/v1/workspaces/organizations/{workspace['id']}/members/USR-member"
+        )
+        assert hidden.status_code == 404
+    finally:
+        teardown_case(temp, old_path, old_engine, old_engine_url, clients)
+
+
+def test_last_owner_removal_surfaces_as_conflict():
+    temp, old_path, old_engine, old_engine_url, workspace, clients = setup_case()
+    try:
+        response = clients["USR-owner"].delete(
+            f"/api/v1/workspaces/organizations/{workspace['id']}/members/USR-owner"
+        )
+
+        assert response.status_code == 409
+        assert response.json()["detail"]["code"] == "member_removal_conflict"
+    finally:
+        teardown_case(temp, old_path, old_engine, old_engine_url, clients)

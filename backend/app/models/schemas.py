@@ -624,6 +624,12 @@ class OrganizationMemberRoleChanged(CamelModel):
     membership_role: Literal["owner", "admin", "member"]
 
 
+class OrganizationMemberDeactivated(CamelModel):
+    workspace_id: str
+    user_id: str
+    active: bool
+
+
 HRHumanRoleValue = Literal[
     "hr_recruiter",
     "hr_reviewer",

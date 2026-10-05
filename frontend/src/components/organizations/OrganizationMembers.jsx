@@ -10,6 +10,7 @@ import {
 } from "../../utils/hrHumanRoles";
 import {
   canChangeOrganizationRoles,
+  canRemoveOrganizationMember,
   canViewOrganizationMembers,
   organizationRoleLabel,
 } from "../../utils/organizationMembers";
@@ -24,6 +25,7 @@ export default function OrganizationMembers({ workspace, onMembershipChanged }) 
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState(null);
   const [changingUserId, setChangingUserId] = useState(null);
+  const [removingUserId, setRemovingUserId] = useState(null);
   const [changingHumanRole, setChangingHumanRole] = useState(null);
   const [notice, setNotice] = useState(null);
 
@@ -113,6 +115,51 @@ export default function OrganizationMembers({ workspace, onMembershipChanged }) 
     }
   }
 
+  async function removeMember(member) {
+    if (
+      !canRemoveOrganizationMember(
+        workspace?.membershipRole,
+        member.membershipRole,
+      )
+    ) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Remove ${memberName(member)} from ${workspace.name}?\n\n` +
+        "This immediately revokes organization access and removes their active HR responsibilities.",
+    );
+
+    if (!confirmed) return;
+
+    setRemovingUserId(member.userId);
+    setError(null);
+    setNotice(null);
+
+    try {
+      await workspaceClient.removeOrganizationMember(
+        workspace.id,
+        member.userId,
+      );
+
+      setMembers(current =>
+        current.filter(item => item.userId !== member.userId),
+      );
+
+      setHumanRoleAssignments(current =>
+        current.filter(item => item.userId !== member.userId),
+      );
+
+      setNotice(`${memberName(member)} was removed from ${workspace.name}.`);
+      await onMembershipChanged?.();
+    } catch (nextError) {
+      setError(nextError);
+    } finally {
+      setRemovingUserId(null);
+    }
+  }
+
+
   async function changeHumanRole(member, humanRole, enabled) {
     if (!canManageHumanRoles) return;
 
@@ -198,8 +245,8 @@ export default function OrganizationMembers({ workspace, onMembershipChanged }) 
           </p>
           <p className="organization-management-note">
             {canChangeRoles
-              ? "Owners can assign Owner, Admin, or Member roles. Owners can change access roles and manage HR responsibilities. The last active owner cannot be demoted."
-              : "Admins can view organization members. Admins can manage HR responsibilities; Owner/Admin access-role assignment remains owner-only."}
+              ? "Owners can assign access roles, manage HR responsibilities, and remove members. The last active owner cannot be demoted or removed."
+              : "Admins can view members, manage HR responsibilities, and remove ordinary Members. Owner/Admin access changes remain owner-only."}
           </p>
         </div>
         <div className="organization-role-badge">
@@ -253,7 +300,11 @@ export default function OrganizationMembers({ workspace, onMembershipChanged }) 
                     <label className="organization-role-control">
                       <select
                         value={member.membershipRole}
-                        disabled={changingUserId !== null}
+                        disabled={
+                          changingUserId !== null ||
+                          removingUserId !== null ||
+                          changingHumanRole !== null
+                        }
                         onChange={event => changeRole(member, event.target.value)}
                         aria-label={`Access role for ${memberName(member)}`}
                       >
@@ -267,6 +318,27 @@ export default function OrganizationMembers({ workspace, onMembershipChanged }) 
                       {organizationRoleLabel(member.membershipRole)}
                     </span>
                   )}
+
+                  {canRemoveOrganizationMember(
+                    workspace.membershipRole,
+                    member.membershipRole,
+                  ) && (
+                    <button
+                      type="button"
+                      className="organization-remove-member-btn"
+                      disabled={
+                        removingUserId !== null ||
+                        changingUserId !== null ||
+                        changingHumanRole !== null
+                      }
+                      onClick={() => removeMember(member)}
+                      aria-label={`Remove ${memberName(member)} from organization`}
+                    >
+                      {removingUserId === member.userId
+                        ? "Removing…"
+                        : "Remove member"}
+                    </button>
+                  )}
                 </div>
 
                 <fieldset className="organization-human-roles">
@@ -279,7 +351,12 @@ export default function OrganizationMembers({ workspace, onMembershipChanged }) 
                           <input
                             type="checkbox"
                             checked={checked}
-                            disabled={!canManageHumanRoles || changingHumanRole !== null}
+                            disabled={
+                              !canManageHumanRoles ||
+                              changingHumanRole !== null ||
+                              removingUserId !== null ||
+                              changingUserId !== null
+                            }
                             onChange={event =>
                               changeHumanRole(member, option.value, event.target.checked)
                             }
