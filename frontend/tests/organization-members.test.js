@@ -74,15 +74,15 @@ test("member workspace does not expose management controls", () => {
 test("admin gets read-only member-management surface", () => {
   const html = renderFor("admin");
   assert.match(html, /Member management/);
-  assert.match(html, /Admins can view organization members/);
-  assert.match(html, /role assignment remains owner-only/);
+  assert.match(html, /Admins can view members, manage HR responsibilities, and remove ordinary Members/);
+  assert.match(html, /Owner\/Admin access changes remain owner-only/);
   assert.match(html, />Admin</);
-  assert.doesNotMatch(html, /Owners can assign Owner, Admin, or Member roles/);
+  assert.doesNotMatch(html, /Owners can assign access roles, manage HR responsibilities, and remove members/);
 });
 
 test("owner gets role-management surface and Personal Workspace gets no org controls", () => {
   const ownerHtml = renderFor("owner");
-  assert.match(ownerHtml, /Owners can assign Owner, Admin, or Member roles/);
+  assert.match(ownerHtml, /Owners can assign access roles, manage HR responsibilities, and remove members/);
   assert.match(ownerHtml, /last active owner/);
   assert.match(ownerHtml, />Owner</);
 

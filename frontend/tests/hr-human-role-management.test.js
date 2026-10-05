@@ -71,12 +71,12 @@ test("owner surface explicitly separates access roles from HR responsibilities",
   const html = renderFor("owner");
   assert.match(html, /Access roles control organization permissions/);
   assert.match(html, /HR responsibilities are separate domain roles/);
-  assert.match(html, /Owners can change access roles and manage HR responsibilities/);
+  assert.match(html, /Owners can assign access roles, manage HR responsibilities, and remove members/);
 });
 
 test("admin surface can manage HR responsibilities without gaining owner access-role controls", () => {
   const html = renderFor("admin");
-  assert.match(html, /Admins can manage HR responsibilities/);
-  assert.match(html, /access-role assignment remains owner-only/);
+  assert.match(html, /Admins can view members, manage HR responsibilities, and remove ordinary Members/);
+  assert.match(html, /Owner\/Admin access changes remain owner-only/);
   assert.doesNotMatch(html, /Owners can change access roles/);
 });
