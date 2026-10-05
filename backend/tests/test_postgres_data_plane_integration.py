@@ -67,6 +67,13 @@ def seed(repo, task_id, uid):
     task.workspace_id = repo.get_personal_workspace(uid)["id"]
     for record in (*task.messages, *task.activities, *task.events):
         record.id = f"{record.id}-{task_id}"
+    for upload in task.uploads:
+        upload.id = f"{upload.id}-{task_id}"
+        repo.save_upload_for_tenant(
+            upload,
+            workspace_id=task.workspace_id,
+            user_id=uid,
+        )
     repo.save_for_tenant(task, workspace_id=task.workspace_id, user_id=uid)
     return task
 

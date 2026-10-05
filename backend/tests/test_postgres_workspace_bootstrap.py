@@ -159,6 +159,12 @@ def test_live_recovery_finds_inactive_orphan_organization_without_global_bypass(
     task.id = task.simulation_id = "T-orphan"
     task.workspace_id = org["id"]
     task.status = TaskStatus.IN_PROGRESS
+    for upload in task.uploads:
+        pg_repo.save_upload_for_tenant(
+            upload,
+            workspace_id=org["id"],
+            user_id="USR-b",
+        )
     pg_repo.save_for_tenant(task, workspace_id=org["id"], user_id="USR-b")
     with tenant_transaction(pg_repo.engine, workspace_id=org["id"], user_id="USR-b") as connection:
         connection.execute(update(dbm.workspaces).where(dbm.workspaces.c.id == org["id"]).values(active=False))
