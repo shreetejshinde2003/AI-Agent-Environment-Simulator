@@ -1,5 +1,11 @@
 # Phase 4.5.5A — Workspace and membership bootstrap RLS
 
+**Historical implementation checkpoint.** Its schema counts, partial test results
+and remaining-gate lists describe that commit. Current schema 11 protects all
+14 tenant-owned tables, including uploads and custom agents/revisions. See
+[Phase 4 final acceptance](PHASE4_FINAL_ACCEPTANCE_REPORT.md) for current
+independently rerun evidence and outstanding production gates.
+
 Historical checkpoint record: local 4.5.5B now activates HR assignment RLS and
 scopes its operations. See [current HR-role behavior](PHASE4_HR_HUMAN_ROLE_RLS.md)
 for the expanded activation set and current workflow. Upload ownership/RLS and

@@ -1,7 +1,7 @@
 """PostgreSQL row-level security policy definitions for tenant-owned data.
 
-Phase 4.5.5B activates HR-role isolation alongside bootstrap and simulation RLS.
-Uploads still require schema hardening and are deliberately excluded.
+Schema 11 activates bootstrap, simulation, HR-role, upload and custom-agent RLS.
+Application authentication/IAM authorizes the transaction-local tenant context.
 """
 
 from __future__ import annotations
@@ -169,8 +169,8 @@ def _simulation_child_policy(table: str, simulation_column: str) -> PostgresRLSP
 def build_postgres_rls_policies() -> tuple[PostgresRLSPolicy, ...]:
     """Build RLS policies from the central tenant-isolation contract.
 
-    ``uploads`` is intentionally excluded until it gains explicit tenant/user
-    ownership. System-global and identity tables are outside workspace RLS.
+    Uploads have explicit V9 tenant/user ownership. System-global and identity
+    tables are outside workspace RLS.
     """
 
     policies: list[PostgresRLSPolicy] = []
@@ -237,7 +237,7 @@ def install_data_plane_rls_policies(connection) -> None:
     """Preflight and activate the ready subset inside initialization's transaction.
 
     Historical entrypoint name retained: includes bootstrap, HR roles and the
-    eight simulation data-plane tables. Upload ownership remains deferred.
+    eight simulation data-plane tables, uploads and custom-agent revisions.
     Unknown policies can OR together with our permissive policy. Refuse them,
     rather than weakening the boundary or deleting operator-owned DDL. Unassigned
     legacy history must be explicitly migrated before first activation.

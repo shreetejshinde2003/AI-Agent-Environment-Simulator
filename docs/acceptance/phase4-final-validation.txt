@@ -1,0 +1,378 @@
+Phase 4 final audit evidence - 6 October 2026
+All provider responses are mocked. PostgreSQL is localhost test-only.
+Before-fix failures below are intentional defect reproductions.
+
+
+## Baseline backend (PostgreSQL credentials absent)
+...............................................................sssss.... [ 12%]
+.................s...................................................... [ 25%]
+........................................................................ [ 37%]
+........................................................................ [ 50%]
+.......................................ssssssssssssssssssssssss.......ss [ 62%]
+ssssssss................................................................ [ 75%]
+........sssssssssss..................................................... [ 87%]
+......................................................................   [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/langgraph/cache/base/__init__.py:8
+  /Users/shreetej/Downloads/FMProject/.venv/lib/python3.13/site-packages/langgraph/cache/base/__init__.py:8: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
+    from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+
+.venv/lib/python3.13/site-packages/starlette/testclient.py:40
+  /Users/shreetej/Downloads/FMProject/.venv/lib/python3.13/site-packages/starlette/testclient.py:40: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+SKIPPED [1] backend/tests/test_agent_builder_postgres.py:28: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [1] backend/tests/test_agent_builder_postgres.py:64: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [1] backend/tests/test_agent_builder_postgres.py:91: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [1] backend/tests/test_agent_builder_postgres.py:107: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [1] backend/tests/test_agent_builder_postgres.py:136: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [1] backend/tests/test_checkpoint_postgres_sql.py:17: Opt-in local Docker checkpoint SQL verification not requested
+SKIPPED [3] backend/tests/test_postgres_checkpoint_runtime.py:26: CHECKPOINT_TEST_DATABASE_URL restricted local runtime login not configured
+SKIPPED [1] backend/tests/test_postgres_data_plane_integration.py:81: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [1] backend/tests/test_postgres_data_plane_integration.py:91: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [1] backend/tests/test_postgres_data_plane_integration.py:111: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [2] backend/tests/test_postgres_data_plane_integration.py:130: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [1] backend/tests/test_postgres_data_plane_integration.py:159: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [3] backend/tests/test_postgres_graph_acceptance.py:93: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [1] backend/tests/test_postgres_graph_acceptance.py:177: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [1] backend/tests/test_postgres_hr_roles.py:40: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [1] backend/tests/test_postgres_hr_roles.py:54: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [1] backend/tests/test_postgres_hr_roles.py:79: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [1] backend/tests/test_postgres_hr_roles.py:93: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [1] backend/tests/test_postgres_hr_roles.py:113: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [1] backend/tests/test_postgres_hr_roles.py:138: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [2] backend/tests/test_postgres_hr_roles.py:147: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [1] backend/tests/test_postgres_hr_roles.py:168: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [1] backend/tests/test_postgres_hr_roles.py:180: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [1] backend/tests/test_postgres_hr_roles.py:229: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [1] backend/tests/test_postgres_workspace_bootstrap.py:28: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [1] backend/tests/test_postgres_workspace_bootstrap.py:46: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [1] backend/tests/test_postgres_workspace_bootstrap.py:64: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [2] backend/tests/test_postgres_workspace_bootstrap.py:79: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [1] backend/tests/test_postgres_workspace_bootstrap.py:101: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [1] backend/tests/test_postgres_workspace_bootstrap.py:113: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [1] backend/tests/test_postgres_workspace_bootstrap.py:127: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [1] backend/tests/test_postgres_workspace_bootstrap.py:144: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [1] backend/tests/test_postgres_workspace_bootstrap.py:156: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [1] backend/tests/test_recycle_bin_postgres.py:26: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [3] backend/tests/test_recycle_bin_postgres.py:45: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [1] backend/tests/test_recycle_bin_postgres.py:62: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [1] backend/tests/test_recycle_bin_postgres.py:78: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [1] backend/tests/test_recycle_bin_postgres.py:87: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [1] backend/tests/test_recycle_bin_postgres.py:101: TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified
+SKIPPED [3] backend/tests/test_recycle_bin_postgres.py:124: Restricted local CHECKPOINT_TEST_DATABASE_URL required
+523 passed, 51 skipped, 2 warnings in 33.96s
+
+
+## Restricted PostgreSQL integration subset
+...................................................                      [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/langgraph/checkpoint/base/__init__.py:17
+  /Users/shreetej/Downloads/FMProject/.venv/lib/python3.13/site-packages/langgraph/checkpoint/base/__init__.py:17: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
+    from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+
+.venv/lib/python3.13/site-packages/starlette/testclient.py:40
+  /Users/shreetej/Downloads/FMProject/.venv/lib/python3.13/site-packages/starlette/testclient.py:40: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+51 passed, 2 warnings in 36.41s
+Pre-existing checkpoint fingerprints unchanged after this run.
+
+
+## New browser-security regressions before corrections
+FFFF.FFFFFFF                                                             [100%]
+=================================== FAILURES ===================================
+_ test_untrusted_browser_cannot_upload_with_session_cookie[https://attacker.example] _
+backend/tests/test_browser_session_security.py:24: in test_untrusted_browser_cannot_upload_with_session_cookie
+    assert response.status_code == 403
+E   assert 201 == 403
+E    +  where 201 = <Response [201 Created]>.status_code
+________ test_untrusted_browser_cannot_upload_with_session_cookie[null] ________
+backend/tests/test_browser_session_security.py:24: in test_untrusted_browser_cannot_upload_with_session_cookie
+    assert response.status_code == 403
+E   assert 201 == 403
+E    +  where 201 = <Response [201 Created]>.status_code
+_ test_untrusted_browser_cannot_upload_with_session_cookie[http://localhost:5173.attacker.example] _
+backend/tests/test_browser_session_security.py:24: in test_untrusted_browser_cannot_upload_with_session_cookie
+    assert response.status_code == 403
+E   assert 201 == 403
+E    +  where 201 = <Response [201 Created]>.status_code
+__________________ test_untrusted_browser_cannot_force_logout __________________
+backend/tests/test_browser_session_security.py:33: in test_untrusted_browser_cannot_force_logout
+    assert client.post("/api/v1/auth/logout", headers={"Origin": "https://attacker.example"}).status_code == 403
+E   AssertionError: assert 204 == 403
+E    +  where 204 = <Response [204 No Content]>.status_code
+E    +    where <Response [204 No Content]> = post('/api/v1/auth/logout', headers={'Origin': 'https://attacker.example'})
+E    +      where post = <starlette.testclient.TestClient object at 0x111b39220>.post
+_ test_untrusted_browser_cannot_open_authenticated_websocket[https://attacker.example] _
+backend/tests/test_browser_session_security.py:51: in test_untrusted_browser_cannot_open_authenticated_websocket
+    with pytest.raises(WebSocketDisconnect) as error:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE <class 'starlette.websockets.WebSocketDisconnect'>
+_______ test_untrusted_browser_cannot_open_authenticated_websocket[null] _______
+backend/tests/test_browser_session_security.py:51: in test_untrusted_browser_cannot_open_authenticated_websocket
+    with pytest.raises(WebSocketDisconnect) as error:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE <class 'starlette.websockets.WebSocketDisconnect'>
+___ test_existing_socket_stops_receiving_after_authority_removed[membership] ___
+backend/tests/test_browser_session_security.py:83: in test_existing_socket_stops_receiving_after_authority_removed
+    with pytest.raises(WebSocketDisconnect):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE <class 'starlette.websockets.WebSocketDisconnect'>
+_____ test_existing_socket_stops_receiving_after_authority_removed[logout] _____
+backend/tests/test_browser_session_security.py:83: in test_existing_socket_stops_receiving_after_authority_removed
+    with pytest.raises(WebSocketDisconnect):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE <class 'starlette.websockets.WebSocketDisconnect'>
+_____ test_existing_socket_stops_receiving_after_authority_removed[expiry] _____
+backend/tests/test_browser_session_security.py:83: in test_existing_socket_stops_receiving_after_authority_removed
+    with pytest.raises(WebSocketDisconnect):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE <class 'starlette.websockets.WebSocketDisconnect'>
+______ test_existing_socket_stops_receiving_after_authority_removed[user] ______
+backend/tests/test_browser_session_security.py:83: in test_existing_socket_stops_receiving_after_authority_removed
+    with pytest.raises(WebSocketDisconnect):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE <class 'starlette.websockets.WebSocketDisconnect'>
+___ test_existing_socket_stops_receiving_after_authority_removed[workspace] ____
+backend/tests/test_browser_session_security.py:83: in test_existing_socket_stops_receiving_after_authority_removed
+    with pytest.raises(WebSocketDisconnect):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE <class 'starlette.websockets.WebSocketDisconnect'>
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/starlette/testclient.py:40
+  /Users/shreetej/Downloads/FMProject/.venv/lib/python3.13/site-packages/starlette/testclient.py:40: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+.venv/lib/python3.13/site-packages/langgraph/checkpoint/base/__init__.py:17
+  /Users/shreetej/Downloads/FMProject/.venv/lib/python3.13/site-packages/langgraph/checkpoint/base/__init__.py:17: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
+    from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED backend/tests/test_browser_session_security.py::test_untrusted_browser_cannot_upload_with_session_cookie[https://attacker.example]
+FAILED backend/tests/test_browser_session_security.py::test_untrusted_browser_cannot_upload_with_session_cookie[null]
+FAILED backend/tests/test_browser_session_security.py::test_untrusted_browser_cannot_upload_with_session_cookie[http://localhost:5173.attacker.example]
+FAILED backend/tests/test_browser_session_security.py::test_untrusted_browser_cannot_force_logout
+FAILED backend/tests/test_browser_session_security.py::test_untrusted_browser_cannot_open_authenticated_websocket[https://attacker.example]
+FAILED backend/tests/test_browser_session_security.py::test_untrusted_browser_cannot_open_authenticated_websocket[null]
+FAILED backend/tests/test_browser_session_security.py::test_existing_socket_stops_receiving_after_authority_removed[membership]
+FAILED backend/tests/test_browser_session_security.py::test_existing_socket_stops_receiving_after_authority_removed[logout]
+FAILED backend/tests/test_browser_session_security.py::test_existing_socket_stops_receiving_after_authority_removed[expiry]
+FAILED backend/tests/test_browser_session_security.py::test_existing_socket_stops_receiving_after_authority_removed[user]
+FAILED backend/tests/test_browser_session_security.py::test_existing_socket_stops_receiving_after_authority_removed[workspace]
+11 failed, 1 passed, 2 warnings in 2.49s
+
+
+## Provider disclosure regression before correction
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________ test_system_provider_error_does_not_persist_sdk_payload ____________
+backend/tests/test_provider_failure_disclosure.py:32: in test_system_provider_error_does_not_persist_sdk_payload
+    assert "private-test-credential" not in evidence
+E   assert 'private-test-credential' not in '{"id": "T-7...ffCount": 0}'
+E
+E     'private-test-credential' is contained here:
+E        password=private-test-credential internal-host=private-host", "simulationId": "T-7ee6bca8e687", "ownerId": null, "workspaceId": "WS-57b3c0b3093a470cbd5f", "createdAt": "2026-10-06T15:56:30.375406Z", "executionStartedAt": "2026-10-06T15:56:30.387866Z", "completedAt": "2026-10-06T15:56:30.409364Z", "elapsedSeconds": 0.02150804099983361, "stages": [{"agentId": "direct", "outputKey": "final_answer", "status": "failed", "startedAt": "2026-10-06T15:56:30.392574Z", "completedAt": "2026-10-06T15:56:30.401365Z", "durationSeconds": 0.00...
+E
+E     ...Full output truncated (2 lines hidden), use '-vv' to show
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/langgraph/checkpoint/base/__init__.py:17
+  /Users/shreetej/Downloads/FMProject/.venv/lib/python3.13/site-packages/langgraph/checkpoint/base/__init__.py:17: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
+    from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+
+.venv/lib/python3.13/site-packages/starlette/testclient.py:40
+  /Users/shreetej/Downloads/FMProject/.venv/lib/python3.13/site-packages/starlette/testclient.py:40: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED backend/tests/test_provider_failure_disclosure.py::test_system_provider_error_does_not_persist_sdk_payload
+1 failed, 2 warnings in 1.72s
+
+
+## Consolidated backend with all PostgreSQL prerequisites
+........................................................................ [ 12%]
+........................................................................ [ 24%]
+........................................................................ [ 36%]
+........................................................................ [ 48%]
+........................................................................ [ 60%]
+........................................................................ [ 72%]
+........................................................................ [ 85%]
+........................................................................ [ 97%]
+................                                                         [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/langgraph/cache/base/__init__.py:8
+  /Users/shreetej/Downloads/FMProject/.venv/lib/python3.13/site-packages/langgraph/cache/base/__init__.py:8: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
+    from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+
+.venv/lib/python3.13/site-packages/starlette/testclient.py:40
+  /Users/shreetej/Downloads/FMProject/.venv/lib/python3.13/site-packages/starlette/testclient.py:40: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+592 passed, 2 warnings in 63.72s (0:01:03)
+Pre-existing checkpoint fingerprints unchanged after this run.
+
+
+## Frontend regression
+
+> frontend@0.0.0 test
+> node --test tests/*.test.js
+
+✔ agent management follows workspace IAM and not HR roles (601.053584ms)
+✔ configuration requires meaningful bounded fields (1.262417ms)
+✔ only supported models and bounded execution settings pass (137.002ms)
+✔ run input validates before submission (20.9485ms)
+✔ builder API client sends authenticated workspace-scoped definitions revisions and runs (49.92575ms)
+✔ builder surfaces API conflicts and uncertain run acknowledgement without fabricating output (1.3585ms)
+✔ builder loading and management affordances respect IAM in rendered UI (103.444666ms)
+✔ custom execution keeps a distinct mode and only its saved stage in the graph (0.345875ms)
+✔ stage lifecycle and failure events use persisted agent identities (101.013542ms)
+✔ only an actual message record can open its handoff without guessing (0.494875ms)
+✔ route and completion events open existing route/result objects only (0.831792ms)
+✔ unknown events and missing agent relations remain safely inspectable (0.509209ms)
+✔ record IDs are source-qualified and timestamp ordering never synthesizes time (0.374875ms)
+✔ event selection resolves from authoritative records and clears on run switch/removal (0.808125ms)
+✔ object selection correlates only to known records without selecting an invented message event (0.514208ms)
+✔ live authoritative snapshots update stage states, keep selected identity, then become static (1.768125ms)
+✔ fitting keys follow actual topology and all standard route lengths fit supported panels (0.894292ms)
+✔ stage labels distinguish selected, running, completed, failed, and never started (3.809291ms)
+✔ saved handoffs never imply an ongoing transfer, including while receiver runs (0.382542ms)
+✔ mode descriptions remain accurate and benchmark options require registry entries (0.37525ms)
+✔ reduced-motion stylesheet disables non-essential badge and edge movement (0.817708ms)
+✔ HR-role labels and management access remain distinct from IAM roles (1373.502125ms)
+✔ human-role assignments group multiple responsibilities per member (3.311292ms)
+✔ owner surface explicitly separates access roles from HR responsibilities (28.199125ms)
+✔ admin surface can manage HR responsibilities without gaining owner access-role controls (2.27775ms)
+✔ adaptive canvas includes only recorded plan and selected stage rows (19.594541ms)
+✔ research provenance exposes recorded comparison metadata without fabrication (0.426209ms)
+✔ single, fixed, and legacy canvas paths retain their actual distinct topology (0.287291ms)
+✔ stage inspection links only persisted incoming/outgoing handoffs and events (0.4325ms)
+✔ failed stage preserves its error and only waiting downstream is not executed (0.34425ms)
+✔ token coverage distinguishes complete, partial, unavailable, and real zero (0.380042ms)
+✔ absent topology is empty and route metadata belongs only to Adaptive (0.425083ms)
+✔ available reference context does not require or fabricate an incoming message (0.194625ms)
+✔ no selection renders the recorded run overview with real mode and ID (1336.687583ms)
+✔ run overview renders research provenance and honest token coverage (207.094ms)
+✔ historical run overview does not fabricate research provenance (108.963959ms)
+✔ stage selection renders stored telemetry and source provenance (9.7065ms)
+✔ final result is a dedicated view with run summary and exports (11.113375ms)
+✔ adaptive route selection shows a model-free deterministic plan (5.760375ms)
+✔ real handoff selection renders persisted content and record identity (4.347167ms)
+✔ handoff size distinguishes absent content from a recorded empty string (51.958625ms)
+✔ Single, Fixed and legacy utility overviews retain distinct mode semantics (114.459209ms)
+✔ failure inspection preserves missing-input evidence and downstream nonexecution (14.351833ms)
+✔ missing telemetry stays unknown while actual zero remains measurable (19.194125ms)
+✔ long recorded output escapes HTML and preserves an expandable keyboard-scrollable full record (4.591208ms)
+✔ empty inspector and missing text do not invent output or telemetry (0.841333ms)
+✔ unlinked message event exposes its own record without fabricating a handoff (2.250083ms)
+✔ contextual entries are keyboard buttons with explicit selected and related semantics (47.736291ms)
+✔ selected event context retains its timestamp and ID alongside the stage inspector (9.230625ms)
+✔ empty contextual stream remains honest and bounded even with large histories (5.662333ms)
+✔ member-management visibility follows centralized frontend role semantics (1652.199708ms)
+✔ member workspace does not expose management controls (28.291875ms)
+✔ admin gets read-only member-management surface (2.784042ms)
+✔ owner gets role-management surface and Personal Workspace gets no org controls (3.385958ms)
+✔ organization page exposes only private create/join membership actions (1956.573166ms)
+✔ organization forms use bounded native inputs and do not echo invalid values (7.469583ms)
+✔ workspace client includes credentials and uses only scoped workspace endpoints (2.27125ms)
+✔ recycle bin controls follow personal ownership and organization IAM (2.488667ms)
+✔ authoritative refresh removes deleted runs while keeping later evidence for present runs (7.204666ms)
+✔ acknowledgement during an older refresh survives once but next complete list is authoritative (0.305792ms)
+✔ run browsing normalizes terms, orders newest first and filters a large history without mutation (1186.616791ms)
+✔ run rows keep full accessible titles primary, IDs secondary, selection visible and rendering bounded (39.65325ms)
+✔ run keyboard navigation supports bounded arrows, Home, End and native activation (0.300959ms)
+✔ picker empty, loading and error states do not fabricate runs (13.167375ms)
+✔ composer explains three research strategies with native labelled radios and a separate specialist utility (7.590875ms)
+✔ composer benchmark states are explicit and options contain only active registry metadata (24.524042ms)
+✔ composer validates required and bounded inputs without changing backend payload conventions (0.8635ms)
+✔ legacy utility exposes only executable specialists and does not imply upload consumption (3.6145ms)
+✔ reference upload preflight checks the whole batch and a synchronous lock prevents double submission (0.600834ms)
+✔ busy composer disables configuration and actions, preserves draft, and distinguishes upload from submit (10.819958ms)
+✔ structured API errors are readable without echoing validation input and uncertain creation never claims failure or success (3.3225ms)
+✔ server acknowledgement survives stale refresh and later authoritative completion updates the same immutable ID (0.799542ms)
+✔ untrusted titles, goals and uploaded previews remain escaped, selectable text (5.70125ms)
+✔ new server-acknowledged run remains selectable during stale refresh and WS updates (3.064458ms)
+✔ stable readable labels retain immutable IDs and legacy directive fallback (0.444042ms)
+✔ graph topology uses actual backend stages, not skipped agents (3.522791ms)
+✔ dataset options use only registered active metadata and explicit empty state (0.782208ms)
+✔ workspace options keep Personal Workspace first and include only discovered organizations (429.396875ms)
+✔ workspace selection preserves an accessible preference and safely falls back to Personal Workspace (0.433833ms)
+✔ workspace switcher exposes Personal Workspace and IICT with current membership context (14.686958ms)
+✔ one run ID scopes inspector targets; stale selections and missing objects clear (4.368417ms)
+✔ route and coordinator inspection exist only for recorded mode evidence (0.519667ms)
+✔ recent events and topology derive only from the selected saved run (0.408333ms)
+✔ acknowledged creation and later authoritative refresh retain the active ID (0.37425ms)
+ℹ tests 84
+ℹ suites 0
+ℹ pass 84
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4067.394542
+
+
+## Frontend lint
+
+> frontend@0.0.0 lint
+> oxlint
+
+src/layout/AppShell.jsx:54:17: warning react(only-export-components): Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.
+src/context/SimulationContext.jsx:28:17: warning react(only-export-components): Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.
+
+
+## Frontend production build
+
+> frontend@0.0.0 build
+> vite build
+
+vite v8.1.4 building client environment for production...
+
+transforming...✓ 2013 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.45 kB │ gzip:   0.29 kB
+dist/assets/index-DUuOT8If.css   51.69 kB │ gzip:   9.61 kB
+dist/assets/index-Bew0-7nS.js   456.16 kB │ gzip: 139.27 kB
+
+✓ built in 344ms
+
+
+## Missing async plugin reproduction
+...FF                                                                    [100%]
+=================================== FAILURES ===================================
+____________ test_call_llm_preserves_missing_provider_usage_as_none ____________
+async def functions are not natively supported.
+You need to install a suitable plugin for your async framework, for example:
+  - anyio
+  - pytest-asyncio
+  - pytest-tornasync
+  - pytest-trio
+  - pytest-twisted
+___________________ test_call_llm_preserves_real_zero_usage ____________________
+async def functions are not natively supported.
+You need to install a suitable plugin for your async framework, for example:
+  - anyio
+  - pytest-asyncio
+  - pytest-tornasync
+  - pytest-trio
+  - pytest-twisted
+=============================== warnings summary ===============================
+backend/tests/test_llm_client.py:45
+  /Users/shreetej/Downloads/FMProject/backend/tests/test_llm_client.py:45: PytestUnknownMarkWarning: Unknown pytest.mark.asyncio - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.asyncio
+
+backend/tests/test_llm_client.py:75
+  /Users/shreetej/Downloads/FMProject/backend/tests/test_llm_client.py:75: PytestUnknownMarkWarning: Unknown pytest.mark.asyncio - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.asyncio
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED backend/tests/test_llm_client.py::test_call_llm_preserves_missing_provider_usage_as_none
+FAILED backend/tests/test_llm_client.py::test_call_llm_preserves_real_zero_usage
+2 failed, 3 passed, 2 warnings in 0.14s

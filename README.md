@@ -63,11 +63,13 @@ does not default to localhost.
 
 ## Storage and benchmark data
 
-The version 2 operational schema stores simulations, one task per simulation,
-stage executions, handoffs, events, metrics, uploads, dataset metadata and the
-agent roster. SQLite remains the local fallback when `DATABASE_URL` is absent;
-a PostgreSQL URL selects PostgreSQL for Railway. Startup initializes schema
-version 2. Existing V1 SQLite records are validated, backed up and migrated
+The current version 11 schema stores simulations, one task per simulation,
+stages, handoffs, events, metrics, owned uploads, identities/sessions,
+workspaces/memberships, HR human roles, custom-agent revisions, dataset metadata
+and the roster. SQLite remains the local fallback without `DATABASE_URL`;
+a PostgreSQL URL selects PostgreSQL. Startup initializes/migrates schema 11
+and activates ENABLE/FORCE RLS on all 14 tenant-owned PostgreSQL tables.
+Existing V1 SQLite records are validated, backed up and migrated
 without deleting the original tables. Interrupted runs are marked failed after
 a restart; they are never silently retried or marked successful.
 The existing `execution_mode` string column and run snapshot store Phase 3.1
@@ -81,8 +83,11 @@ only metadata and bounded non-personal aggregates enter the application.
 See [dataset audit](docs/PHASE2_DATASET_AUDIT.md) and
 [database/deployment guide](docs/PHASE2_DATABASE_DEPLOYMENT.md).
 
-This is a **shared, unauthenticated workspace**, not a private multi-user service.
-The nullable owner field is an extension point, not authorization. Do not upload
+Google OIDC establishes an opaque, revocable application session. Personal
+Workspaces are private to their owner; Organizations share data with active
+members. Workspace IAM and HR human roles remain separate. The legacy owner
+field does not authorize access. Browser mutations and live connections validate
+trusted origins; live delivery rechecks session and workspace authority. Do not upload
 secrets or sensitive personal/HR data. Uploaded context is sent to Groq during
 execution. Only bounded prepared context is retained; original file bytes are not
 an archival upload facility.
@@ -108,7 +113,10 @@ git diff --check
 ```
 
 Automated tests mock providers and use temporary databases; they consume no Groq
-credits. See [V1 audit and validation](docs/V1_AUDIT.md) for the audit matrix,
+credits. PostgreSQL integration tests require approved restricted local credentials;
+missing credentials cause skips, not acceptance. See
+[Phase 4 final acceptance](docs/PHASE4_FINAL_ACCEPTANCE_REPORT.md) for current
+results and production gates. See [V1 audit and validation](docs/V1_AUDIT.md) for the historical audit matrix,
 limits, schema/API changes, and real integration results.
 
 ## Executable Agent Builder (Phase 4.9)

@@ -1,6 +1,13 @@
 """
 app/agents/orchestrator.py
 
+HISTORICAL PROTOTYPE ONLY. No active API imports this module. Its SimulationState,
+MemorySaver and unscoped broadcasts are incompatible with the accepted Phase 4
+ExecutionContext/Task/StageExecution and tenant-checkpoint boundaries. The active
+dispatcher is api/routes/tasks.py; durable orchestration is agents/graph_runtime.py.
+The older design notes and example below are preserved as reference, not a second
+supported execution/evidence path.
+
 RESERVED for Member C — this is where the six agents (research_agent.py,
 data_agent.py, web_search_agent.py, analysis_agent.py,
 summarizer_agent.py, report_agent.py) get wired into an actual LangGraph
@@ -128,9 +135,7 @@ def build_graph() -> StateGraph:
 #
 #
 async def run_simulation(goal: str):
-     """Called by app/api/routes/simulation.py. Streams state updates as
-    the graph executes; the route forwards each update through
-     app/websocket/manager.py so the dashboard updates live."""
+     """Historical unsupported example; never called by the active API."""
      graph = build_graph()
      async for state_update in graph.astream({"goal": goal, "messages": []}):
          await manager.broadcast("task_updated", state_update)

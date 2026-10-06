@@ -1,7 +1,8 @@
 # FastAPI backend
 
-The V1 engine is the existing sequential coordinator in `app/api/routes/tasks.py`.
-It uses FastAPI BackgroundTasks and the existing Groq client, not LangGraph.
+The default engine is the sequential coordinator in `app/api/routes/tasks.py`.
+It uses FastAPI BackgroundTasks and the existing Groq client. The integrated
+LangGraph adapter remains disabled by default pending its activation gates.
 Phase 3.1 adds `single` (one neutral Direct Agent call) and names the existing
 five-agent pipeline `fixed`. Phase 3.3 implements `adaptive` with versioned,
 deterministic capability rules and input validation, not an LLM router.
@@ -52,8 +53,9 @@ validation. Task `title` is an optional supplied title or deterministic excerpt;
 Model/tokens/latency remain on real stages. See the Phase 3 architecture for rules.
 
 Per-stage metrics are captured from the real LLMResponse via a ContextVar, avoiding
-cross-run contamination from shared counters. Errors are credential-redacted before
-being persisted. On failure, completed stages stay completed, the current stage
+cross-run contamination from shared counters. The shared adapter maps provider
+failures to safe messages; other errors are credential-redacted before persistence.
+On failure, completed stages stay completed, the current stage
 fails, downstream stages remain waiting, and no final success is invented.
 
 ## Endpoints
@@ -70,7 +72,7 @@ All paths below are relative to `/api/v1`.
 | POST /uploads?filename=reference.txt | Raw UTF-8 file body; bounded parser |
 | GET /uploads/{id} | Metadata and prepared preview |
 | GET /agents; /agents/stats; /agents/{id}/stats | Roster and persisted execution statistics |
-| POST /agents | Metadata only; does not create executable code |
+| POST /agents | Authorized managers receive 410; use /agent-builder |
 | GET /messages; /simulation/activity | Optional simulation_id filter |
 | GET /simulation/stats | Legacy aggregate view |
 | POST /simulation/pause,resume,stop | Explicit supported=false; no fake state changes |
@@ -90,10 +92,18 @@ message_created, task_created/updated, message_sent, activity_event, stats_updat
 and `route_planned` for a validated Adaptive plan. The full plan travels with
 `task_created`/`task_updated`; no skipped-agent execution events are emitted.
 State is committed before broadcast. REST is authoritative after reconnect.
+Cookie browser mutations and WebSocket handshakes validate exact configured
+`CORS_ORIGINS`, with a trusted Referer fallback. Browser requests with Fetch
+Metadata but no trusted source fail closed; header-less non-browser API clients
+still require their opaque session. Live connections recheck session, active
+user/workspace and membership before every delivery and every 30 seconds while
+idle. Logout, expiry and revoked authority stop future delivery.
 
 The SQLAlchemy repository uses SQLite locally and PostgreSQL via `DATABASE_URL`.
-Version 2 normalizes tasks, stages, handoffs, events, metrics, uploads, dataset
-metadata and roster while retaining a compatible run snapshot.
+The current schema is version 11. It retains normalized V2 execution tables and
+the compatible run snapshot, adding identities/sessions, tenancy, IAM/HR roles,
+owned uploads, recycle lifecycle metadata and immutable custom-agent revisions.
+All 14 tenant-owned PostgreSQL tables receive ENABLE/FORCE RLS at initialization.
 Phase 3.3 title/route metadata uses that JSON/JSONB snapshot; no SQL migration or
 schema-version change is needed. Existing records default to a directive title
 and null route; no historic route is fabricated. On startup,
@@ -116,8 +126,9 @@ and a durable database for long-lived data. The Railway PostgreSQL service is
 connected in production: a completed run from commit `ef27951` remained available
 after a backend restart on 2026-09-29. This verifies backend-restart durability,
 not survival of PostgreSQL service loss. Benchmark JSON provisioning in production
-remains unverified. No automatic retention, job queue, login or ownership
-enforcement exists yet. See
+remains unverified. Automatic retention and a durable job queue are unavailable;
+Google OIDC sessions, workspace ownership and IAM enforcement are implemented.
+This older deployment observation does not verify Phase 4 in production. See
 `../docs/PHASE2_DATABASE_DEPLOYMENT.md` for setup and migration limits.
 
 ## LangGraph runtime (Phase 4.7)
@@ -140,3 +151,7 @@ Task/StageExecution lifecycle. Only server-permitted default/fast models are
 supported. No credentials, tools, scripts or arbitrary provider URLs are exposed.
 See [Phase 4.9](../docs/PHASE4_AGENT_BUILDER.md) for API contracts, IAM/RLS,
 acceptance and deployment gates. Graph runtime defaults remain unchanged.
+
+See [Phase 4 final acceptance](../docs/PHASE4_FINAL_ACCEPTANCE_REPORT.md) for the
+current consolidated audit. Marked older checkpoint documents are historical
+snapshots and do not supersede that report.

@@ -1,5 +1,11 @@
 # Phase 4.5.5B — HR human-role transaction wiring and RLS
 
+**Historical implementation checkpoint.** Its schema counts, partial test results
+and remaining-gate lists describe that commit. Current schema 11 protects all
+14 tenant-owned tables, including uploads and custom agents/revisions. See
+[Phase 4 final acceptance](PHASE4_FINAL_ACCEPTANCE_REPORT.md) for current
+independently rerun evidence and outstanding production gates.
+
 ## Status and scope
 
 COMPLETED (local implementation): selected-workspace HR-role transactions,

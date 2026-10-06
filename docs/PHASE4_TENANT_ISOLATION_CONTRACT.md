@@ -1,5 +1,11 @@
 # Phase 4.5 Tenant-Isolation Contract
 
+**Historical 4.5.1 snapshot.** The upload/statistics/legacy-access findings below
+were subsequently resolved. Schema 11 classifies uploads and both custom-agent
+tables as tenant-owned and activates FORCE RLS on all 14 tenant tables. See
+[final acceptance](PHASE4_FINAL_ACCEPTANCE_REPORT.md) for the current inventory
+and independently rerun validation; the following text preserves the original audit.
+
 ## Purpose
 
 Phase 4.5 adds database-level defense in depth without replacing the application protections already established in Phases 4.2–4.4. The required stack is:

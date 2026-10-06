@@ -1,5 +1,11 @@
 # Phase 4.5.4C — Data-plane RLS activation and startup recovery
 
+**Historical implementation checkpoint.** Its schema counts, partial test results
+and remaining-gate lists describe that commit. Current schema 11 protects all
+14 tenant-owned tables, including uploads and custom agents/revisions. See
+[Phase 4 final acceptance](PHASE4_FINAL_ACCEPTANCE_REPORT.md) for current
+independently rerun evidence and outstanding production gates.
+
 Historical checkpoint record: local 4.5.5A additionally activates workspace and
 membership bootstrap RLS and replaces the deferred global catalog read with
 bounded creator/owner discovery. The sections below describe 4.5.4C, not the

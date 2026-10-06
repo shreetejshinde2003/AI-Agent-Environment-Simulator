@@ -4,7 +4,11 @@ Historical policy-definition checkpoint. Local 4.5.5A added workspace/membership
 bootstrap; local 4.5.5B adds HR assignment transactions and command-specific RLS.
 See [bootstrap behavior](PHASE4_WORKSPACE_BOOTSTRAP_RLS.md) and
 [current HR-role RLS](PHASE4_HR_HUMAN_ROLE_RLS.md). Upload ownership/RLS remains
-deferred, and live PostgreSQL verification remains partial.
+deferred at that historical checkpoint. Upload ownership/RLS was subsequently
+activated; schema 11 also protects custom agents/revisions. All 14 tenant tables
+now use ENABLE/FORCE RLS. See [final acceptance](PHASE4_FINAL_ACCEPTANCE_REPORT.md)
+for current rerun results and outstanding production gates. The following text
+preserves the earlier policy-definition state.
 
 ## Purpose
 

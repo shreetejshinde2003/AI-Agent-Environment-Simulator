@@ -1,5 +1,11 @@
 # Phase 4.5.2 — Trusted PostgreSQL tenant session context
 
+**Historical implementation checkpoint.** Its schema counts, partial test results
+and remaining-gate lists describe that commit. Current schema 11 protects all
+14 tenant-owned tables, including uploads and custom agents/revisions. See
+[Phase 4 final acceptance](PHASE4_FINAL_ACCEPTANCE_REPORT.md) for current
+independently rerun evidence and outstanding production gates.
+
 ## Purpose
 
 Phase 4.5.2 carries an already-authenticated and already-authorized application

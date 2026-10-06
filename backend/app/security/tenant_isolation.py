@@ -132,7 +132,7 @@ TABLE_ISOLATION_RULES: dict[str, TableIsolationRule] = {
     "agent_roster": TableIsolationRule(
         "agent_roster",
         IsolationScope.SYSTEM_GLOBAL,
-        notes="Global agent metadata; executable tenant configuration is a later phase.",
+        notes="Historical global display metadata; executable configuration uses tenant-owned custom_agents.",
     ),
 }
 
