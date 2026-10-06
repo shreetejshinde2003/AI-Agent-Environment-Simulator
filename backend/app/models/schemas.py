@@ -85,6 +85,7 @@ class TaskPriority(str, Enum):
 
 
 class TaskExecutionMode(str, Enum):
+    CUSTOM = "custom"
     SINGLE = "single"
     FIXED = "fixed"
     ADAPTIVE = "adaptive"
@@ -430,6 +431,8 @@ class Task(CamelModel):
     route_plan: RoutePlan | None = None
     provenance: RunProvenance | None = None
     experiment_id: str | None = None
+    custom_agent_revision: int | None = Field(default=None, ge=1)
+    custom_agent_config_hash: str | None = None
 
     @model_validator(mode="after")
     def readable_title(self):
@@ -720,3 +723,45 @@ class AgentRuntimeStats(CamelModel):
 
 class PermanentDeletionRequest(CamelModel):
     confirm_permanent_deletion: bool = Field(default=False, strict=True)
+
+
+class CustomAgentConfig(CamelModel):
+    """Only a bounded text-to-text model call; no tools, URLs or credentials."""
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True,
+                              extra="forbid", frozen=True, str_strip_whitespace=True)
+    name: str = Field(min_length=1, max_length=80)
+    description: str = Field(default="", max_length=1000)
+    purpose: str = Field(min_length=1, max_length=1000)
+    instructions: str = Field(min_length=1, max_length=8000)
+    input_contract: Literal["text"] = "text"
+    output_contract: Literal["text"] = "text"
+    provider: Literal["groq"] = "groq"
+    model: Literal["default", "fast"] = "default"
+    capability: Literal["text_generation"] = "text_generation"
+    max_tokens: int = Field(default=1024, ge=64, le=1024, strict=True)
+    timeout_seconds: int = Field(default=60, ge=1, le=120, strict=True)
+    active: bool = Field(default=True, strict=True)
+
+
+class UpdateCustomAgentRequest(CustomAgentConfig):
+    expected_revision: int = Field(ge=1, strict=True)
+
+
+class CustomAgentDefinition(CamelModel):
+    id: str
+    workspace_id: str
+    revision: int
+    config: CustomAgentConfig
+    resolved_model: str
+    config_hash: str
+    created_by_user_id: str
+    created_at: datetime
+    updated_by_user_id: str
+    updated_at: datetime
+
+
+class CustomAgentRunRequest(CamelModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True,
+                              extra="forbid", str_strip_whitespace=True)
+    text: str = Field(min_length=1, max_length=10000)
+    expected_revision: int = Field(ge=1, strict=True)

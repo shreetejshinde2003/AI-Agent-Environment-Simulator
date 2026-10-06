@@ -1,9 +1,7 @@
 """Agent roster and persistent execution statistics; metadata is not an implementation."""
-import uuid
 from fastapi import APIRouter, Header, HTTPException, Request
-from app.models.schemas import Agent, AgentRelationship, AgentRuntimeStats, AgentStatus, CreateAgentRequest
+from app.models.schemas import Agent, AgentRelationship, AgentRuntimeStats, AgentStatus
 from app.storage.database import repository
-from app.websocket.manager import manager
 from app.api.routes.workspaces import require_request_permission, request_user_id
 from app.security.rbac import Permission
 
@@ -71,11 +69,7 @@ async def get_agent(agent_id: str, request: Request, x_workspace_id: str | None 
         raise HTTPException(404, "Agent not found")
     return result
 
-@router.post("", response_model=Agent, status_code=201)
-async def create_agent(payload: CreateAgentRequest):
-    # Compatibility endpoint: custom metadata never becomes executable code.
-    agent = Agent(id=uuid.uuid4().hex[:12], name=payload.name, role=payload.role,
-                  color=payload.color or "#94a3b8", status="idle", implemented=False)
-    repository.save_agent(agent)
-    await manager.broadcast("agent_status_changed", agent.model_dump(mode="json"))
-    return agent
+@router.post("", status_code=410)
+async def create_agent(request: Request, x_workspace_id: str | None = Header(default=None)):
+    require_request_permission(request, x_workspace_id, Permission.AGENT_MANAGE)
+    raise HTTPException(410, detail={"code": "use_agent_builder", "message": "Create executable agents through /agent-builder."})

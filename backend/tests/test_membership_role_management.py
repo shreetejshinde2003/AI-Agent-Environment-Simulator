@@ -91,7 +91,7 @@ def test_fresh_v10_database_persists_admin_role(tmp_path):
     assert restored["membership_role"] == "admin"
 
     with sqlite3.connect(repo.path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 10
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 11
 
 
 def test_v6_membership_constraint_migrates_to_v8_and_preserves_rows(tmp_path):

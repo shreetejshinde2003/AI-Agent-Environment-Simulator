@@ -85,4 +85,6 @@ def test_tenant_owned_inventory_contains_root_direct_indirect_and_pending_tables
         "simulation_metrics",
         "simulation_uploads",
         "uploads",
+        "custom_agents",
+        "custom_agent_revisions",
     }

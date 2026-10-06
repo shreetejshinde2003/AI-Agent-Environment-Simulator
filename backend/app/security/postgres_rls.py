@@ -26,6 +26,7 @@ class PostgresRLSPolicy:
     check_sql: str
     write_using_sql: str | None = None
     write_check_sql: str | None = None
+    insert_only: bool = False
 
     @property
     def policy_names(self) -> frozenset[str]:
@@ -44,8 +45,10 @@ class PostgresRLSPolicy:
             return statements + (
                 f'DROP POLICY IF EXISTS "{WRITE_POLICY_NAME}" ON "{self.table}"',
                 f'CREATE POLICY "{POLICY_NAME}" ON "{self.table}" FOR SELECT USING ({self.using_sql})',
-                f'CREATE POLICY "{WRITE_POLICY_NAME}" ON "{self.table}" FOR ALL '
-                f'USING ({self.write_using_sql}) WITH CHECK ({self.write_check_sql})',
+                (f'CREATE POLICY "{WRITE_POLICY_NAME}" ON "{self.table}" FOR INSERT WITH CHECK ({self.write_check_sql})'
+                 if self.insert_only else
+                 f'CREATE POLICY "{WRITE_POLICY_NAME}" ON "{self.table}" FOR ALL '
+                 f'USING ({self.write_using_sql}) WITH CHECK ({self.write_check_sql})'),
             )
         return statements + (
             (
@@ -130,6 +133,28 @@ def _human_role_policy() -> PostgresRLSPolicy:
     return PostgresRLSPolicy(table, visible, writable, manager, writable)
 
 
+def _custom_agent_policy(table: str) -> PostgresRLSPolicy:
+    base = (
+        f"{CURRENT_USER_SQL} IS NOT NULL AND workspace_id = {CURRENT_WORKSPACE_SQL} AND "
+        "EXISTS (SELECT 1 FROM users AS ca_user "
+        f"WHERE ca_user.id = {CURRENT_USER_SQL} AND ca_user.active = TRUE) AND "
+        "EXISTS (SELECT 1 FROM workspaces AS ca_workspace "
+        f"WHERE ca_workspace.id = {table}.workspace_id AND ca_workspace.active = TRUE AND ("
+        f"(ca_workspace.kind = 'personal' AND ca_workspace.personal_owner_user_id = {CURRENT_USER_SQL}) OR "
+        "(ca_workspace.kind = 'organization' AND EXISTS (SELECT 1 FROM organization_memberships AS ca_member "
+        f"WHERE ca_member.workspace_id = {table}.workspace_id AND ca_member.user_id = {CURRENT_USER_SQL} "
+        "AND ca_member.active = TRUE {role}))))"
+    )
+    visible = base.format(role="")
+    manager = base.format(role="AND ca_member.membership_role IN ('owner', 'admin')")
+    actor_column = "updated_by_user_id" if table == "custom_agent_revisions" else "created_by_user_id"
+    writable = manager
+    if table == "custom_agent_revisions":
+        writable += f" AND {actor_column} = {CURRENT_USER_SQL}"
+    return PostgresRLSPolicy(table, visible, writable, manager, writable,
+                             insert_only=table == "custom_agent_revisions")
+
+
 def _simulation_child_policy(table: str, simulation_column: str) -> PostgresRLSPolicy:
     predicate = (
         "EXISTS ("
@@ -153,7 +178,9 @@ def build_postgres_rls_policies() -> tuple[PostgresRLSPolicy, ...]:
         if rule.scope == IsolationScope.WORKSPACE_ROOT:
             policies.append(_workspace_root_policy())
         elif rule.scope == IsolationScope.TENANT_DIRECT:
-            if rule.table == "organization_memberships":
+            if rule.table in {"custom_agents", "custom_agent_revisions"}:
+                policies.append(_custom_agent_policy(rule.table))
+            elif rule.table == "organization_memberships":
                 policies.append(_membership_policy())
             elif rule.table == "organization_human_role_assignments":
                 policies.append(_human_role_policy())
@@ -183,6 +210,7 @@ ACTIVE_RLS_TABLES = (
     | BOOTSTRAP_RLS_TABLES
     | HR_ROLE_RLS_TABLES
     | UPLOAD_RLS_TABLES
+    | frozenset({"custom_agents", "custom_agent_revisions"})
 )
 DEFERRED_RLS_TABLES = POSTGRES_RLS_TABLES - ACTIVE_RLS_TABLES
 

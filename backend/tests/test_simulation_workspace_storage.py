@@ -110,8 +110,8 @@ def test_v5_migration_adds_nullable_workspace_ownership_without_losing_run(tmp_p
         user_version = raw.execute("PRAGMA user_version").fetchone()[0]
 
     assert "workspace_id" in columns
-    assert version == 10
-    assert user_version == 10
+    assert version == 11
+    assert user_version == 11
     restored = repository.get(legacy.id)
     assert restored is not None
     assert restored.workspace_id is None

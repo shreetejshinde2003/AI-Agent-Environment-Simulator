@@ -8,6 +8,7 @@ simulation workspace ownership while preserving historical run payloads. Version
 adds the persisted organization admin role and safe role-management primitives.
 Version 8 adds organization-scoped HR-domain human role assignments.
 Version 9 adds upload ownership; version 10 adds simulation recycle-bin metadata.
+Version 11 adds tenant-owned custom agents and immutable configuration revisions.
 """
 
 from __future__ import annotations
@@ -37,7 +38,7 @@ from app.security.workspaces import (
     join_code_digest,
 )
 
-SCHEMA_VERSION = 10
+SCHEMA_VERSION = 11
 
 
 def normalize_url(url: str | None) -> str:
@@ -63,7 +64,10 @@ class RecycleBinError(ValueError):
         super().__init__(message)
 
 
-class Repository:
+from app.storage.custom_agents import CustomAgentRepository
+
+
+class Repository(CustomAgentRepository):
     def __init__(self, url: str | None):
         self.url = normalize_url(url)
         self.path = self.url.removeprefix("sqlite:///") if self.url.startswith("sqlite:///") else None
@@ -258,8 +262,8 @@ class Repository:
                         )
                     )
 
-                elif versions in ([2], [3], [4], [5], [6], [7], [8], [9]):
-                    # V10 remains additive. create_all above safely creates
+                elif versions in ([2], [3], [4], [5], [6], [7], [8], [9], [10]):
+                    # V11 remains additive. create_all above safely creates
                     # newer tables; migrations add simulation ownership and,
                     # for V5/V6 membership tables, widen the role constraint.
                     previous_version = versions[0]
@@ -291,6 +295,15 @@ class Repository:
 
                 install_data_plane_rls_policies(connection)
 
+    @staticmethod
+    def _install_sqlite_agent_revision_guards(connection):
+        for action in ("UPDATE", "DELETE"):
+            connection.exec_driver_sql(
+                f"CREATE TRIGGER IF NOT EXISTS immutable_agent_revision_{action.lower()} "
+                f"BEFORE {action} ON custom_agent_revisions "
+                "BEGIN SELECT RAISE(ABORT, 'Agent revisions are immutable'); END"
+            )
+
     def _initialize_sqlite(self):
         with sqlite3.connect(self.path) as raw:
             version = raw.execute("PRAGMA user_version").fetchone()[0]
@@ -310,6 +323,7 @@ class Repository:
 
         with self.engine.begin() as connection:
             dbm.metadata.create_all(connection)
+            self._install_sqlite_agent_revision_guards(connection)
 
             versions = connection.execute(
                 select(dbm.schema_version.c.version)
@@ -323,7 +337,7 @@ class Repository:
                     )
                 )
 
-            elif versions in ([2], [3], [4], [5], [6], [7], [8], [9]):
+            elif versions in ([2], [3], [4], [5], [6], [7], [8], [9], [10]):
                 previous_version = versions[0]
 
                 self._ensure_simulation_workspace_column(connection)
@@ -370,6 +384,7 @@ class Repository:
             for table in ("simulations", "uploads", "agent_roster"):
                 connection.exec_driver_sql(f"ALTER TABLE {table} RENAME TO {table}_v1_archive")
             dbm.metadata.create_all(connection)
+            self._install_sqlite_agent_revision_guards(connection)
             connection.execute(insert(dbm.schema_version).values(
                 version=SCHEMA_VERSION, applied_at=timestamp(datetime.now(timezone.utc))))
             for upload in old_uploads:

@@ -19,6 +19,9 @@ class WorkspaceRole(str, Enum):
 
 
 class Permission(str, Enum):
+    AGENT_VIEW = "agent.view"
+    AGENT_RUN = "agent.run"
+    AGENT_MANAGE = "agent.manage"
     WORKSPACE_VIEW = "workspace.view"
     SIMULATION_CREATE = "simulation.create"
     SIMULATION_VIEW = "simulation.view"
@@ -37,6 +40,8 @@ class Permission(str, Enum):
 
 _BASE_WORKSPACE_PERMISSIONS = frozenset(
     {
+        Permission.AGENT_VIEW,
+        Permission.AGENT_RUN,
         Permission.WORKSPACE_VIEW,
         Permission.SIMULATION_CREATE,
         Permission.SIMULATION_VIEW,
@@ -50,6 +55,7 @@ ROLE_PERMISSIONS: Mapping[WorkspaceRole, frozenset[Permission]] = {
     WorkspaceRole.ADMIN: _BASE_WORKSPACE_PERMISSIONS
     | frozenset(
         {
+            Permission.AGENT_MANAGE,
             Permission.RECYCLE_BIN_MANAGE,
             Permission.ORGANIZATION_MEMBERS_VIEW,
             Permission.ORGANIZATION_MEMBERS_MANAGE,
@@ -60,6 +66,7 @@ ROLE_PERMISSIONS: Mapping[WorkspaceRole, frozenset[Permission]] = {
     WorkspaceRole.OWNER: _BASE_WORKSPACE_PERMISSIONS
     | frozenset(
         {
+            Permission.AGENT_MANAGE,
             Permission.RECYCLE_BIN_MANAGE,
             Permission.ORGANIZATION_MEMBERS_VIEW,
             Permission.ORGANIZATION_MEMBERS_MANAGE,

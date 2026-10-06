@@ -127,6 +127,8 @@ TABLE_ISOLATION_RULES: dict[str, TableIsolationRule] = {
             "Startup refuses first activation while unresolved legacy workspace ownership remains."
         ),
     ),
+    "custom_agents": TableIsolationRule("custom_agents", IsolationScope.TENANT_DIRECT, workspace_column="workspace_id"),
+    "custom_agent_revisions": TableIsolationRule("custom_agent_revisions", IsolationScope.TENANT_DIRECT, workspace_column="workspace_id"),
     "agent_roster": TableIsolationRule(
         "agent_roster",
         IsolationScope.SYSTEM_GLOBAL,

@@ -1,7 +1,7 @@
-"""Version 10 operational tables; benchmark records never enter this schema."""
+"""Version 11 operational tables; benchmark records never enter this schema."""
 
 from sqlalchemy import (JSON, Boolean, CheckConstraint, Column, Float, ForeignKey,
-                        Index, Integer, MetaData, String, Table, Text)
+                        Index, Integer, MetaData, String, Table, Text, UniqueConstraint, ForeignKeyConstraint)
 from sqlalchemy.dialects.postgresql import JSONB
 
 metadata = MetaData()
@@ -314,3 +314,28 @@ simulation_uploads = Table("simulation_uploads", metadata,
     Column("upload_id", String(80), ForeignKey("uploads.id", ondelete="RESTRICT"), primary_key=True))
 agent_roster = Table("agent_roster", metadata,
     Column("id", String(80), primary_key=True), Column("payload", json_type, nullable=False))
+
+
+# V11: immutable configuration revisions are retained when a definition is archived.
+custom_agents = Table("custom_agents", metadata,
+    Column("id", String(80), primary_key=True),
+    Column("workspace_id", String(80), ForeignKey("workspaces.id", ondelete="RESTRICT"), nullable=False),
+    Column("name_key", String(160), nullable=False),
+    Column("revision", Integer, nullable=False),
+    Column("active", Boolean, nullable=False),
+    Column("created_by_user_id", String(80), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False),
+    Column("created_at", String(40), nullable=False),
+    UniqueConstraint("workspace_id", "name_key", name="uq_custom_agent_name"),
+    UniqueConstraint("id", "workspace_id", name="uq_custom_agent_tenant"),
+    CheckConstraint("revision >= 1", name="ck_custom_agent_revision"))
+custom_agent_revisions = Table("custom_agent_revisions", metadata,
+    Column("agent_id", String(80), primary_key=True),
+    Column("revision", Integer, primary_key=True),
+    Column("workspace_id", String(80), nullable=False),
+    Column("updated_by_user_id", String(80), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False),
+    Column("updated_at", String(40), nullable=False),
+    Column("config_hash", String(64), nullable=False),
+    Column("resolved_model", String(160), nullable=False),
+    Column("payload", json_type, nullable=False),
+    ForeignKeyConstraint(["agent_id", "workspace_id"], ["custom_agents.id", "custom_agents.workspace_id"], ondelete="RESTRICT"),
+    CheckConstraint("revision >= 1", name="ck_custom_agent_revision_number"))

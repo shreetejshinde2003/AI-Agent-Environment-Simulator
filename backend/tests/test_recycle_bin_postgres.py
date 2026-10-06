@@ -72,7 +72,7 @@ def test_live_v9_additive_migration_preserves_payload_and_evidence(pg_repo):
     assert pg_repo.get_for_tenant(task.id, **scoped(task)).model_dump(mode="json") == task.model_dump(mode="json")
     assert evidence(pg_repo, task) == before
     with pg_repo.engine.connect() as connection:
-        assert connection.execute(select(dbm.schema_version.c.version)).scalar_one() == 10
+        assert connection.execute(select(dbm.schema_version.c.version)).scalar_one() == 11
 
 
 def test_live_completed_run_cannot_be_purged(pg_repo):

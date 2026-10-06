@@ -243,6 +243,8 @@ def prepare_task(
     workspace_id: str | None = None,
     user_id: str | None = None,
 ) -> Task:
+    if payload.execution_mode == TaskExecutionMode.CUSTOM:
+        raise HTTPException(422, "Custom agents must execute through /agent-builder/{id}/runs")
     if not payload.directive.strip():
         raise HTTPException(422, "Directive must not be blank")
 
@@ -514,8 +516,8 @@ async def resume_task_api(task_id: str, request: Request, background_tasks: Back
     return task
 
 
-async def _run_stage(task: Task, stage: StageExecution, context: ExecutionContext, user_id: str | None = None):
-    agent = _IMPLEMENTED_AGENTS.get(stage.agent_id)
+async def _run_stage(task: Task, stage: StageExecution, context: ExecutionContext, user_id: str | None = None, *, agent=None):
+    agent = agent or _IMPLEMENTED_AGENTS.get(stage.agent_id)
     previous_duration = stage.duration_seconds or 0
     previous_usage = {name: getattr(stage, name) for name in
                       ('input_tokens', 'output_tokens', 'total_tokens')}
@@ -604,6 +606,19 @@ def _prepared_context(task: Task) -> ExecutionContext:
 
 async def _execute_mode(task: Task, user_id: str | None = None) -> str:
     """One lifecycle/persistence boundary; future modes extend this dispatch."""
+    if task.execution_mode == TaskExecutionMode.CUSTOM:
+        from app.agents.custom_agent import CustomAgent
+        if not user_id or not task.workspace_id or not task.custom_agent_revision:
+            raise ValueError("Custom execution requires authenticated revision identity.")
+        definition = repository.get_custom_agent(task.assigned_agent_id,
+            workspace_id=task.workspace_id, user_id=user_id,
+            revision=task.custom_agent_revision, for_execution=True)
+        if definition.config_hash != task.custom_agent_config_hash:
+            raise ValueError("Agent execution revision integrity check failed.")
+        if len(task.stages) != 1 or task.stages[0].agent_id != definition.id or task.stages[0].output_key != "output":
+            raise ValueError("Custom execution stage contract is invalid.")
+        return await _run_stage(task, task.stages[0], _prepared_context(task), user_id=user_id,
+                                agent=CustomAgent(definition))
     if task.execution_mode == TaskExecutionMode.FIXED:
         return await _run_pipeline(task, user_id=user_id)
     if task.execution_mode == TaskExecutionMode.SINGLE:
