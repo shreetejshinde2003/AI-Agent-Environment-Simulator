@@ -131,3 +131,12 @@ def test_live_custom_execution_persists_stage_and_recycle_evidence(pg_repo, monk
         pg_repo.recycle_simulation(task.id, action="purge", confirmed=True, **identity)
     pg_repo.recycle_simulation(task.id, action="restore", **identity)
     assert pg_repo.get_for_tenant(task.id, **identity).model_dump(mode="json") == result.model_dump(mode="json")
+
+
+def test_live_unicode_name_casefold_expansion_is_supported(pg_repo):
+    identity = scope(pg_repo)
+    definition = CustomAgentConfig(name="ﬃ" * 80, purpose="Review", instructions="Summarize")
+    assert pg_repo.save_custom_agent(definition, **identity).config.name == definition.name
+    with pytest.raises(AgentBuilderError) as duplicate:
+        pg_repo.save_custom_agent(definition, **identity)
+    assert duplicate.value.status_code == 409

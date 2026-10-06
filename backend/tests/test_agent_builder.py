@@ -303,3 +303,11 @@ def test_revoked_membership_between_queue_and_worker_prevents_provider(context, 
     provider.assert_not_awaited()
     saved = repository.get_for_tenant(queued["id"], workspace_id=org["id"], user_id="USR-founder")
     assert saved.status.value == "failed"
+
+
+def test_unicode_name_casefold_expansion_is_supported(context):
+    payload = {**config(), "name": "ﬃ" * 80}
+    response = context[0].post('/api/v1/agent-builder', json=payload)
+    assert response.status_code == 201
+    assert response.json()["config"]["name"] == payload["name"]
+    assert context[0].post('/api/v1/agent-builder', json=payload).status_code == 409
