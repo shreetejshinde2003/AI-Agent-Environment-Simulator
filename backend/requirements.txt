@@ -28,5 +28,6 @@ pytest==8.4.2
 
 # --- Agent framework ---
 langgraph==0.6.11
+langgraph-checkpoint-postgres==3.0.5
 # langchain-anthropic       # or langchain-openai — only needed if you switch off Ollama, see llm_client.py
 # anthropic

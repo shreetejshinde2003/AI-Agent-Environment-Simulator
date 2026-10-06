@@ -20,14 +20,14 @@ from app.agents.graph_state import GraphRunState
 from app.agents.routing import SPECIALISTS
 
 
-def build_single_graph(*, node: AgentNode = direct_node):
+def build_single_graph(*, node: AgentNode = direct_node, checkpointer=None):
     """Compile the Single baseline topology: START -> direct -> END."""
 
     graph = StateGraph(GraphRunState)
     graph.add_node("direct", node)
     graph.add_edge(START, "direct")
     graph.add_edge("direct", END)
-    return graph.compile()
+    return graph.compile(checkpointer=checkpointer)
 
 
 single_graph = build_single_graph()
@@ -40,6 +40,7 @@ def build_fixed_graph(
     analysis: AgentNode = analysis_node,
     summarizer: AgentNode = summarizer_node,
     report: AgentNode = report_node,
+    checkpointer=None,
 ):
     """Compile the Fixed five-stage topology used by the existing runtime."""
 
@@ -58,7 +59,7 @@ def build_fixed_graph(
     graph.add_edge("summarizer", "report")
     graph.add_edge("report", END)
 
-    return graph.compile()
+    return graph.compile(checkpointer=checkpointer)
 
 
 fixed_graph = build_fixed_graph()
@@ -89,6 +90,11 @@ def _adaptive_next(state: GraphRunState):
 
     completed = state["completed_agents"]
 
+    if not isinstance(completed, (tuple, list)):
+        raise ValueError("Adaptive graph completed agents have an invalid type.")
+
+    completed = tuple(completed)
+
     if completed != selected[: len(completed)]:
         raise ValueError("Adaptive graph completed agents do not match the selected route prefix.")
 
@@ -105,6 +111,7 @@ def build_adaptive_graph(
     analysis: AgentNode = analysis_node,
     summarizer: AgentNode = summarizer_node,
     report: AgentNode = report_node,
+    checkpointer=None,
 ):
     """Compile execution over an already-selected Adaptive specialist route."""
 
@@ -130,7 +137,7 @@ def build_adaptive_graph(
     for agent_id in SPECIALISTS:
         graph.add_conditional_edges(agent_id, _adaptive_next, destinations)
 
-    return graph.compile()
+    return graph.compile(checkpointer=checkpointer)
 
 
 adaptive_graph = build_adaptive_graph()

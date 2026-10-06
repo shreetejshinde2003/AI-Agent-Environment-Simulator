@@ -180,6 +180,41 @@ class AdaptiveGraphTests(unittest.IsolatedAsyncioTestCase):
         for agent in agents.values():
             self.assertEqual(agent.calls, [])
 
+    async def test_restored_list_prefix_is_accepted(self):
+        order = []
+        graph, agents = graph_with_recorders(order)
+
+        state = initial_state(
+            ("data", "analysis", "report"),
+            ("research", "summarizer"),
+        )
+        state["completed_agents"] = []
+
+        result = await graph.ainvoke(state)
+
+        self.assertEqual(order, ["data", "analysis", "report"])
+        self.assertEqual(
+            tuple(result["completed_agents"]),
+            ("data", "analysis", "report"),
+        )
+
+    async def test_tampered_restored_list_prefix_is_rejected(self):
+        order = []
+        graph, agents = graph_with_recorders(order)
+
+        state = initial_state(
+            ("data", "analysis", "report"),
+            ("research", "summarizer"),
+        )
+        state["completed_agents"] = ["analysis"]
+
+        with self.assertRaisesRegex(ValueError, "selected route prefix"):
+            await graph.ainvoke(state)
+
+        self.assertEqual(order, [])
+        for agent in agents.values():
+            self.assertEqual(agent.calls, [])
+
     async def test_tampered_route_prefix_is_rejected(self):
         order = []
         graph, agents = graph_with_recorders(order)
