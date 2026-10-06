@@ -129,6 +129,9 @@ TABLE_ISOLATION_RULES: dict[str, TableIsolationRule] = {
     ),
     "custom_agents": TableIsolationRule("custom_agents", IsolationScope.TENANT_DIRECT, workspace_column="workspace_id"),
     "custom_agent_revisions": TableIsolationRule("custom_agent_revisions", IsolationScope.TENANT_DIRECT, workspace_column="workspace_id"),
+    **{name: TableIsolationRule(name, IsolationScope.TENANT_DIRECT, workspace_column="workspace_id")
+       for family in ("requirements", "role_knowledge", "job_descriptions")
+       for name in ("hr_" + family, "hr_" + family + "_revisions")},
     "agent_roster": TableIsolationRule(
         "agent_roster",
         IsolationScope.SYSTEM_GLOBAL,

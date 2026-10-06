@@ -38,7 +38,7 @@ from app.security.workspaces import (
     join_code_digest,
 )
 
-SCHEMA_VERSION = 11
+SCHEMA_VERSION = 12
 
 
 def normalize_url(url: str | None) -> str:
@@ -65,9 +65,10 @@ class RecycleBinError(ValueError):
 
 
 from app.storage.custom_agents import CustomAgentRepository
+from app.storage.hiring import HiringRepository
 
 
-class Repository(CustomAgentRepository):
+class Repository(CustomAgentRepository, HiringRepository):
     def __init__(self, url: str | None):
         self.url = normalize_url(url)
         self.path = self.url.removeprefix("sqlite:///") if self.url.startswith("sqlite:///") else None
@@ -262,8 +263,8 @@ class Repository(CustomAgentRepository):
                         )
                     )
 
-                elif versions in ([2], [3], [4], [5], [6], [7], [8], [9], [10]):
-                    # V11 remains additive. create_all above safely creates
+                elif versions in ([2], [3], [4], [5], [6], [7], [8], [9], [10], [11]):
+                    # V12 remains additive. create_all above safely creates
                     # newer tables; migrations add simulation ownership and,
                     # for V5/V6 membership tables, widen the role constraint.
                     previous_version = versions[0]
@@ -304,6 +305,15 @@ class Repository(CustomAgentRepository):
                 "BEGIN SELECT RAISE(ABORT, 'Agent revisions are immutable'); END"
             )
 
+    @staticmethod
+    def _install_sqlite_hr_revision_guards(connection):
+        for _, revisions in dbm.HR_TABLES.values():
+            for action in ("UPDATE", "DELETE"):
+                connection.exec_driver_sql(
+                    f"CREATE TRIGGER IF NOT EXISTS immutable_{revisions.name}_{action.lower()} "
+                    f"BEFORE {action} ON {revisions.name} "
+                    "BEGIN SELECT RAISE(ABORT, 'HR revisions are immutable'); END")
+
     def _initialize_sqlite(self):
         with sqlite3.connect(self.path) as raw:
             version = raw.execute("PRAGMA user_version").fetchone()[0]
@@ -324,6 +334,7 @@ class Repository(CustomAgentRepository):
         with self.engine.begin() as connection:
             dbm.metadata.create_all(connection)
             self._install_sqlite_agent_revision_guards(connection)
+            self._install_sqlite_hr_revision_guards(connection)
 
             versions = connection.execute(
                 select(dbm.schema_version.c.version)
@@ -337,7 +348,7 @@ class Repository(CustomAgentRepository):
                     )
                 )
 
-            elif versions in ([2], [3], [4], [5], [6], [7], [8], [9], [10]):
+            elif versions in ([2], [3], [4], [5], [6], [7], [8], [9], [10], [11]):
                 previous_version = versions[0]
 
                 self._ensure_simulation_workspace_column(connection)
@@ -385,6 +396,7 @@ class Repository(CustomAgentRepository):
                 connection.exec_driver_sql(f"ALTER TABLE {table} RENAME TO {table}_v1_archive")
             dbm.metadata.create_all(connection)
             self._install_sqlite_agent_revision_guards(connection)
+            self._install_sqlite_hr_revision_guards(connection)
             connection.execute(insert(dbm.schema_version).values(
                 version=SCHEMA_VERSION, applied_at=timestamp(datetime.now(timezone.utc))))
             for upload in old_uploads:

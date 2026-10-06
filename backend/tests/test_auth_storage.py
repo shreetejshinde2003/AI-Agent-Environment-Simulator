@@ -62,7 +62,7 @@ def test_fresh_database_contains_auth_tables(tmp_path):
                 "PRAGMA user_version"
             ).fetchone()[0]
             == SCHEMA_VERSION
-            == 11
+            == 12
         )
 
 
@@ -251,7 +251,7 @@ def test_schema_v2_database_migrates_additively_to_v10(tmp_path):
             select(dbm.schema_version.c.version)
         ).scalar_one()
 
-    assert version == SCHEMA_VERSION == 11
+    assert version == SCHEMA_VERSION == 12
 
     with sqlite3.connect(path) as connection:
         assert (
@@ -259,7 +259,7 @@ def test_schema_v2_database_migrates_additively_to_v10(tmp_path):
                 "PRAGMA user_version"
             ).fetchone()[0]
             == SCHEMA_VERSION
-            == 11
+            == 12
         )
 
 

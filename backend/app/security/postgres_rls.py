@@ -1,6 +1,6 @@
 """PostgreSQL row-level security policy definitions for tenant-owned data.
 
-Schema 11 activates bootstrap, simulation, HR-role, upload and custom-agent RLS.
+Schema 12 activates bootstrap, simulation, HR-role, upload, custom-agent and hiring RLS.
 Application authentication/IAM authorizes the transaction-local tenant context.
 """
 
@@ -155,6 +155,34 @@ def _custom_agent_policy(table: str) -> PostgresRLSPolicy:
                              insert_only=table == "custom_agent_revisions")
 
 
+def _hiring_policy(table: str) -> PostgresRLSPolicy:
+    from app.security.hr_roles import HRHumanPermission, ROLE_PERMISSIONS
+    base = (
+        f"{CURRENT_USER_SQL} IS NOT NULL AND workspace_id = {CURRENT_WORKSPACE_SQL} AND "
+        f"EXISTS (SELECT 1 FROM users hu WHERE hu.id = {CURRENT_USER_SQL} AND hu.active = TRUE) AND "
+        f"EXISTS (SELECT 1 FROM workspaces hw WHERE hw.id = {table}.workspace_id "
+        "AND hw.active = TRUE AND hw.kind = 'organization') AND "
+        f"EXISTS (SELECT 1 FROM organization_memberships hm WHERE hm.workspace_id = {table}.workspace_id "
+        f"AND hm.user_id = {CURRENT_USER_SQL} AND hm.active = TRUE "
+        "AND hm.membership_role IN ('owner','admin','member'))"
+    )
+    def grant(permission):
+        roles = ",".join("'" + r.value + "'" for r, permissions in ROLE_PERMISSIONS.items() if permission in permissions)
+        return (f"({base}) AND EXISTS (SELECT 1 FROM organization_human_role_assignments ha "
+                f"WHERE ha.workspace_id = {table}.workspace_id AND ha.user_id = {CURRENT_USER_SQL} "
+                f"AND ha.active = TRUE AND ha.human_role IN ({roles}))")
+    permission = (HRHumanPermission.JD_DRAFT_EDIT if table.startswith("hr_job_descriptions") else
+                  HRHumanPermission.ROLE_KNOWLEDGE_MANAGE if table.startswith("hr_role_knowledge") else
+                  HRHumanPermission.HIRING_REQUEST_MANAGE)
+    writer = grant(permission)
+    check = writer
+    revision = table.endswith("_revisions")
+    if revision:
+        check += f" AND updated_by_user_id = {CURRENT_USER_SQL}"
+    return PostgresRLSPolicy(table, grant(HRHumanPermission.HIRING_REQUEST_VIEW), check,
+                             writer, check, insert_only=revision)
+
+
 def _simulation_child_policy(table: str, simulation_column: str) -> PostgresRLSPolicy:
     predicate = (
         "EXISTS ("
@@ -178,7 +206,9 @@ def build_postgres_rls_policies() -> tuple[PostgresRLSPolicy, ...]:
         if rule.scope == IsolationScope.WORKSPACE_ROOT:
             policies.append(_workspace_root_policy())
         elif rule.scope == IsolationScope.TENANT_DIRECT:
-            if rule.table in {"custom_agents", "custom_agent_revisions"}:
+            if rule.table.startswith("hr_"):
+                policies.append(_hiring_policy(rule.table))
+            elif rule.table in {"custom_agents", "custom_agent_revisions"}:
                 policies.append(_custom_agent_policy(rule.table))
             elif rule.table == "organization_memberships":
                 policies.append(_membership_policy())
@@ -211,6 +241,7 @@ ACTIVE_RLS_TABLES = (
     | HR_ROLE_RLS_TABLES
     | UPLOAD_RLS_TABLES
     | frozenset({"custom_agents", "custom_agent_revisions"})
+    | frozenset(table for table in POSTGRES_RLS_TABLES if table.startswith("hr_"))
 )
 DEFERRED_RLS_TABLES = POSTGRES_RLS_TABLES - ACTIVE_RLS_TABLES
 

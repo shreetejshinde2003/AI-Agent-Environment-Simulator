@@ -26,7 +26,7 @@ and isn't necessary.
 
 from datetime import datetime
 from enum import Enum
-from typing import Literal
+from typing import Literal, Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator, computed_field
 from pydantic.alias_generators import to_camel
@@ -765,3 +765,71 @@ class CustomAgentRunRequest(CamelModel):
                               extra="forbid", str_strip_whitespace=True)
     text: str = Field(min_length=1, max_length=10000)
     expected_revision: int = Field(ge=1, strict=True)
+
+
+# Phase 5: human-authored, bounded hiring foundation; no approval authority.
+HRText = Annotated[str, Field(strict=True, min_length=1, max_length=4000)]
+HRItems = Annotated[list[HRText], Field(max_length=80)]
+
+
+class HRContent(CamelModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    title: str = Field(min_length=1, max_length=200, strict=True)
+    responsibilities: HRItems = Field(default_factory=list)
+    required_skills: HRItems = Field(default_factory=list)
+    preferred_skills: HRItems = Field(default_factory=list)
+    experience: str = Field(default="", max_length=4000, strict=True)
+    qualifications: str = Field(default="", max_length=4000, strict=True)
+    status: Literal["draft", "active", "closed", "archived"] = "draft"
+
+
+class HiringRequirementInput(HRContent):
+    department: str = Field(default="", max_length=200, strict=True)
+    purpose: str = Field(min_length=1, max_length=4000, strict=True)
+    location: str = Field(default="", max_length=200, strict=True)
+    employment_arrangement: str = Field(default="", max_length=200, strict=True)
+    openings: int = Field(default=1, ge=1, le=10000, strict=True)
+    constraints: HRItems = Field(default_factory=list)
+
+
+class RoleKnowledgeInput(HRContent):
+    status: Literal["active", "archived"] = "active"
+    competencies: HRItems = Field(default_factory=list)
+    terminology: HRItems = Field(default_factory=list)
+    evaluation_criteria: HRItems = Field(default_factory=list)
+
+
+class HRSource(CamelModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    id: str = Field(min_length=1, max_length=80, strict=True)
+    revision: int = Field(ge=1, strict=True)
+
+
+class JobDescriptionInput(HRContent):
+    status: Literal["draft", "archived"] = "draft"
+    summary: str = Field(min_length=1, max_length=8000, strict=True)
+    requirement: HRSource
+    role_knowledge: HRSource | None = None
+
+
+class HiringRequirementUpdate(HiringRequirementInput):
+    expected_revision: int = Field(ge=1, strict=True)
+
+
+class RoleKnowledgeUpdate(RoleKnowledgeInput):
+    expected_revision: int = Field(ge=1, strict=True)
+
+
+class JobDescriptionUpdate(JobDescriptionInput):
+    expected_revision: int = Field(ge=1, strict=True)
+
+
+class HRRecord(CamelModel):
+    id: str
+    workspace_id: str
+    revision: int
+    created_by_user_id: str
+    created_at: datetime
+    updated_by_user_id: str
+    updated_at: datetime
+    content: HiringRequirementInput | RoleKnowledgeInput | JobDescriptionInput

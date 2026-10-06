@@ -78,10 +78,10 @@ def test_fresh_v10_database_contains_hr_human_role_table(tmp_path):
         version = connection.execute(select(dbm.schema_version.c.version)).scalar_one()
 
     assert "organization_human_role_assignments" in names
-    assert version == SCHEMA_VERSION == 11
+    assert version == SCHEMA_VERSION == 12
 
     with sqlite3.connect(repo.path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 11
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 12
 
 
 def test_v7_database_migrates_additively_to_v10(tmp_path):
@@ -109,7 +109,7 @@ def test_v7_database_migrates_additively_to_v10(tmp_path):
         version = connection.execute(select(dbm.schema_version.c.version)).scalar_one()
 
     assert "organization_human_role_assignments" in names
-    assert version == 11
+    assert version == 12
 
 
 def test_hr_human_role_capability_matrix_is_separate_and_explicit():

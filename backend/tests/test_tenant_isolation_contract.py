@@ -87,4 +87,7 @@ def test_tenant_owned_inventory_contains_root_direct_indirect_and_pending_tables
         "uploads",
         "custom_agents",
         "custom_agent_revisions",
+        "hr_requirements", "hr_requirements_revisions",
+        "hr_role_knowledge", "hr_role_knowledge_revisions",
+        "hr_job_descriptions", "hr_job_descriptions_revisions",
     }

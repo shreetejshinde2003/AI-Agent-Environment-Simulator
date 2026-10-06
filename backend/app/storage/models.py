@@ -1,4 +1,4 @@
-"""Version 11 operational tables; benchmark records never enter this schema."""
+"""Version 12 operational tables; benchmark records never enter this schema."""
 
 from sqlalchemy import (JSON, Boolean, CheckConstraint, Column, Float, ForeignKey,
                         Index, Integer, MetaData, String, Table, Text, UniqueConstraint, ForeignKeyConstraint)
@@ -339,3 +339,44 @@ custom_agent_revisions = Table("custom_agent_revisions", metadata,
     Column("payload", json_type, nullable=False),
     ForeignKeyConstraint(["agent_id", "workspace_id"], ["custom_agents.id", "custom_agents.workspace_id"], ondelete="RESTRICT"),
     CheckConstraint("revision >= 1", name="ck_custom_agent_revision_number"))
+
+
+# V12: separate entity families with tenant-composite, revision-pinned sources.
+HR_TABLES = {}
+for family, states in (("requirements", "'draft','active','closed','archived'"),
+                       ("role_knowledge", "'active','archived'"),
+                       ("job_descriptions", "'draft','archived'")):
+    name = "hr_" + family
+    head = Table(name, metadata,
+        Column("id", String(80), primary_key=True),
+        Column("workspace_id", String(80), ForeignKey("workspaces.id", ondelete="RESTRICT"), nullable=False),
+        Column("revision", Integer, nullable=False),
+        Column("status", String(20), nullable=False),
+        Column("created_by_user_id", String(80), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False),
+        Column("created_at", String(40), nullable=False),
+        UniqueConstraint("id", "workspace_id", name="uq_" + name + "_tenant"),
+        CheckConstraint("revision >= 1", name="ck_" + name + "_revision"),
+        CheckConstraint("status IN (" + states + ")", name="ck_" + name + "_status"))
+    Index("ix_" + name + "_workspace", head.c.workspace_id, head.c.created_at)
+    revisions = Table(name + "_revisions", metadata,
+        Column("record_id", String(80), primary_key=True),
+        Column("revision", Integer, primary_key=True),
+        Column("workspace_id", String(80), nullable=False),
+        Column("updated_by_user_id", String(80), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False),
+        Column("updated_at", String(40), nullable=False),
+        Column("payload", json_type, nullable=False),
+        UniqueConstraint("record_id", "revision", "workspace_id", name="uq_" + name + "_source"),
+        ForeignKeyConstraint(["record_id", "workspace_id"], [name + ".id", name + ".workspace_id"], ondelete="RESTRICT"),
+        CheckConstraint("revision >= 1", name="ck_" + name + "_revision_number"))
+    if family == "job_descriptions":
+        for source, target, required in (("requirement", "hr_requirements_revisions", True),
+                                         ("knowledge", "hr_role_knowledge_revisions", False)):
+            revisions.append_column(Column(source + "_id", String(80), nullable=not required))
+            revisions.append_column(Column(source + "_revision", Integer, nullable=not required))
+            revisions.append_constraint(ForeignKeyConstraint(
+                [source + "_id", source + "_revision", "workspace_id"],
+                [target + ".record_id", target + ".revision", target + ".workspace_id"], ondelete="RESTRICT"))
+        revisions.append_constraint(CheckConstraint(
+            "(knowledge_id IS NULL) = (knowledge_revision IS NULL)", name="ck_hr_knowledge_pair"))
+    Index("ix_" + name + "_revision_workspace", revisions.c.workspace_id, revisions.c.record_id)
+    HR_TABLES[family] = (head, revisions)

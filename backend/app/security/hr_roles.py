@@ -22,6 +22,7 @@ class HRHumanRole(str, Enum):
 class HRHumanPermission(str, Enum):
     HIRING_REQUEST_VIEW = "hr.hiring_request.view"
     HIRING_REQUEST_MANAGE = "hr.hiring_request.manage"
+    ROLE_KNOWLEDGE_MANAGE = "hr.role_knowledge.manage"
     JD_DRAFT_EDIT = "hr.jd.draft.edit"
     JD_REVIEW = "hr.jd.review"
     JD_REQUEST_REVISION = "hr.jd.request_revision"
@@ -35,6 +36,7 @@ ROLE_PERMISSIONS: Mapping[HRHumanRole, frozenset[HRHumanPermission]] = {
             HRHumanPermission.HIRING_REQUEST_VIEW,
             HRHumanPermission.HIRING_REQUEST_MANAGE,
             HRHumanPermission.JD_DRAFT_EDIT,
+            HRHumanPermission.ROLE_KNOWLEDGE_MANAGE,
         }
     ),
     HRHumanRole.REVIEWER: frozenset(

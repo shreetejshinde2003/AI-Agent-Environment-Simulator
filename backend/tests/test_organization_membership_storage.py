@@ -109,7 +109,7 @@ def test_fresh_v10_database_contains_membership_table(
                 "PRAGMA user_version"
             ).fetchone()[0]
             == SCHEMA_VERSION
-            == 11
+            == 12
         )
 
 
@@ -554,7 +554,7 @@ def test_schema_v4_migrates_additively_to_v10(
             )
         ).scalar_one()
 
-    assert version == SCHEMA_VERSION == 11
+    assert version == SCHEMA_VERSION == 12
 
     with sqlite3.connect(path) as connection:
         assert (
@@ -562,5 +562,5 @@ def test_schema_v4_migrates_additively_to_v10(
                 "PRAGMA user_version"
             ).fetchone()[0]
             == SCHEMA_VERSION
-            == 11
+            == 12
         )
