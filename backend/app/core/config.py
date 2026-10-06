@@ -58,6 +58,7 @@ class Settings(BaseSettings):
     # 2026-09). Get a key at console.groq.com/keys and set it in .env
     # for local dev AND in Railway's Variables tab for the deployed
     # backend (Railway never reads your local .env).
+    HR_AGENT_TIMEOUT_SECONDS: float = 90.0
     GROQ_API_KEY: str = ""                              # <-- USER-DEFINED: from console.groq.com/keys — never commit the real value
     GROQ_MODEL: str =  "openai/gpt-oss-120b"         # <-- USER-DEFINED: verify still live at console.groq.com/docs/models
     GROQ_FAST_MODEL: str = "openai/gpt-oss-20b"        # <-- USER-DEFINED: verify still live at console.groq.com/docs/models

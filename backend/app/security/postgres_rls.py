@@ -103,6 +103,11 @@ def _membership_policy() -> PostgresRLSPolicy:
 
 def _direct_policy(table: str, workspace_column: str) -> PostgresRLSPolicy:
     predicate = f"{workspace_column} = {CURRENT_WORKSPACE_SQL}"
+    if table == "simulations":
+        # Child evidence policies inherit this guard through their parent lookup.
+        hr_read = _hiring_policy("simulations").using_sql
+        predicate += (f" AND (task_type IS DISTINCT FROM 'hr_agent' OR ({hr_read}) OR "
+                      f"{CURRENT_USER_SQL} = '{STARTUP_RECOVERY_PRINCIPAL}')")
     return PostgresRLSPolicy(table, predicate, predicate)
 
 

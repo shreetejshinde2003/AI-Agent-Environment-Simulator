@@ -436,6 +436,17 @@ class Task(CamelModel):
     hr_execution: "HRAgentEvidence | None" = None
 
     @model_validator(mode="after")
+    def hr_execution_boundary(self):
+        if self.hr_execution is not None:
+            if (self.task_type != "hr_agent" or not self.workspace_id or not self.owner_id
+                    or self.assigned_agent_id != self.hr_execution.request.agent_id
+                    or len(self.stages) != 1 or self.stages[0].agent_id != self.assigned_agent_id):
+                raise ValueError("HR evidence must match its authoritative execution identity")
+        elif self.task_type == "hr_agent":
+            raise ValueError("HR executions require admitted HR evidence")
+        return self
+
+    @model_validator(mode="after")
     def readable_title(self):
         self.title = display_title(self.directive, self.title)
         return self

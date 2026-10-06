@@ -609,6 +609,11 @@ class Repository(CustomAgentRepository, HiringRepository):
             workspace_id=workspace_id,
             user_id=user_id,
         ) as connection:
+            if task.hr_execution is not None:
+                from app.security.hr_roles import HRHumanPermission
+                permission = (HRHumanPermission.JD_REVIEW if task.assigned_agent_id == "hr_draft_validation"
+                              else HRHumanPermission.JD_DRAFT_EDIT)
+                self._hiring_scope(connection, workspace_id, user_id, permission)
             self._save_task(connection, task)
 
     def get_for_tenant(
@@ -617,6 +622,7 @@ class Repository(CustomAgentRepository, HiringRepository):
         *,
         workspace_id: str,
         user_id: str,
+        include_hr: bool = False,
     ):
         """Read one simulation through a transaction carrying tenant context."""
 
@@ -625,6 +631,9 @@ class Repository(CustomAgentRepository, HiringRepository):
             workspace_id=workspace_id,
             user_id=user_id,
         ) as connection:
+            if include_hr:
+                from app.security.hr_roles import HRHumanPermission
+                self._hiring_scope(connection, workspace_id, user_id, HRHumanPermission.HIRING_REQUEST_VIEW)
             row = connection.execute(
                 select(
                     dbm.simulations.c.workspace_id,
@@ -633,6 +642,7 @@ class Repository(CustomAgentRepository, HiringRepository):
                     dbm.simulations.c.id == task_id,
                     dbm.simulations.c.deleted_at.is_(None),
                     dbm.simulations.c.workspace_id == workspace_id,
+                    True if include_hr else dbm.simulations.c.task_type.is_distinct_from("hr_agent"),
                 )
             ).mappings().first()
         return self._task_from_row(row)
@@ -657,12 +667,13 @@ class Repository(CustomAgentRepository, HiringRepository):
                 ).where(
                     dbm.simulations.c.workspace_id == workspace_id,
                     dbm.simulations.c.deleted_at.is_(None),
+                    dbm.simulations.c.task_type.is_distinct_from("hr_agent"),
                 ).order_by(
                     dbm.simulations.c.created_at,
                     dbm.simulations.c.id,
                 )
             ).mappings().all()
-        return [self._task_from_row(row) for row in rows]
+        return [self._task_from_row(row) for row in rows if row["payload"].get("taskType") != "hr_agent"]
 
     @staticmethod
     def _task_from_row(row):
@@ -780,7 +791,7 @@ class Repository(CustomAgentRepository, HiringRepository):
                 dbm.simulations.c.workspace_id == workspace_id,
                 dbm.simulations.c.deleted_at.is_not(None)
             ).order_by(dbm.simulations.c.deleted_at.desc(), dbm.simulations.c.id)).mappings().all()
-            return [self._recycle_item(row) for row in rows]
+            return [self._recycle_item(row) for row in rows if self._hr_evidence_visible(connection, row, workspace_id, user_id)]
 
     def recycle_simulation(self, simulation_id, *, workspace_id, user_id,
                            action="delete", confirmed=False):
@@ -803,7 +814,7 @@ class Repository(CustomAgentRepository, HiringRepository):
                 dbm.simulations.c.id == simulation_id,
                 dbm.simulations.c.workspace_id == workspace_id
             ).with_for_update()).mappings().first()
-            if row is None:
+            if row is None or not self._hr_evidence_visible(connection, row, workspace_id, user_id):
                 raise RecycleBinError(404, "simulation_not_found", "Simulation not found.")
             deleted = row["deleted_at"] is not None
             if action == "delete" and deleted:
@@ -853,6 +864,60 @@ class Repository(CustomAgentRepository, HiringRepository):
             if result.rowcount != 1:
                 raise RecycleBinError(409, "lifecycle_conflict", "Simulation changed; refresh and retry.")
             return item
+
+    def _hr_evidence_visible(self, connection, row, workspace_id, user_id):
+        if row["payload"].get("taskType") != "hr_agent":
+            return True
+        from app.security.hr_roles import HRHumanPermission
+        from app.security.rbac import AuthorizationError
+        try:
+            self._hiring_scope(connection, workspace_id, user_id, HRHumanPermission.HIRING_REQUEST_VIEW)
+            return True
+        except AuthorizationError:
+            return False
+
+    def claim_hr_task(self, task_id, *, workspace_id, user_id):
+        """Claim exactly one admitted run, even if its actor was since revoked."""
+        with tenant_transaction(self.engine, workspace_id=workspace_id,
+                                user_id=STARTUP_RECOVERY_PRINCIPAL) as connection:
+            if connection.dialect.name == "sqlite":
+                connection.exec_driver_sql("BEGIN IMMEDIATE")
+            row = connection.execute(select(dbm.simulations).where(
+                dbm.simulations.c.id == task_id, dbm.simulations.c.workspace_id == workspace_id,
+                dbm.simulations.c.task_type == "hr_agent", dbm.simulations.c.status == "queued",
+                dbm.simulations.c.deleted_at.is_(None)
+            ).with_for_update()).mappings().first()
+            if row is None:
+                return None
+            task = self._task_from_row(row)
+            if task.owner_id != user_id or task.hr_execution is None:
+                raise ValueError("HR worker identity mismatch")
+            from app.models.schemas import TaskStatus
+            task.status = TaskStatus.IN_PROGRESS
+            self._save_task(connection, task)
+            return task
+
+    def finalize_hr_task(self, task):
+        """Bounded worker finalization retains honest failures after actor revocation.
+
+        Existing startup maintenance principal can only finalize an admitted HR
+        task with identical ownership/input. No request endpoint exposes this.
+        """
+        if task.hr_execution is None or task.status.value not in {"completed", "failed"}:
+            raise ValueError("Only terminal HR execution may be finalized")
+        with tenant_transaction(self.engine, workspace_id=task.workspace_id,
+                                user_id=STARTUP_RECOVERY_PRINCIPAL) as connection:
+            row = connection.execute(select(dbm.simulations).where(
+                dbm.simulations.c.id == task.id, dbm.simulations.c.workspace_id == task.workspace_id
+            ).with_for_update()).mappings().first()
+            if row is None:
+                raise ValueError("Admitted HR task unavailable")
+            previous = self._task_from_row(row)
+            if previous.status.value not in {"queued", "in_progress"}:
+                return
+            if previous.hr_execution != task.hr_execution or previous.owner_id != task.owner_id:
+                raise ValueError("HR admission evidence cannot change")
+            self._save_task(connection, task)
 
     def _require_legacy_sqlite(self):
         """Legacy fixture/development methods cannot open unscoped PG access."""

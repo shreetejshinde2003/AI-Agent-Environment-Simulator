@@ -243,6 +243,8 @@ def prepare_task(
     workspace_id: str | None = None,
     user_id: str | None = None,
 ) -> Task:
+    if payload.task_type == "hr_agent":
+        raise HTTPException(422, "HR assistance must execute through /hiring/agents/runs")
     if payload.execution_mode == TaskExecutionMode.CUSTOM:
         raise HTTPException(422, "Custom agents must execute through /agent-builder/{id}/runs")
     if not payload.directive.strip():

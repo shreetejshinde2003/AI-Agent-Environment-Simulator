@@ -52,10 +52,10 @@ def prepare(request, sources):
     return context, provenance
 
 
-def provider_prompt(context):
+def provider_prompt(context, output_schema=None):
     contract = CATALOG[context.hr_agent_id]
     return canonical({"action": context.original_directive, "sources": json.loads(context.source_text),
-                      "output_schema": contract.output_model.model_json_schema(by_alias=True)})
+                      "output_schema": output_schema or contract.output_model.model_json_schema(by_alias=True)})
 
 
 def validate_output(context, text):
@@ -69,7 +69,7 @@ def validate_output(context, text):
     return result
 
 
-async def execute(context):
-    response = await llm_client.call_llm(prompt=provider_prompt(context), system=SYSTEM,
-                                         model=llm_client.DEFAULT_MODEL, max_tokens=2048)
+async def execute(context, *, model=None, system_prompt=None, output_schema=None):
+    response = await llm_client.call_llm(prompt=provider_prompt(context, output_schema), system=system_prompt or SYSTEM,
+                                         model=model or llm_client.DEFAULT_MODEL, max_tokens=2048)
     return response
