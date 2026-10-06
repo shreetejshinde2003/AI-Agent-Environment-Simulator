@@ -23,6 +23,9 @@ from app.api.routes.messages import record_message
 from app.api.routes.simulation import record_activity, register_task_created, register_task_finished
 from app.api.routes.workspaces import require_request_permission, request_user_id
 from app.core.errors import safe_error
+from app.core.config import settings
+from app.agents.checkpointing import postgres_checkpointer, checkpoint_config, CheckpointBusyError
+from app.agents.graph_runtime import execute_graph, GRAPH_MODES, validated_sequence, validate_snapshot
 from app.datasets.registry import context_for_dataset
 from app.models.schemas import (
     CreateTaskRequest, MessageKind, Task, TaskExecutionMode,
@@ -31,6 +34,7 @@ from app.models.schemas import (
 )
 from app.storage.database import repository
 from app.security.rbac import Permission
+from app.security.rbac import AuthorizationError
 from app.websocket.manager import manager
 from app.agents.llm_client import DEFAULT_MODEL, DEFAULT_MAX_TOKENS
 from app.experiments.provenance import build_run_provenance
@@ -481,20 +485,55 @@ async def create_task_api(
     )
 
 
+@router.post('/{task_id}/resume', response_model=Task, status_code=202)
+async def resume_task_api(task_id: str, request: Request, background_tasks: BackgroundTasks,
+                          x_workspace_id: str | None = Header(default=None)):
+    workspace = require_request_permission(request, x_workspace_id, Permission.SIMULATION_CREATE)
+    user_id = request_user_id(request)
+    task = get_record(task_id, workspace['id'], user_id)
+    if not settings.LANGGRAPH_RUNTIME_ENABLED or not settings.CHECKPOINT_DATABASE_URL:
+        raise HTTPException(409, 'Durable graph runtime is disabled')
+    if task.execution_mode not in GRAPH_MODES or task.status != TaskStatus.FAILED or task.input_error:
+        raise HTTPException(409, 'Task is not eligible for durable resume')
+    config = checkpoint_config(task_id=task.id, workspace_id=task.workspace_id)
+    try:
+        async with postgres_checkpointer(settings.CHECKPOINT_DATABASE_URL, repository=repository,
+                task_id=task.id, workspace_id=workspace['id'], user_id=user_id,
+                schema=settings.CHECKPOINT_SCHEMA) as saver:
+            saved = await saver.aget_tuple(config)
+            if saved is None:
+                raise ValueError('No durable checkpoint is available')
+            context = _prepared_context(task)
+            validate_snapshot(task, saved.checkpoint['channel_values'], context,
+                              validated_sequence(task, context))
+    except (ValueError, CheckpointBusyError) as exc:
+        raise HTTPException(409, 'Task checkpoint cannot currently resume') from exc
+    except Exception as exc:
+        raise HTTPException(503, 'Checkpoint service unavailable') from exc
+    background_tasks.add_task(_run_task, task.id, workspace['id'], user_id, resume=True)
+    return task
+
+
 async def _run_stage(task: Task, stage: StageExecution, context: ExecutionContext, user_id: str | None = None):
     agent = _IMPLEMENTED_AGENTS.get(stage.agent_id)
+    previous_duration = stage.duration_seconds or 0
+    previous_usage = {name: getattr(stage, name) for name in
+                      ('input_tokens', 'output_tokens', 'total_tokens')}
+    stage.input_tokens = stage.output_tokens = stage.total_tokens = None
     stage.status = "active"
     stage.started_at = now()
-    await emit(task, "agent_started", f"{stage.agent_id} started", stage.agent_id, user_id)
-    await record_activity(stage.agent_id, "Started processing", task=task, user_id=user_id)
     started = time.perf_counter()
     token = current_execution.set(stage)
     try:
+        await emit(task, "agent_started", f"{stage.agent_id} started", stage.agent_id, user_id)
+        await record_activity(stage.agent_id, "Started processing", task=task, user_id=user_id)
         if agent is None:
             raise NotImplementedError(f"Agent '{stage.agent_id}' is not implemented")
         result = await agent.run(task.directive, context=context)
         if not isinstance(result, str) or not result.strip():
             raise ValueError(f"{stage.agent_id} returned empty output")
+        if task.execution_mode in GRAPH_MODES:
+            context.with_output(stage.agent_id, result)
         stage.output = result
         stage.status = "completed"
     except (Exception, asyncio.CancelledError) as exc:
@@ -506,7 +545,11 @@ async def _run_stage(task: Task, stage: StageExecution, context: ExecutionContex
     finally:
         current_execution.reset(token)
         stage.completed_at = now()
-        stage.duration_seconds = time.perf_counter() - started
+        stage.duration_seconds = previous_duration + time.perf_counter() - started
+        for name, value in previous_usage.items():
+            current = getattr(stage, name)
+            if value is not None:
+                setattr(stage, name, value + (current or 0))
         completed = sum(s.status == "completed" for s in task.stages)
         task.progress_percent = int(completed / len(task.stages) * 100)
         task.progress_steps = [
@@ -589,12 +632,67 @@ async def _run_task(
     task_id: str,
     workspace_id: str | None = None,
     user_id: str | None = None,
+    *,
+    resume: bool = False,
 ) -> None:
-    task = _TASKS.get(task_id) or get_record(task_id, workspace_id, user_id)
+    # Scoped reads take precedence over the process cache at the worker boundary.
+    task = get_record(task_id, workspace_id, user_id)
+    if workspace_id is None and user_id is None and not settings.LANGGRAPH_RUNTIME_ENABLED:
+        # Preserve the trusted internal compatibility seam used by coordinator tests.
+        task = _TASKS.get(task_id) or task
+    if settings.LANGGRAPH_RUNTIME_ENABLED and task.execution_mode in GRAPH_MODES:
+        try:
+            if not settings.CHECKPOINT_DATABASE_URL:
+                raise RuntimeError('Graph runtime requires a dedicated checkpoint connection.')
+            async with postgres_checkpointer(settings.CHECKPOINT_DATABASE_URL,
+                    repository=repository, task_id=task_id, workspace_id=workspace_id,
+                    user_id=user_id, schema=settings.CHECKPOINT_SCHEMA) as saver:
+                task = get_record(task_id, workspace_id, user_id)
+                if resume and (task.status != TaskStatus.FAILED or task.input_error):
+                    return
+                if not resume and task.status != TaskStatus.QUEUED:
+                    return
+                await _run_task_inner(task_id, workspace_id, user_id, task=task,
+                                      checkpointer=saver, resume=resume)
+        except (AuthorizationError, CheckpointBusyError):
+            raise
+        except Exception:
+            # No connection strings or database exception details enter user evidence.
+            task.status = TaskStatus.FAILED
+            task.error = 'Durable checkpoint service unavailable; execution stopped.'
+            task.output = None
+            task.completed_at = now()
+            await emit(task, 'simulation_failed', task.error, user_id=user_id)
+            _TASKS.pop(task.id, None)
+    else:
+        if resume:
+            raise ValueError('Durable graph runtime is disabled.')
+        await _run_task_inner(task_id, workspace_id, user_id, task=task)
+
+
+async def _run_task_inner(
+    task_id: str,
+    workspace_id: str | None = None,
+    user_id: str | None = None,
+    *, task: Task | None = None, checkpointer=None, resume: bool = False,
+) -> None:
+    task = task or get_record(task_id, workspace_id, user_id)
     started = time.perf_counter()
+    previous_elapsed = (task.elapsed_seconds or 0) if resume else 0
 
     task.execution_started_at = now()
     task.status = TaskStatus.IN_PROGRESS
+    task.error = None
+    task.input_error = None
+    task.completed_at = None
+    if resume:
+        for stage in task.stages:
+            if stage.status != 'completed':
+                stage.status = 'waiting'
+                stage.error = None
+                stage.input_error = None
+                stage.output = None
+                stage.completed_at = None
 
     coordinator = (
         "orchestrator"
@@ -614,7 +712,11 @@ async def _run_task(
     )
 
     try:
-        result = await _execute_mode(task, user_id=user_id)
+        if checkpointer is not None:
+            result = await execute_graph(task, user_id=user_id, checkpointer=checkpointer,
+                config=checkpoint_config(task_id=task.id, workspace_id=task.workspace_id), resume=resume)
+        else:
+            result = await _execute_mode(task, user_id=user_id)
 
         task.output = result
         task.status = TaskStatus.COMPLETED
@@ -631,7 +733,7 @@ async def _run_task(
 
     finally:
         task.completed_at = now()
-        task.elapsed_seconds = time.perf_counter() - started
+        task.elapsed_seconds = previous_elapsed + time.perf_counter() - started
         task.duration_seconds = int(task.elapsed_seconds)
 
         successful = task.status == TaskStatus.COMPLETED
@@ -681,7 +783,8 @@ def _mark_interrupted_failed(task: Task):
         task.status = TaskStatus.FAILED
         task.error = (
             "Server restarted before this simulation completed; "
-            "create a new run to retry."
+            "resume through the task API if durable graph execution is enabled, "
+            "or create a new run to retry."
         )
         task.completed_at = timestamp
         task.output = None

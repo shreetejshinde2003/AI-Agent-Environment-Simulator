@@ -60,3 +60,36 @@ class CheckpointTests(unittest.TestCase):
         saver = object()
         for build in (build_single_graph, build_fixed_graph, build_adaptive_graph):
             self.assertIs(build(checkpointer=saver).checkpointer, saver)
+
+class SaverBoundaryTests(unittest.IsolatedAsyncioTestCase):
+    async def test_foreign_threads_namespaces_and_global_listing_denied(self):
+        from app.agents.checkpointing import AuthorizedPostgresSaver
+        saver = AuthorizedPostgresSaver(Mock(), repository=Mock(),
+            task_id='t',workspace_id='w',user_id='u')
+        for config in (None, {'configurable': {'thread_id':'foreign'}},
+                {'configurable': {'thread_id':saver.thread_id,'checkpoint_ns':'foreign'}}):
+            with self.assertRaises(AuthorizationError):
+                await saver.aget_tuple(config)
+            with self.assertRaises(AuthorizationError):
+                await saver.aput(config, {}, {}, {})
+            with self.assertRaises(AuthorizationError):
+                await saver.aput_writes(config, [], 'node')
+            with self.assertRaises(AuthorizationError):
+                async for _ in saver.alist(config):
+                    pass
+        with self.assertRaises(AuthorizationError):
+            await saver.adelete_thread('foreign')
+        with self.assertRaises(PermissionError):
+            await saver.setup()
+
+    async def test_every_operation_rechecks_revoked_membership(self):
+        from app.agents.checkpointing import AuthorizedPostgresSaver
+        saver = AuthorizedPostgresSaver(Mock(),repository=Mock(),
+            task_id='t',workspace_id='w',user_id='u')
+        config = checkpoint_config(task_id='t',workspace_id='w')
+        with patch('app.agents.checkpointing.authorize_checkpoint', side_effect=AuthorizationError('revoked')) as auth:
+            with self.assertRaises(AuthorizationError):
+                await saver.aget_tuple(config)
+            with self.assertRaises(AuthorizationError):
+                await saver.aput(config,{}, {}, {})
+            self.assertEqual(auth.call_count,2)

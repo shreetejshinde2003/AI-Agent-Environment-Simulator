@@ -5,11 +5,15 @@ import json
 import re
 
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-from psycopg import AsyncConnection, sql
+from psycopg import AsyncConnection, Error as PostgresError, sql
 from psycopg.rows import dict_row
 
 from app.agents.execution_context import ExecutionContext
 from app.security.rbac import AuthorizationError, Permission, resolve_workspace_authorization
+
+
+class CheckpointBusyError(RuntimeError):
+    """A second worker must leave the running task's evidence untouched."""
 
 
 def checkpoint_connection_string(database_url: str) -> str:
@@ -63,7 +67,10 @@ class ContextSerializer:
             raise ValueError("Unsupported checkpoint encoding")
         def decode(value):
             if set(value) == {"__fm_execution_context_v1__"}:
-                return ExecutionContext.model_validate(value["__fm_execution_context_v1__"])
+                try:
+                    return ExecutionContext.model_validate(value["__fm_execution_context_v1__"])
+                except ValueError:
+                    raise ValueError('Checkpoint execution context is invalid.') from None
             return value
         return json.loads(payload, object_hook=decode)
 
@@ -83,14 +90,42 @@ class AuthorizedPostgresSaver(AsyncPostgresSaver):
     @asynccontextmanager
     async def _cursor(self, *, pipeline=False):
         authorize_checkpoint(self.repository, **self.identity)
-        async with self.lock, self.conn.transaction():
-            async with self.conn.cursor(binary=True, row_factory=dict_row) as cur:
-                await cur.execute("SELECT set_config('app.checkpoint_thread_id', %s, true)",
-                                  (self.thread_id,))
-                yield cur
+        try:
+            async with self.lock, self.conn.transaction():
+                async with self.conn.cursor(binary=True, row_factory=dict_row) as cur:
+                    await cur.execute("SELECT set_config('app.checkpoint_thread_id', %s, true)",
+                                      (self.thread_id,))
+                    yield cur
+        except PostgresError:
+            raise RuntimeError('Checkpoint database operation failed.') from None
 
     async def setup(self):
         raise PermissionError("Checkpoint migrations must run separately from runtime.")
+
+    def _check_config(self, config):
+        values = (config or {}).get('configurable', {})
+        if values.get('thread_id') != self.thread_id or values.get('checkpoint_ns', ''):
+            raise AuthorizationError('Checkpoint thread or namespace mismatch.')
+        authorize_checkpoint(self.repository, **self.identity)
+
+    async def aget_tuple(self, config):
+        self._check_config(config)
+        return await super().aget_tuple(config)
+
+    async def aput(self, config, checkpoint, metadata, new_versions):
+        self._check_config(config)
+        return await super().aput(config, checkpoint, metadata, new_versions)
+
+    async def aput_writes(self, config, writes, task_id, task_path=''):
+        self._check_config(config)
+        return await super().aput_writes(config, writes, task_id, task_path)
+
+    async def alist(self, config, *, filter=None, before=None, limit=None):
+        self._check_config(config)
+        if before is not None:
+            self._check_config(before)
+        async for value in super().alist(config, filter=filter, before=before, limit=limit):
+            yield value
 
     async def adelete_thread(self, thread_id):
         if thread_id != self.thread_id:
@@ -139,5 +174,12 @@ async def postgres_checkpointer(database_url: str, *, repository, task_id: str,
             autocommit=True, prepare_threshold=0, row_factory=dict_row) as conn:
         await conn.execute(sql.SQL('SET search_path TO {}, pg_catalog').format(sql.Identifier(schema)))
         await verify_checkpoint_connection(conn, schema)
+        thread = checkpoint_thread_id(task_id=task_id, workspace_id=workspace_id)
+        lock_id = int.from_bytes(hashlib.sha256(thread.encode()).digest()[:8], 'big', signed=True)
+        async with conn.cursor() as cur:
+            await cur.execute('SELECT pg_try_advisory_lock(%s) AS acquired', (lock_id,))
+            if not (await cur.fetchone())['acquired']:
+                raise CheckpointBusyError('This graph task already has an active worker.')
+        # Session lock releases on connection close, including cancellation/errors.
         yield AuthorizedPostgresSaver(conn, repository=repository, task_id=task_id,
             workspace_id=workspace_id, user_id=user_id)
