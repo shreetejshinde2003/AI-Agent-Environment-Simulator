@@ -90,7 +90,7 @@ No competing evidence store was introduced by the active Phase 4 implementation 
 
 The six executable IDs remain Research, Data, Analysis, Summarizer, Report and Direct. Orchestrator is a coordinator; Web Search remains intentionally unavailable. Custom text agents do not enter the six-ID output contract or Adaptive/Fixed topology, and cannot use graph resume.
 
-**Dormant legacy inconsistency:** `backend/app/agents/orchestrator.py:SimulationState/build_graph/run_simulation` (lines 66, 115, 137) still contains the old MemorySaver prototype and unscoped example broadcasts. A repository-wide import/call-site search confirmed that no active API imports it. Its free-form context is incompatible with the strict ExecutionContext boundary, so it is not an alternate accepted execution path. The module and function documentation now explicitly mark it historical/unsupported and identify the actual dispatcher. It was preserved, not rewritten or enabled. Reusing it would require the current tenant/evidence contracts.
+**Dormant legacy inconsistency:** `backend/app/agents/orchestrator.py:SimulationState/build_graph/run_simulation` (lines 67, 115, 137) still contains the old MemorySaver prototype and unscoped example broadcasts. A repository-wide import/call-site search confirmed that no active API imports it. Its free-form context is incompatible with the strict ExecutionContext boundary, so it is not an alternate accepted execution path. The module and function documentation now explicitly mark it historical/unsupported and identify the actual dispatcher. It was preserved, not rewritten or enabled. Reusing it would require the current tenant/evidence contracts.
 
 The code intentionally does not promise exactly-once external provider side effects: a crash after a provider responds but before stage evidence commits may repeat that call. Once successful StageExecution evidence commits, checkpoint reconciliation reuses it and prevents duplicate successful stages/handoffs. Single-worker startup remains required because startup recovery is not coordinated across multiple live server processes.
 
@@ -180,7 +180,7 @@ Web Search, arbitrary tools/plugins/provider URLs, LLM routing, active-request p
 - Starting HEAD: `b3b250aa4e505e90cd08ccf619b17921761bccec`.
 - Verified milestone commits: `9c15b91`; `2f1bbd4`, `fa46283`, `5488ea6`, `b3b250a`.
 - Validated local security/dependency correction: **`230c3247f457f05548c6492102da2324ff690274`** (`fix: close phase 4 browser session security gaps`).
-- This report, documentation reconciliation and sanitized evidence are included in the immediately following local documentation commit; its final HEAD hash is reported in the delivery message and is reproducible with `git rev-parse HEAD` / `git log -2 --oneline`.
+- Report/documentation/evidence commit: **`55565b1d88fc5475e0ff3320261427ce662f18be`**. The final report revision's HEAD hash is provided in the delivery message and is reproducible with `git rev-parse HEAD` / `git log -3 --oneline`.
 - Final intended/verified checkout state after that commit: only `?? AGENTS.md`; no tracked changes or unrelated staged files. The final delivery confirms that state after committing.
 - `AGENTS.md` SHA-256 remained `a5f46def185ce9e844d9d468912f3fbee4dbf2d8f14f08c91c02553352e87efd` across the audit's integrity checks.
 - No push, deployment, history rewrite/reset, production runtime enablement or Phase 5 work occurred.
