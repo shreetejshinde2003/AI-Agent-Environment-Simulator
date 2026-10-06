@@ -22,7 +22,14 @@ async function request(path, options = {}) {
   return response.json();
 }
 export const apiClient = {
-  getAgents: () => request("/agents"),
+  getAgents: workspaceId => request("/agents", {headers: workspaceHeaders(workspaceId)}),
+  getCustomAgents: workspaceId => request("/agent-builder", {headers: workspaceHeaders(workspaceId)}),
+  getAgentBuilderOptions: workspaceId => request("/agent-builder/options", {headers: workspaceHeaders(workspaceId)}),
+  getCustomAgentRevisions: (id, workspaceId) => request("/agent-builder/" + encodeURIComponent(id) + "/revisions", {headers: workspaceHeaders(workspaceId)}),
+  saveCustomAgent: (id, payload, workspaceId) => request("/agent-builder" + (id ? "/" + encodeURIComponent(id) : ""),
+    {method: id ? "PUT" : "POST", body: JSON.stringify(payload), headers: workspaceHeaders(workspaceId)}),
+  runCustomAgent: (id, payload, workspaceId) => request("/agent-builder/" + encodeURIComponent(id) + "/runs",
+    {method: "POST", body: JSON.stringify(payload), headers: workspaceHeaders(workspaceId)}).catch(error => {throw creationError(error);}),
   getAgentRelationships: () => request("/agents/relationships"),
   createAgent: payload => request("/agents", {method: "POST", body: JSON.stringify(payload)}),
   getTasks: workspaceId => request("/tasks", {headers: workspaceHeaders(workspaceId)}),

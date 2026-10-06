@@ -1,6 +1,6 @@
 export const runTitle = task => task.title || task.directive?.replace(/\s+/g, " ").trim().slice(0, 80) || "Untitled simulation";
 export const modeLabel = mode => ({single: "Single", fixed: "Fixed", full_pipeline: "Fixed",
-  adaptive: "Adaptive · rule-based", single_agent: "Individual specialist"}[mode] ?? mode);
+  adaptive: "Adaptive · rule-based", single_agent: "Individual specialist", custom: "Custom agent"}[mode] ?? mode);
 export const newestRuns = tasks => [...tasks].sort((a, b) =>
   (Date.parse(b.createdAt ?? b.startedAt) || 0) - (Date.parse(a.createdAt ?? a.startedAt) || 0) || a.id.localeCompare(b.id));
 
@@ -22,6 +22,7 @@ export const workspaceSubtitle = mode => ({
   fixed: "One goal. Five collaborating specialists. Every handoff visible.",
   adaptive: "One goal. Rule-selected specialists. Every executed handoff visible.",
   single_agent: "One goal. One selected specialist.",
+  custom: "One input. One saved custom agent revision.",
 }[mode] ?? "Create a simulation and inspect its real execution.");
 export function datasetOptions(datasets) {
   return (datasets ?? []).filter(d => d.active).map(d => ({id: d.datasetId,

@@ -27,7 +27,7 @@ export function useSimulationData() {
       if (!workspaceId) break;
       try {
         const [agents, tasks, metrics] = await Promise.all([
-          apiClient.getAgents(), apiClient.getTasks(workspaceId), apiClient.getMetrics(workspaceId)]);
+          apiClient.getAgents(workspaceId), apiClient.getTasks(workspaceId), apiClient.getMetrics(workspaceId)]);
         if (mounted.current && workspaceRef.current === workspaceId) {
           setData(previous => ({agents, tasks: mergeActiveRuns(tasks, previous.tasks,
             [...accepted.current].filter(([, value]) => value > refreshRevision).map(([id]) => id)), metrics}));

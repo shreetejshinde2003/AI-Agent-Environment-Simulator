@@ -1,0 +1,84 @@
+.agent-builder {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+.builder-toolbar, .builder-fields {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  align-items: center;
+}
+.builder-toolbar > div {
+  flex: 1;
+}
+.builder-layout {
+  display: grid;
+  grid-template-columns: minmax(160px, 240px) minmax(0, 1fr);
+  gap: var(--space-4);
+}
+.builder-agent {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  width: 100%;
+  margin-bottom: var(--space-2);
+  gap: var(--space-2);
+}
+.builder-agent[aria-pressed="true"] {
+  border-color: var(--accent-primary);
+  background: var(--accent-primary-soft);
+}
+.agent-builder fieldset {
+  border: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+.agent-builder label {
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.agent-builder input, .agent-builder textarea, .agent-builder select {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: var(--space-2);
+  max-width: 100%;
+  min-width: 0;
+}
+.agent-builder textarea {
+  resize: vertical;
+  min-height: 70px;
+}
+.agent-builder .builder-instructions {
+  min-height: 120px;
+}
+.agent-builder .builder-checkbox {
+  display: flex;
+  align-items: center;
+}
+.agent-builder pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 400px;
+  overflow: auto;
+}
+.builder-hash {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+  .builder-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.agent-builder fieldset > .btn {
+  justify-self: start;
+}
+.builder-agent span {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}

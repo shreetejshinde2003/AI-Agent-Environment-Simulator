@@ -42,7 +42,7 @@ export default function RunPicker({tasks, selectedTask, onSelect, isLoading = fa
       <input ref={search} id={searchId} type="search" value={query} onChange={e => filter(setQuery, e.target.value)} placeholder="Title, mode, status or ID"/>
       <div className="run-picker-filters">
         <div><label htmlFor={`${searchId}-mode`}>Mode</label><select id={`${searchId}-mode`} value={mode} onChange={e => filter(setMode, e.target.value)}>
-          <option value="">All modes</option>{["single", "fixed", "adaptive", "single_agent"].map(value => <option key={value} value={value}>{modeLabel(value)}</option>)}
+          <option value="">All modes</option>{["single", "fixed", "adaptive", "single_agent", "custom"].map(value => <option key={value} value={value}>{modeLabel(value)}</option>)}
         </select></div>
         <div><label htmlFor={`${searchId}-status`}>Status</label><select id={`${searchId}-status`} value={status} onChange={e => filter(setStatus, e.target.value)}>
           <option value="">All statuses</option>{["queued", "in_progress", "completed", "failed"].map(value => <option key={value} value={value}>{runStatusLabel(value)}</option>)}
