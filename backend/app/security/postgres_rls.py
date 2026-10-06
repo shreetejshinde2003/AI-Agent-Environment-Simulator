@@ -1,6 +1,6 @@
 """PostgreSQL row-level security policy definitions for tenant-owned data.
 
-Schema 12 activates bootstrap, simulation, HR-role, upload, custom-agent and hiring RLS.
+Schema 13 activates bootstrap, simulation, HR-role, upload, custom-agent, hiring and review RLS.
 Application authentication/IAM authorizes the transaction-local tenant context.
 """
 
@@ -186,6 +186,7 @@ def _hiring_policy(table: str) -> PostgresRLSPolicy:
             ("submit", HRHumanPermission.JD_DRAFT_EDIT), ("recommend", HRHumanPermission.JD_REVIEW),
             ("request_changes", HRHumanPermission.JD_REQUEST_REVISION),
             ("reject", HRHumanPermission.JD_REJECT), ("approve", HRHumanPermission.JD_APPROVE)))
+        writer = f"({writer}) AND (version <> 3 OR ({grant(HRHumanPermission.JD_APPROVE)}))"
         check = f"({writer}) AND actor_user_id = {CURRENT_USER_SQL} AND EXISTS (SELECT 1 FROM hr_review_submissions s "
         check += f"WHERE s.id = submission_id AND s.workspace_id = {table}.workspace_id "
         check += f"AND (action <> 'submit' OR s.requested_by_user_id = {CURRENT_USER_SQL}))"

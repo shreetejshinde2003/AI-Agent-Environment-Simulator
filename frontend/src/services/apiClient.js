@@ -22,6 +22,13 @@ async function request(path, options = {}) {
   return response.json();
 }
 export const apiClient = {
+  getHRReviewCapabilities: workspaceId => request("/hiring/reviews/capabilities", {headers: workspaceHeaders(workspaceId)}),
+  getHRReviews: (workspaceId, signal) => request("/hiring/reviews", {headers: workspaceHeaders(workspaceId), signal}),
+  getHRReview: (id, workspaceId) => request("/hiring/reviews/" + encodeURIComponent(id), {headers: workspaceHeaders(workspaceId)}),
+  getHRReviewHistory: (id, workspaceId) => request("/hiring/reviews/" + encodeURIComponent(id) + "/history", {headers: workspaceHeaders(workspaceId)}),
+  submitHRReview: (payload, workspaceId) => request("/hiring/reviews", {method:"POST", body:JSON.stringify(payload), headers:workspaceHeaders(workspaceId)}),
+  decideHRReview: (id, payload, approval, workspaceId) => request("/hiring/reviews/" + encodeURIComponent(id) + (approval ? "/approval" : "/review"),
+    {method:"POST", body:JSON.stringify(payload), headers:workspaceHeaders(workspaceId)}),
   getHRAgents: workspaceId => request("/hiring/agents", {headers: workspaceHeaders(workspaceId)}),
   getHRRuns: workspaceId => request("/hiring/agents/runs", {headers: workspaceHeaders(workspaceId)}),
   getHRRun: (id, workspaceId) => request("/hiring/agents/runs/" + encodeURIComponent(id), {headers: workspaceHeaders(workspaceId)}),

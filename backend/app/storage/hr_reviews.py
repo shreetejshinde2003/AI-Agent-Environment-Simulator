@@ -132,6 +132,10 @@ class HRReviewRepository:
                 self._append_review_event(connection, sid, workspace_id, user_id, stamp, 1, 'submit', 'draft', 'pending_review', '')
                 return self._review_record(connection, sid, workspace_id)
         except (IntegrityError, OperationalError) as exc:
+            if isinstance(exc, OperationalError) and not (
+                    getattr(exc.orig, 'sqlstate', getattr(exc.orig, 'pgcode', None)) in {'40001', '40P01'}
+                    or (self.engine.dialect.name == 'sqlite' and 'locked' in str(exc.orig).lower())):
+                raise
             raise HiringError(409, 'review_conflict', 'Revision already submitted or changed; reload before submitting.') from exc
 
     @staticmethod
@@ -163,4 +167,8 @@ class HRReviewRepository:
                     payload.decision, record.status, status, payload.notes)
                 return self._review_record(connection, submission_id, workspace_id)
         except (IntegrityError, OperationalError) as exc:
+            if isinstance(exc, OperationalError) and not (
+                    getattr(exc.orig, 'sqlstate', getattr(exc.orig, 'pgcode', None)) in {'40001', '40P01'}
+                    or (self.engine.dialect.name == 'sqlite' and 'locked' in str(exc.orig).lower())):
+                raise
             raise HiringError(409, 'review_conflict', 'Concurrent decision or revision change; reload before deciding.') from exc

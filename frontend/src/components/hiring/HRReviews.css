@@ -1,0 +1,23 @@
+.hr-reviews {
+  margin-block: 1rem;
+}
+.hr-reviews details, .hr-reviews article, .review-filter {
+  display: block;
+  margin-block: 1rem;
+}
+.hr-reviews p, .hr-reviews dd, .hr-reviews button {
+  overflow-wrap: anywhere;
+}
+.hr-reviews pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 25rem;
+  overflow-y: auto;
+}
+.hr-reviews .review-filter input, .hr-reviews fieldset input {
+  width: auto;
+  margin-right: .5rem;
+}
+.hr-reviews select {
+  width: 100%;
+}

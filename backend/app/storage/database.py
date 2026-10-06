@@ -9,6 +9,8 @@ adds the persisted organization admin role and safe role-management primitives.
 Version 8 adds organization-scoped HR-domain human role assignments.
 Version 9 adds upload ownership; version 10 adds simulation recycle-bin metadata.
 Version 11 adds tenant-owned custom agents and immutable configuration revisions.
+Version 12 adds hiring records and pinned revisions; version 13 adds immutable
+human review submissions and transition history.
 """
 
 from __future__ import annotations

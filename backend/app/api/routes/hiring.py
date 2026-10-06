@@ -1,9 +1,10 @@
-"""Organization hiring foundation; no provider execution or approval endpoints."""
+"""Authenticated organization hiring foundation and human review endpoints."""
 from fastapi import APIRouter, Header, HTTPException, Request
 
 from app.api.routes.workspaces import require_request_permission, request_user_id
 from app.models.schemas import (HiringRequirementInput, HiringRequirementUpdate, RoleKnowledgeInput,
-                                RoleKnowledgeUpdate, JobDescriptionInput, JobDescriptionUpdate, HRRecord)
+                                RoleKnowledgeUpdate, JobDescriptionInput, JobDescriptionUpdate, HRRecord,
+                                HRReviewSubmissionInput, HRReviewDecisionInput, HRReviewRecord, HRReviewEvent)
 from app.security.rbac import AuthorizationError, Permission
 from app.storage.database import repository
 from app.storage.hiring import HiringError
@@ -64,9 +65,6 @@ def register(kind, create_model, update_model):
 register("requirements", HiringRequirementInput, HiringRequirementUpdate)
 register("role_knowledge", RoleKnowledgeInput, RoleKnowledgeUpdate)
 register("job_descriptions", JobDescriptionInput, JobDescriptionUpdate)
-
-
-from app.models.schemas import HRReviewSubmissionInput, HRReviewDecisionInput, HRReviewRecord, HRReviewEvent
 
 
 @router.get('/reviews/capabilities')

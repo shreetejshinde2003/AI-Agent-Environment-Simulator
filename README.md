@@ -63,12 +63,12 @@ does not default to localhost.
 
 ## Storage and benchmark data
 
-The current version 11 schema stores simulations, one task per simulation,
+The current version 13 schema stores simulations, one task per simulation,
 stages, handoffs, events, metrics, owned uploads, identities/sessions,
-workspaces/memberships, HR human roles, custom-agent revisions, dataset metadata
-and the roster. SQLite remains the local fallback without `DATABASE_URL`;
-a PostgreSQL URL selects PostgreSQL. Startup initializes/migrates schema 11
-and activates ENABLE/FORCE RLS on all 14 tenant-owned PostgreSQL tables.
+workspaces/memberships, HR human roles, custom-agent revisions, hiring records,
+immutable review/decision history, dataset metadata and the roster. SQLite remains the local fallback without `DATABASE_URL`;
+a PostgreSQL URL selects PostgreSQL. Startup initializes/migrates schema 13
+and activates ENABLE/FORCE RLS on all 22 tenant-owned PostgreSQL tables.
 Existing V1 SQLite records are validated, backed up and migrated
 without deleting the original tables. Interrupted runs are marked failed after
 a restart; they are never silently retried or marked successful.
@@ -161,10 +161,26 @@ draft validation through the existing Groq adapter. Select an organization, use
 an authorized HR human role and choose exact saved source revisions. AI outputs
 remain proposals in persistent Task/StageExecution evidence; human records are
 never overwritten automatically. HR run history includes structured results,
-provider usage, errors and source provenance. No approval or publication workflow
-is included, and production LangGraph remains disabled by default.
+provider usage, errors and source provenance. Phase 7 adds human approval below;
+publication is not implemented. Production LangGraph remains disabled by default.
 
 See [HR agent contracts](docs/PHASE6_HR_AGENTS.md) and
 [Phase 6 local acceptance](docs/PHASE6_ACCEPTANCE_REPORT.md). All automated and
 browser acceptance uses deterministic provider mocks; live provider verification
 and deployment remain separate gates.
+
+
+## Human review and approval (Phase 7)
+
+Authorized Recruiters submit exact saved JD revisions. Human Reviewers recommend
+approval or request changes; authorized Approvers review, approve or reject.
+Every decision retains the authenticated actor, timestamp, notes, submitted JD
+and pinned requirement/knowledge revisions. Editing requires a new submission;
+historical approvals never transfer. AI evidence can be explicitly associated
+and inspected, but stays proposal-only. IAM ownership alone grants no HR authority.
+
+Schema 13 adds immutable tenant-owned submissions and transition events, with
+SQLite migration/guards and PostgreSQL FORCE RLS. See the
+[workflow/API contract](docs/PHASE7_HUMAN_REVIEW.md) and
+[Phase 7 local acceptance](docs/PHASE7_ACCEPTANCE_REPORT.md). No publication,
+Phase 8 work, deployment or production activation is included.

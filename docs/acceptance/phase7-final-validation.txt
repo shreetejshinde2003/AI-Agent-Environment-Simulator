@@ -1,0 +1,176 @@
+Phase 7 consolidated local acceptance — 7 October 2026 (Asia/Kolkata)
+
+Backend command: .venv/bin/python -m pytest backend/tests -q --tb=short
+Executed through private local PostgreSQL credential driver with isolated tenant/checkpoint schemas.
+No production/provider calls.
+
+........................................................................ [  9%]
+........................................................................ [ 19%]
+........................................................................ [ 29%]
+........................................................................ [ 39%]
+........................................................................ [ 49%]
+........................................................................ [ 59%]
+........................................................................ [ 68%]
+........................................................................ [ 78%]
+........................................................................ [ 88%]
+........................................................................ [ 98%]
+...........                                                              [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/langgraph/cache/base/__init__.py:8
+  /Users/shreetej/Downloads/FMProject/.venv/lib/python3.13/site-packages/langgraph/cache/base/__init__.py:8: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
+    from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+
+.venv/lib/python3.13/site-packages/starlette/testclient.py:40
+  /Users/shreetej/Downloads/FMProject/.venv/lib/python3.13/site-packages/starlette/testclient.py:40: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+731 passed, 2 warnings in 155.54s (0:02:35)
+
+Frontend tests: npm --prefix frontend test
+
+> frontend@0.0.0 test
+> node --test tests/*.test.js
+
+✔ agent management follows workspace IAM and not HR roles (1358.570792ms)
+✔ configuration requires meaningful bounded fields (2.593291ms)
+✔ only supported models and bounded execution settings pass (0.4645ms)
+✔ run input validates before submission (0.216459ms)
+✔ builder API client sends authenticated workspace-scoped definitions revisions and runs (3.027625ms)
+✔ builder surfaces API conflicts and uncertain run acknowledgement without fabricating output (1.033083ms)
+✔ builder loading and management affordances respect IAM in rendered UI (18.28825ms)
+✔ custom execution keeps a distinct mode and only its saved stage in the graph (0.320083ms)
+✔ stage lifecycle and failure events use persisted agent identities (30.741209ms)
+✔ only an actual message record can open its handoff without guessing (0.410208ms)
+✔ route and completion events open existing route/result objects only (0.29425ms)
+✔ unknown events and missing agent relations remain safely inspectable (0.478708ms)
+✔ record IDs are source-qualified and timestamp ordering never synthesizes time (0.289209ms)
+✔ event selection resolves from authoritative records and clears on run switch/removal (0.548584ms)
+✔ object selection correlates only to known records without selecting an invented message event (0.783083ms)
+✔ live authoritative snapshots update stage states, keep selected identity, then become static (2.746125ms)
+✔ fitting keys follow actual topology and all standard route lengths fit supported panels (0.517833ms)
+✔ stage labels distinguish selected, running, completed, failed, and never started (2.436ms)
+✔ saved handoffs never imply an ongoing transfer, including while receiver runs (0.267ms)
+✔ mode descriptions remain accurate and benchmark options require registry entries (0.270459ms)
+✔ reduced-motion stylesheet disables non-essential badge and edge movement (0.464792ms)
+✔ requirement forms validate and normalize structured fields (681.160167ms)
+✔ knowledge editing retains structured content and optimistic revision (0.476333ms)
+✔ draft editing pins sources and never fabricates AI provenance (0.554958ms)
+✔ lifecycle options respect phase boundaries (0.274792ms)
+✔ HR API integrates authenticated current workspace requests and revision payloads (1.052375ms)
+✔ HR authorization and revision conflicts surface actionable errors (0.986584ms)
+✔ AI assistance pins requirement and optional knowledge without write authority (650.783417ms)
+✔ saved draft validation uses its historical sources even if current heads differ (0.397833ms)
+✔ only pending authoritative statuses trigger polling (0.260167ms)
+✔ failed output never becomes a successful proposal (0.32275ms)
+✔ agent discovery admission polling and history use authenticated workspace APIs (1.231833ms)
+✔ revocation and provider errors are exposed without fabricated results (0.82825ms)
+✔ assistance screen renders proposal boundary and real action/history controls (979.165042ms)
+✔ HR-role labels and management access remain distinct from IAM roles (1790.433166ms)
+✔ human-role assignments group multiple responsibilities per member (3.410625ms)
+✔ owner surface explicitly separates access roles from HR responsibilities (15.186042ms)
+✔ admin surface can manage HR responsibilities without gaining owner access-role controls (1.69875ms)
+✔ review actions enforce state eligibility and never inherit stale approval (603.703292ms)
+✔ reviewer and approver capabilities follow the existing separate HR role map (0.438ms)
+✔ submission binds exact saved JD revision and optional original AI run IDs (0.562792ms)
+✔ AI association excludes failed, unrelated and outdated validation runs (0.748333ms)
+✔ status labels distinguish review eligibility from final approval (0.287667ms)
+✔ review list detail history submission and decision use session and current workspace (1.434125ms)
+✔ conflicts and revoked authority remain visible API errors (1.030333ms)
+✔ review screen renders focused real workflow controls and proposal boundary (559.195291ms)
+✔ adaptive canvas includes only recorded plan and selected stage rows (5.198542ms)
+✔ research provenance exposes recorded comparison metadata without fabrication (1.333625ms)
+✔ single, fixed, and legacy canvas paths retain their actual distinct topology (0.603791ms)
+✔ stage inspection links only persisted incoming/outgoing handoffs and events (0.372542ms)
+✔ failed stage preserves its error and only waiting downstream is not executed (0.284917ms)
+✔ token coverage distinguishes complete, partial, unavailable, and real zero (0.535125ms)
+✔ absent topology is empty and route metadata belongs only to Adaptive (0.447333ms)
+✔ available reference context does not require or fabricate an incoming message (0.207708ms)
+✔ no selection renders the recorded run overview with real mode and ID (1279.659333ms)
+✔ run overview renders research provenance and honest token coverage (16.649334ms)
+✔ historical run overview does not fabricate research provenance (5.623042ms)
+✔ stage selection renders stored telemetry and source provenance (7.874583ms)
+✔ final result is a dedicated view with run summary and exports (7.13525ms)
+✔ adaptive route selection shows a model-free deterministic plan (3.740875ms)
+✔ real handoff selection renders persisted content and record identity (3.167ms)
+✔ handoff size distinguishes absent content from a recorded empty string (12.7285ms)
+✔ Single, Fixed and legacy utility overviews retain distinct mode semantics (34.739959ms)
+✔ failure inspection preserves missing-input evidence and downstream nonexecution (4.904542ms)
+✔ missing telemetry stays unknown while actual zero remains measurable (17.197833ms)
+✔ long recorded output escapes HTML and preserves an expandable keyboard-scrollable full record (22.942375ms)
+✔ empty inspector and missing text do not invent output or telemetry (0.658ms)
+✔ unlinked message event exposes its own record without fabricating a handoff (37.490417ms)
+✔ contextual entries are keyboard buttons with explicit selected and related semantics (10.335167ms)
+✔ selected event context retains its timestamp and ID alongside the stage inspector (28.948083ms)
+✔ empty contextual stream remains honest and bounded even with large histories (5.038667ms)
+✔ member-management visibility follows centralized frontend role semantics (1091.046125ms)
+✔ member workspace does not expose management controls (19.494917ms)
+✔ admin gets read-only member-management surface (8.560042ms)
+✔ owner gets role-management surface and Personal Workspace gets no org controls (1.758625ms)
+✔ organization page exposes only private create/join membership actions (955.186625ms)
+✔ organization forms use bounded native inputs and do not echo invalid values (5.603083ms)
+✔ workspace client includes credentials and uses only scoped workspace endpoints (3.71275ms)
+✔ recycle bin controls follow personal ownership and organization IAM (16.9945ms)
+✔ authoritative refresh removes deleted runs while keeping later evidence for present runs (8.178625ms)
+✔ acknowledgement during an older refresh survives once but next complete list is authoritative (0.400833ms)
+✔ run browsing normalizes terms, orders newest first and filters a large history without mutation (906.912875ms)
+✔ run rows keep full accessible titles primary, IDs secondary, selection visible and rendering bounded (29.800375ms)
+✔ run keyboard navigation supports bounded arrows, Home, End and native activation (0.26825ms)
+✔ picker empty, loading and error states do not fabricate runs (10.411917ms)
+✔ composer explains three research strategies with native labelled radios and a separate specialist utility (8.29025ms)
+✔ composer benchmark states are explicit and options contain only active registry metadata (14.029125ms)
+✔ composer validates required and bounded inputs without changing backend payload conventions (0.70525ms)
+✔ legacy utility exposes only executable specialists and does not imply upload consumption (2.729958ms)
+✔ reference upload preflight checks the whole batch and a synchronous lock prevents double submission (0.458458ms)
+✔ busy composer disables configuration and actions, preserves draft, and distinguishes upload from submit (7.44475ms)
+✔ structured API errors are readable without echoing validation input and uncertain creation never claims failure or success (2.653167ms)
+✔ server acknowledgement survives stale refresh and later authoritative completion updates the same immutable ID (0.615792ms)
+✔ untrusted titles, goals and uploaded previews remain escaped, selectable text (4.106166ms)
+✔ new server-acknowledged run remains selectable during stale refresh and WS updates (2.6295ms)
+✔ stable readable labels retain immutable IDs and legacy directive fallback (0.418833ms)
+✔ graph topology uses actual backend stages, not skipped agents (19.696417ms)
+✔ dataset options use only registered active metadata and explicit empty state (0.886958ms)
+✔ workspace options keep Personal Workspace first and include only discovered organizations (639.160292ms)
+✔ workspace selection preserves an accessible preference and safely falls back to Personal Workspace (2.53625ms)
+✔ workspace switcher exposes Personal Workspace and IICT with current membership context (25.471583ms)
+✔ one run ID scopes inspector targets; stale selections and missing objects clear (4.818458ms)
+✔ route and coordinator inspection exist only for recorded mode evidence (0.4415ms)
+✔ recent events and topology derive only from the selected saved run (0.28175ms)
+✔ acknowledged creation and later authoritative refresh retain the active ID (0.353ms)
+ℹ tests 105
+ℹ suites 0
+ℹ pass 105
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5054.462583
+
+Lint: npm --prefix frontend run lint
+
+> frontend@0.0.0 lint
+> oxlint
+
+src/context/SimulationContext.jsx:28:17: warning react(only-export-components): Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.
+src/layout/AppShell.jsx:54:17: warning react(only-export-components): Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.
+
+Build: npm --prefix frontend run build
+
+> frontend@0.0.0 build
+> vite build
+
+vite v8.1.4 building client environment for production...
+[2K
+transforming...✓ 2021 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.45 kB │ gzip:   0.29 kB
+dist/assets/index-DPGqiVD2.css   53.50 kB │ gzip:   9.94 kB
+dist/assets/index-DIQ3KopP.js   481.62 kB │ gzip: 145.61 kB
+
+✓ built in 277ms
+
+Python compilation: exit 0
+Dependency check: No broken requirements found
+Git diff --check: exit 0
+Original Phase 4–6 regression collection: 676 backend cases retained
