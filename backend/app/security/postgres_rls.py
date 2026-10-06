@@ -176,6 +176,21 @@ def _hiring_policy(table: str) -> PostgresRLSPolicy:
         return (f"({base}) AND EXISTS (SELECT 1 FROM organization_human_role_assignments ha "
                 f"WHERE ha.workspace_id = {table}.workspace_id AND ha.user_id = {CURRENT_USER_SQL} "
                 f"AND ha.active = TRUE AND ha.human_role IN ({roles}))")
+    if table == "hr_review_submissions":
+        writer = grant(HRHumanPermission.JD_DRAFT_EDIT)
+        check = writer + f" AND requested_by_user_id = {CURRENT_USER_SQL}"
+        return PostgresRLSPolicy(table, grant(HRHumanPermission.HIRING_REQUEST_VIEW), check,
+                                 writer, check, insert_only=True)
+    if table == "hr_review_events":
+        writer = " OR ".join(f"(action = '{action}' AND ({grant(permission)}))" for action, permission in (
+            ("submit", HRHumanPermission.JD_DRAFT_EDIT), ("recommend", HRHumanPermission.JD_REVIEW),
+            ("request_changes", HRHumanPermission.JD_REQUEST_REVISION),
+            ("reject", HRHumanPermission.JD_REJECT), ("approve", HRHumanPermission.JD_APPROVE)))
+        check = f"({writer}) AND actor_user_id = {CURRENT_USER_SQL} AND EXISTS (SELECT 1 FROM hr_review_submissions s "
+        check += f"WHERE s.id = submission_id AND s.workspace_id = {table}.workspace_id "
+        check += f"AND (action <> 'submit' OR s.requested_by_user_id = {CURRENT_USER_SQL}))"
+        return PostgresRLSPolicy(table, grant(HRHumanPermission.HIRING_REQUEST_VIEW), check,
+                                 writer, check, insert_only=True)
     permission = (HRHumanPermission.JD_DRAFT_EDIT if table.startswith("hr_job_descriptions") else
                   HRHumanPermission.ROLE_KNOWLEDGE_MANAGE if table.startswith("hr_role_knowledge") else
                   HRHumanPermission.HIRING_REQUEST_MANAGE)

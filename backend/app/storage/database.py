@@ -38,7 +38,7 @@ from app.security.workspaces import (
     join_code_digest,
 )
 
-SCHEMA_VERSION = 12
+SCHEMA_VERSION = 13
 
 
 def normalize_url(url: str | None) -> str:
@@ -66,9 +66,10 @@ class RecycleBinError(ValueError):
 
 from app.storage.custom_agents import CustomAgentRepository
 from app.storage.hiring import HiringRepository
+from app.storage.hr_reviews import HRReviewRepository, install_review_guards
 
 
-class Repository(CustomAgentRepository, HiringRepository):
+class Repository(CustomAgentRepository, HiringRepository, HRReviewRepository):
     def __init__(self, url: str | None):
         self.url = normalize_url(url)
         self.path = self.url.removeprefix("sqlite:///") if self.url.startswith("sqlite:///") else None
@@ -263,8 +264,8 @@ class Repository(CustomAgentRepository, HiringRepository):
                         )
                     )
 
-                elif versions in ([2], [3], [4], [5], [6], [7], [8], [9], [10], [11]):
-                    # V12 remains additive. create_all above safely creates
+                elif versions in ([2], [3], [4], [5], [6], [7], [8], [9], [10], [11], [12]):
+                    # V13 remains additive. create_all above safely creates
                     # newer tables; migrations add simulation ownership and,
                     # for V5/V6 membership tables, widen the role constraint.
                     previous_version = versions[0]
@@ -295,6 +296,7 @@ class Repository(CustomAgentRepository, HiringRepository):
                     )
 
                 install_data_plane_rls_policies(connection)
+                install_review_guards(connection)
 
     @staticmethod
     def _install_sqlite_agent_revision_guards(connection):
@@ -307,12 +309,14 @@ class Repository(CustomAgentRepository, HiringRepository):
 
     @staticmethod
     def _install_sqlite_hr_revision_guards(connection):
-        for _, revisions in dbm.HR_TABLES.values():
+        for revisions in [*(pair[1] for pair in dbm.HR_TABLES.values()), dbm.hr_review_submissions, dbm.hr_review_events]:
             for action in ("UPDATE", "DELETE"):
                 connection.exec_driver_sql(
                     f"CREATE TRIGGER IF NOT EXISTS immutable_{revisions.name}_{action.lower()} "
                     f"BEFORE {action} ON {revisions.name} "
                     "BEGIN SELECT RAISE(ABORT, 'HR revisions are immutable'); END")
+
+        install_review_guards(connection)
 
     def _initialize_sqlite(self):
         with sqlite3.connect(self.path) as raw:
@@ -348,7 +352,7 @@ class Repository(CustomAgentRepository, HiringRepository):
                     )
                 )
 
-            elif versions in ([2], [3], [4], [5], [6], [7], [8], [9], [10], [11]):
+            elif versions in ([2], [3], [4], [5], [6], [7], [8], [9], [10], [11], [12]):
                 previous_version = versions[0]
 
                 self._ensure_simulation_workspace_column(connection)

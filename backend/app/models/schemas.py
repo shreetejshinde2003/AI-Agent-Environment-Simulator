@@ -909,3 +909,42 @@ class HRAgentEvidence(CamelModel):
 
 
 Task.model_rebuild()
+
+
+class HRReviewSubmissionInput(CamelModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    job_description: HRSource
+    ai_run_ids: list[Annotated[str, Field(strict=True, min_length=1, max_length=80)]] = Field(default_factory=list, max_length=10)
+
+
+class HRReviewDecisionInput(CamelModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    expected_version: int = Field(ge=1, strict=True)
+    decision: Literal["recommend", "request_changes", "reject", "approve"]
+    notes: str = Field(min_length=1, max_length=4000, strict=True)
+
+
+class HRReviewEvent(CamelModel):
+    id: str
+    version: int
+    actor_user_id: str
+    occurred_at: datetime
+    action: str
+    from_status: str
+    to_status: str
+    notes: str
+
+
+class HRReviewRecord(CamelModel):
+    id: str
+    workspace_id: str
+    requested_by_user_id: str
+    submitted_at: datetime
+    job_description: HRRecord
+    requirement: HRRecord
+    role_knowledge: HRRecord | None = None
+    ai_run_ids: list[str]
+    status: Literal["pending_review", "reviewed", "changes_requested", "rejected", "approved"]
+    version: int
+    stale: bool
+    history: list[HRReviewEvent]

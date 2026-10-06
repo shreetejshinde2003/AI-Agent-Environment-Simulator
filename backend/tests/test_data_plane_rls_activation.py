@@ -97,7 +97,7 @@ def test_activation_includes_data_bootstrap_hr_roles_and_uploads():
     expected = tuple(sql for policy in POSTGRES_RLS_POLICIES
                      if policy.table in ACTIVE_RLS_TABLES for sql in policy.ddl())
     assert tuple(connection.ddl) == expected
-    assert len(expected) == 98
+    assert len(expected) == 110
     for table in ACTIVE_RLS_TABLES:
         assert f'ALTER TABLE "{table}" FORCE ROW LEVEL SECURITY' in connection.ddl
     assert not any(f'ON "{table}"' in sql for table in DEFERRED_RLS_TABLES
@@ -156,7 +156,7 @@ def test_repeat_activation_restores_force_without_unscoped_payload_read():
         policies={t: [POLICY_NAME] for t in ACTIVE_RLS_TABLES},
     )
     install_data_plane_rls_policies(connection)
-    assert len(connection.ddl) == 98
+    assert len(connection.ddl) == 110
     assert not any(
         "FROM simulations WHERE workspace_id IS NULL" in sql
         or "FROM uploads WHERE workspace_id IS NULL" in sql
@@ -214,7 +214,7 @@ def test_postgresql_initialize_installs_only_after_role_and_schema_preflight(mon
     repo.initialize()
     assert created == [connection]
     assert connection.ddl[0] == "SELECT pg_advisory_xact_lock(721842)"
-    assert len(connection.ddl) == 99
+    assert len(connection.ddl) == 117
     connection.unsafe_role = True
     created.clear()
     with pytest.raises(RuntimeError, match="NOSUPERUSER"):

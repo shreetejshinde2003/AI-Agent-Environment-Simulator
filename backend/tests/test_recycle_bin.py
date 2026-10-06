@@ -259,8 +259,8 @@ def test_v9_sqlite_migration_is_additive_repeatable_and_preserves_payload(contex
     assert repo.get(task.id).model_dump(mode="json") == payload
     assert snapshot(repo, task) == before
     with repo.engine.connect() as connection:
-        assert connection.exec_driver_sql("PRAGMA user_version").scalar_one() == SCHEMA_VERSION == 12
-        assert connection.execute(select(dbm.schema_version.c.version)).scalar_one() == 12
+        assert connection.exec_driver_sql("PRAGMA user_version").scalar_one() == SCHEMA_VERSION == 13
+        assert connection.execute(select(dbm.schema_version.c.version)).scalar_one() == 13
 
 
 def test_recycle_routes_require_authentication(context):

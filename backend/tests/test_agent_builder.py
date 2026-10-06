@@ -178,7 +178,7 @@ def test_v10_additive_migration_and_integrity(context):
     repository.initialize()
     repository.initialize()
     with repository.engine.connect() as connection:
-        assert connection.execute(select(dbm.schema_version.c.version)).scalar_one() == SCHEMA_VERSION == 12
+        assert connection.execute(select(dbm.schema_version.c.version)).scalar_one() == SCHEMA_VERSION == 13
         assert connection.exec_driver_sql('PRAGMA foreign_key_check').all() == []
     assert context[0].get(f'/api/v1/agent-builder/{agent["id"]}').json() == agent
     with repository.engine.begin() as connection:

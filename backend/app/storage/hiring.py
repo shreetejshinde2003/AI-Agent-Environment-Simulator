@@ -103,6 +103,9 @@ class HiringRepository:
         try:
             with tenant_transaction(self.engine, workspace_id=workspace_id, user_id=user_id) as connection:
                 self._hiring_scope(connection, workspace_id, user_id, WRITE_PERMISSIONS[kind])
+                if kind == "job_descriptions":
+                    from app.storage.hr_reviews import lock_review_document
+                    lock_review_document(connection, record_id)
                 sources = {}
                 if kind == "job_descriptions":
                     for attr, source_kind, column in (("requirement", "requirements", "requirement"),

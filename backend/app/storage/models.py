@@ -380,3 +380,43 @@ for family, states in (("requirements", "'draft','active','closed','archived'"),
             "(knowledge_id IS NULL) = (knowledge_revision IS NULL)", name="ck_hr_knowledge_pair"))
     Index("ix_" + name + "_revision_workspace", revisions.c.workspace_id, revisions.c.record_id)
     HR_TABLES[family] = (head, revisions)
+
+
+# V13: submissions and transition events are append-only. Status is derived from events.
+hr_review_submissions = Table("hr_review_submissions", metadata,
+    Column("id", String(80), primary_key=True),
+    Column("workspace_id", String(80), ForeignKey("workspaces.id", ondelete="RESTRICT"), nullable=False),
+    Column("jd_id", String(80), nullable=False),
+    Column("jd_revision", Integer, nullable=False),
+    Column("requested_by_user_id", String(80), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False),
+    Column("submitted_at", String(40), nullable=False),
+    Column("ai_run_ids", json_type, nullable=False),
+    UniqueConstraint("id", "workspace_id", name="uq_hr_review_submission_tenant"),
+    UniqueConstraint("jd_id", "jd_revision", "workspace_id", name="uq_hr_review_submitted_revision"),
+    ForeignKeyConstraint(["jd_id", "jd_revision", "workspace_id"],
+        ["hr_job_descriptions_revisions.record_id", "hr_job_descriptions_revisions.revision",
+         "hr_job_descriptions_revisions.workspace_id"], ondelete="RESTRICT"),
+    CheckConstraint("jd_revision >= 1", name="ck_hr_review_revision"))
+Index("ix_hr_review_workspace", hr_review_submissions.c.workspace_id, hr_review_submissions.c.submitted_at)
+hr_review_events = Table("hr_review_events", metadata,
+    Column("id", String(80), primary_key=True),
+    Column("workspace_id", String(80), nullable=False),
+    Column("submission_id", String(80), nullable=False),
+    Column("version", Integer, nullable=False),
+    Column("actor_user_id", String(80), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False),
+    Column("occurred_at", String(40), nullable=False),
+    Column("action", String(30), nullable=False),
+    Column("from_status", String(30), nullable=False),
+    Column("to_status", String(30), nullable=False),
+    Column("notes", String(4000), nullable=False),
+    UniqueConstraint("submission_id", "version", name="uq_hr_review_event_version"),
+    ForeignKeyConstraint(["submission_id", "workspace_id"],
+        ["hr_review_submissions.id", "hr_review_submissions.workspace_id"], ondelete="RESTRICT"),
+    CheckConstraint("version >= 1", name="ck_hr_review_event_version"),
+    CheckConstraint("(version = 1 AND action = 'submit' AND from_status = 'draft' AND to_status = 'pending_review') OR "
+        "(version = 2 AND from_status = 'pending_review' AND ((action = 'recommend' AND to_status = 'reviewed') OR "
+        "(action = 'request_changes' AND to_status = 'changes_requested') OR (action = 'reject' AND to_status = 'rejected'))) OR "
+        "(version = 3 AND from_status = 'reviewed' AND ((action = 'approve' AND to_status = 'approved') OR "
+        "(action = 'request_changes' AND to_status = 'changes_requested') OR (action = 'reject' AND to_status = 'rejected')))",
+        name="ck_hr_review_transition"))
+Index("ix_hr_review_event_workspace", hr_review_events.c.workspace_id, hr_review_events.c.submission_id)
