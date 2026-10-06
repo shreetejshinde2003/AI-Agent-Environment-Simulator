@@ -64,3 +64,44 @@ def register(kind, create_model, update_model):
 register("requirements", HiringRequirementInput, HiringRequirementUpdate)
 register("role_knowledge", RoleKnowledgeInput, RoleKnowledgeUpdate)
 register("job_descriptions", JobDescriptionInput, JobDescriptionUpdate)
+
+
+from app.models.schemas import HRReviewSubmissionInput, HRReviewDecisionInput, HRReviewRecord, HRReviewEvent
+
+
+@router.get('/reviews/capabilities')
+def review_capabilities(request: Request, x_workspace_id: str | None = Header(default=None)):
+    return operation(repository.review_capabilities, **scope(request, x_workspace_id))
+
+
+@router.get('/reviews', response_model=list[HRReviewRecord])
+def review_list(request: Request, x_workspace_id: str | None = Header(default=None)):
+    return operation(repository.list_reviews, **scope(request, x_workspace_id))
+
+
+@router.post('/reviews', response_model=HRReviewRecord, status_code=201)
+def review_submit(payload: HRReviewSubmissionInput, request: Request,
+                  x_workspace_id: str | None = Header(default=None)):
+    return operation(repository.submit_review, payload, **scope(request, x_workspace_id))
+
+
+@router.get('/reviews/{submission_id}', response_model=HRReviewRecord)
+def review_detail(submission_id: str, request: Request, x_workspace_id: str | None = Header(default=None)):
+    return operation(repository.get_review, submission_id, **scope(request, x_workspace_id))
+
+
+@router.get('/reviews/{submission_id}/history', response_model=list[HRReviewEvent])
+def review_history(submission_id: str, request: Request, x_workspace_id: str | None = Header(default=None)):
+    return operation(repository.get_review, submission_id, **scope(request, x_workspace_id)).history
+
+
+@router.post('/reviews/{submission_id}/review', response_model=HRReviewRecord)
+def review_decision(submission_id: str, payload: HRReviewDecisionInput, request: Request,
+                    x_workspace_id: str | None = Header(default=None)):
+    return operation(repository.decide_review, submission_id, payload, **scope(request, x_workspace_id))
+
+
+@router.post('/reviews/{submission_id}/approval', response_model=HRReviewRecord)
+def approval_decision(submission_id: str, payload: HRReviewDecisionInput, request: Request,
+                      x_workspace_id: str | None = Header(default=None)):
+    return operation(repository.decide_review, submission_id, payload, approval=True, **scope(request, x_workspace_id))
