@@ -59,3 +59,23 @@ finalization requires identical admission input/ownership and an existing pendin
 HR task. No new tables, columns or schema version are needed: operational schema
 remains 12, with startup refreshing the reviewed RLS policies. SQLite enforces the
 same request/repository boundaries; PostgreSQL independently forces RLS.
+
+The general `/tasks`/`simulations` admission path rejects the reserved `hr_agent`
+task type. Task validation binds HR evidence to its owner/workspace, agent and
+single stage. Generic tenant queries exclude HR rows in SQL before retrieving
+payloads. Specialized retrieval checks HR permission before reading evidence.
+
+The HR Hiring page contains action discovery, record and exact revision selectors,
+server-admitted run identity, polling of queued/running status, structured proposals,
+safe failures and persisted history. Validation automatically uses the selected
+human draft's historical sources. Workspace switching remounts the interface;
+obsolete responses cannot restore previous tenant results. No proposal is copied
+into a foundation record automatically, and no approval/publication UI is added.
+
+Browser fixture: `backend/tests/hr_agents_browser_fixture.py` starts a disposable
+SQLite server on 127.0.0.1:8019 and a local session endpoint. It patches only the
+provider adapter with deterministic responses and a deliberate failure, waits
+1.5 seconds to exercise progress, and contains no credentials. Never import it
+in production. Frontend acceptance uses VITE_API_BASE_URL=http://127.0.0.1:8019 on
+127.0.0.1:5179. Live paid calls were not made; real provider acceptance remains
+unverified. No package installation, deployment or production activation is needed.

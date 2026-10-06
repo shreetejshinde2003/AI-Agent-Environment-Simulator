@@ -1,0 +1,175 @@
+Phase 6 final local validation - 7 October 2026 Asia/Kolkata
+
+Backend including PostgreSQL
+........................................................................ [ 10%]
+........................................................................ [ 21%]
+........................................................................ [ 31%]
+........................................................................ [ 42%]
+........................................................................ [ 53%]
+........................................................................ [ 63%]
+........................................................................ [ 74%]
+........................................................................ [ 85%]
+........................................................................ [ 95%]
+............................                                             [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/langgraph/cache/base/__init__.py:8
+  /Users/shreetej/Downloads/FMProject/.venv/lib/python3.13/site-packages/langgraph/cache/base/__init__.py:8: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
+    from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+
+.venv/lib/python3.13/site-packages/starlette/testclient.py:40
+  /Users/shreetej/Downloads/FMProject/.venv/lib/python3.13/site-packages/starlette/testclient.py:40: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+676 passed, 2 warnings in 115.55s (0:01:55)
+
+Frontend
+
+> frontend@0.0.0 test
+> node --test tests/*.test.js
+
+✔ agent management follows workspace IAM and not HR roles (744.018709ms)
+✔ configuration requires meaningful bounded fields (1.015292ms)
+✔ only supported models and bounded execution settings pass (0.44525ms)
+✔ run input validates before submission (0.2565ms)
+✔ builder API client sends authenticated workspace-scoped definitions revisions and runs (3.22725ms)
+✔ builder surfaces API conflicts and uncertain run acknowledgement without fabricating output (1.067042ms)
+✔ builder loading and management affordances respect IAM in rendered UI (37.824042ms)
+✔ custom execution keeps a distinct mode and only its saved stage in the graph (0.321167ms)
+✔ stage lifecycle and failure events use persisted agent identities (37.073458ms)
+✔ only an actual message record can open its handoff without guessing (0.430708ms)
+✔ route and completion events open existing route/result objects only (0.332583ms)
+✔ unknown events and missing agent relations remain safely inspectable (0.270583ms)
+✔ record IDs are source-qualified and timestamp ordering never synthesizes time (0.316ms)
+✔ event selection resolves from authoritative records and clears on run switch/removal (1.469083ms)
+✔ object selection correlates only to known records without selecting an invented message event (0.592625ms)
+✔ live authoritative snapshots update stage states, keep selected identity, then become static (0.933667ms)
+✔ fitting keys follow actual topology and all standard route lengths fit supported panels (0.744875ms)
+✔ stage labels distinguish selected, running, completed, failed, and never started (5.633ms)
+✔ saved handoffs never imply an ongoing transfer, including while receiver runs (0.492083ms)
+✔ mode descriptions remain accurate and benchmark options require registry entries (0.456375ms)
+✔ reduced-motion stylesheet disables non-essential badge and edge movement (0.713709ms)
+✔ requirement forms validate and normalize structured fields (560.813041ms)
+✔ knowledge editing retains structured content and optimistic revision (0.424333ms)
+✔ draft editing pins sources and never fabricates AI provenance (0.539208ms)
+✔ lifecycle options respect phase boundaries (0.250291ms)
+✔ HR API integrates authenticated current workspace requests and revision payloads (27.356541ms)
+✔ HR authorization and revision conflicts surface actionable errors (2.741833ms)
+✔ AI assistance pins requirement and optional knowledge without write authority (499.331208ms)
+✔ saved draft validation uses its historical sources even if current heads differ (3.924291ms)
+✔ only pending authoritative statuses trigger polling (0.26025ms)
+✔ failed output never becomes a successful proposal (0.232208ms)
+✔ agent discovery admission polling and history use authenticated workspace APIs (13.314167ms)
+✔ revocation and provider errors are exposed without fabricated results (0.877333ms)
+✔ assistance screen renders proposal boundary and real action/history controls (462.05ms)
+✔ HR-role labels and management access remain distinct from IAM roles (1644.693875ms)
+✔ human-role assignments group multiple responsibilities per member (6.66675ms)
+✔ owner surface explicitly separates access roles from HR responsibilities (36.366667ms)
+✔ admin surface can manage HR responsibilities without gaining owner access-role controls (1.397417ms)
+✔ adaptive canvas includes only recorded plan and selected stage rows (4.088958ms)
+✔ research provenance exposes recorded comparison metadata without fabrication (0.321042ms)
+✔ single, fixed, and legacy canvas paths retain their actual distinct topology (1.780042ms)
+✔ stage inspection links only persisted incoming/outgoing handoffs and events (0.364583ms)
+✔ failed stage preserves its error and only waiting downstream is not executed (0.258625ms)
+✔ token coverage distinguishes complete, partial, unavailable, and real zero (0.317709ms)
+✔ absent topology is empty and route metadata belongs only to Adaptive (0.276917ms)
+✔ available reference context does not require or fabricate an incoming message (0.144333ms)
+✔ no selection renders the recorded run overview with real mode and ID (1799.191917ms)
+✔ run overview renders research provenance and honest token coverage (51.035042ms)
+✔ historical run overview does not fabricate research provenance (14.384666ms)
+✔ stage selection renders stored telemetry and source provenance (14.409667ms)
+✔ final result is a dedicated view with run summary and exports (54.664458ms)
+✔ adaptive route selection shows a model-free deterministic plan (6.551625ms)
+✔ real handoff selection renders persisted content and record identity (6.896667ms)
+✔ handoff size distinguishes absent content from a recorded empty string (24.522041ms)
+✔ Single, Fixed and legacy utility overviews retain distinct mode semantics (13.915958ms)
+✔ failure inspection preserves missing-input evidence and downstream nonexecution (4.479708ms)
+✔ missing telemetry stays unknown while actual zero remains measurable (108.458583ms)
+✔ long recorded output escapes HTML and preserves an expandable keyboard-scrollable full record (41.002458ms)
+✔ empty inspector and missing text do not invent output or telemetry (0.85775ms)
+✔ unlinked message event exposes its own record without fabricating a handoff (5.777208ms)
+✔ contextual entries are keyboard buttons with explicit selected and related semantics (27.13225ms)
+✔ selected event context retains its timestamp and ID alongside the stage inspector (5.9815ms)
+✔ empty contextual stream remains honest and bounded even with large histories (6.843541ms)
+✔ member-management visibility follows centralized frontend role semantics (1631.001167ms)
+✔ member workspace does not expose management controls (180.505125ms)
+✔ admin gets read-only member-management surface (32.317625ms)
+✔ owner gets role-management surface and Personal Workspace gets no org controls (5.556375ms)
+✔ organization page exposes only private create/join membership actions (1841.5495ms)
+✔ organization forms use bounded native inputs and do not echo invalid values (6.268584ms)
+✔ workspace client includes credentials and uses only scoped workspace endpoints (1.822875ms)
+✔ recycle bin controls follow personal ownership and organization IAM (2.973375ms)
+✔ authoritative refresh removes deleted runs while keeping later evidence for present runs (4.712916ms)
+✔ acknowledgement during an older refresh survives once but next complete list is authoritative (0.44225ms)
+✔ run browsing normalizes terms, orders newest first and filters a large history without mutation (773.733083ms)
+✔ run rows keep full accessible titles primary, IDs secondary, selection visible and rendering bounded (37.659208ms)
+✔ run keyboard navigation supports bounded arrows, Home, End and native activation (0.303ms)
+✔ picker empty, loading and error states do not fabricate runs (13.649625ms)
+✔ composer explains three research strategies with native labelled radios and a separate specialist utility (5.853125ms)
+✔ composer benchmark states are explicit and options contain only active registry metadata (24.055125ms)
+✔ composer validates required and bounded inputs without changing backend payload conventions (1.184166ms)
+✔ legacy utility exposes only executable specialists and does not imply upload consumption (3.885083ms)
+✔ reference upload preflight checks the whole batch and a synchronous lock prevents double submission (0.722792ms)
+✔ busy composer disables configuration and actions, preserves draft, and distinguishes upload from submit (11.461834ms)
+✔ structured API errors are readable without echoing validation input and uncertain creation never claims failure or success (4.154ms)
+✔ server acknowledgement survives stale refresh and later authoritative completion updates the same immutable ID (0.965334ms)
+✔ untrusted titles, goals and uploaded previews remain escaped, selectable text (6.830042ms)
+✔ new server-acknowledged run remains selectable during stale refresh and WS updates (49.559167ms)
+✔ stable readable labels retain immutable IDs and legacy directive fallback (2.22175ms)
+✔ graph topology uses actual backend stages, not skipped agents (3.504375ms)
+✔ dataset options use only registered active metadata and explicit empty state (0.902834ms)
+✔ workspace options keep Personal Workspace first and include only discovered organizations (461.539542ms)
+✔ workspace selection preserves an accessible preference and safely falls back to Personal Workspace (0.482833ms)
+✔ workspace switcher exposes Personal Workspace and IICT with current membership context (18.529833ms)
+✔ one run ID scopes inspector targets; stale selections and missing objects clear (6.963041ms)
+✔ route and coordinator inspection exist only for recorded mode evidence (0.582959ms)
+✔ recent events and topology derive only from the selected saved run (1.043667ms)
+✔ acknowledged creation and later authoritative refresh retain the active ID (0.563208ms)
+ℹ tests 97
+ℹ suites 0
+ℹ pass 97
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4788.288708
+
+Lint
+
+> frontend@0.0.0 lint
+> oxlint
+
+src/layout/AppShell.jsx:54:17: warning react(only-export-components): Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.
+src/context/SimulationContext.jsx:28:17: warning react(only-export-components): Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.
+
+Build
+
+> frontend@0.0.0 build
+> vite build
+
+vite v8.1.4 building client environment for production...
+[2K
+transforming...✓ 2018 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.45 kB │ gzip:   0.29 kB
+dist/assets/index-CO521KUi.css   53.10 kB │ gzip:   9.86 kB
+dist/assets/index-D7rGTnwl.js   473.14 kB │ gzip: 143.74 kB
+
+✓ built in 256ms
+
+Compilation: exit 0
+Dependency compatibility: no broken requirements
+Git whitespace: exit 0
+
+Cleanup verified:
+fm_phase6_acceptance: NOLOGIN, password NULL
+fm_phase6_checkpoint_runtime: NOLOGIN, password NULL
+Active temporary-role sessions: 0
+Remaining application acceptance schemas owned by Phase 6 role: 0
+Isolated checkpoint schema: dropped
+Private credential files: removed
+Browser fixture: stopped; temporary SQLite directory cleaned
+Frontend acceptance server: stopped
+Temporary acceptance browser tabs: closed
+No paid provider requests, push, deployment, Railway change or production activation

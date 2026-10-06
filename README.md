@@ -152,3 +152,19 @@ Shreetej Shinde leads backend, agents, integration and repository management.
 Sumit Jadhav works on datasets and database documentation. Parag Kulkarni works
 on frontend, UI/UX and visualization. This remains an academic project; license
 selection is pending.
+
+
+## Specialized HR assistance (Phase 6)
+
+HR Hiring now offers requirement assessment, proposed job descriptions and saved
+draft validation through the existing Groq adapter. Select an organization, use
+an authorized HR human role and choose exact saved source revisions. AI outputs
+remain proposals in persistent Task/StageExecution evidence; human records are
+never overwritten automatically. HR run history includes structured results,
+provider usage, errors and source provenance. No approval or publication workflow
+is included, and production LangGraph remains disabled by default.
+
+See [HR agent contracts](docs/PHASE6_HR_AGENTS.md) and
+[Phase 6 local acceptance](docs/PHASE6_ACCEPTANCE_REPORT.md). All automated and
+browser acceptance uses deterministic provider mocks; live provider verification
+and deployment remain separate gates.

@@ -5,6 +5,7 @@ import Button from "../components/common/Button";
 import Card from "../components/common/Card";
 import {hiringKinds, hiringLabels, hiringForm, hiringPayload, hiringStatuses, listFields} from "../utils/hiring";
 import "./Hiring.css";
+import HRAssistance from "../components/hiring/HRAssistance";
 
 function HiringWorkspace({workspaceId}) {
   const detailRequest = useRef(0);
@@ -77,6 +78,7 @@ function HiringWorkspace({workspaceId}) {
     {error && <p role="alert" className="run-error">{error} <Button type="button" disabled={saving} onClick={() => setReload(v => v + 1)}>Reload</Button></p>}
     {!loading && capabilities && !capabilities.view && <p role="status">An active HR Recruiter, Reviewer or Approver role is required. Manage assignments in Organizations.</p>}
     {!loading && capabilities?.view && <>
+      <HRAssistance workspaceId={workspaceId} records={records}/>
       <nav aria-label="Hiring sections" className="hiring-tabs">{hiringKinds.map(item => <Button type="button" key={item.key}
         aria-pressed={item.key === kind} disabled={saving} onClick={() => switchKind(item.key)}>{item.label}</Button>)}</nav>
       <div className="hiring-columns"><Card title={definition.label}>

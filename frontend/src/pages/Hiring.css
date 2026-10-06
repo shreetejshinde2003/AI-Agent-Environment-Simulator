@@ -66,3 +66,23 @@
   color: var(--text-primary);
   background: var(--accent-primary-soft);
 }
+
+.hiring-form fieldset {
+  min-width: 0;
+  padding: 12px;
+  margin: 12px 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+}
+.hiring-form fieldset label + label {
+  margin-top: 12px;
+}
+.hr-assistance-result {
+  overflow-wrap: anywhere;
+}
+.hr-assistance-result h4 {
+  margin: 16px 0 8px;
+}
+.hr-assistance-result ul {
+  padding-left: 24px;
+}
