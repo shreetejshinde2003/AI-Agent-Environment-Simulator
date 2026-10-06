@@ -101,11 +101,19 @@ async def call_llm(
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": prompt})
 
-    response = await _client.chat.completions.create(
-        model=resolved_model,
-        messages=messages,
-        max_tokens=max_tokens,
-    )
+    try:
+        response = await _client.chat.completions.create(
+            model=resolved_model,
+            messages=messages,
+            max_tokens=max_tokens,
+        )
+    except Exception:
+        # Provider/transport diagnostics can contain arbitrary URLs, request
+        # payloads or credentials that pattern redaction cannot reliably remove.
+        # Every caller (including system agents and evaluation) gets a safe error.
+        raise RuntimeError(
+            "Agent provider request failed; check server provider configuration or availability."
+        ) from None
 
     elapsed = time.perf_counter() - start
     usage = response.usage

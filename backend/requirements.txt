@@ -25,6 +25,7 @@ psycopg[binary]==3.2.12
 
 # --- Tests ---
 pytest==8.4.2
+pytest-asyncio==1.4.0
 
 # --- Agent framework ---
 langgraph==0.6.11

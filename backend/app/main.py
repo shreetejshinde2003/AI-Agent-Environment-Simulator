@@ -9,6 +9,7 @@ or via the convenience script:
 """
 
 from contextlib import asynccontextmanager
+import asyncio
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -30,6 +31,7 @@ from app.storage.database import repository
 from app.core.config import settings
 from app.websocket.manager import manager
 from app.security.rbac import AuthorizationError, Permission, resolve_workspace_authorization
+from app.security.browser_origin import BrowserOriginMiddleware, trusted_browser_request
 
 @asynccontextmanager
 async def lifespan(app):
@@ -41,6 +43,7 @@ async def lifespan(app):
 
 
 app = FastAPI(title=settings.APP_NAME, debug=False, lifespan=lifespan)
+app.add_middleware(BrowserOriginMiddleware)
 
 # --------------------------------------------------------------------
 # CORS — allowed origins are defined in app/core/config.py, NOT here.
@@ -80,6 +83,9 @@ async def health_check():
 @app.websocket(settings.WEBSOCKET_PATH)
 async def websocket_endpoint(websocket: WebSocket):
     """Authenticated live stream scoped to one accessible workspace."""
+    if not trusted_browser_request(websocket.headers):
+        await websocket.close(code=4403)
+        return
     workspace_id = websocket.query_params.get("workspaceId")
 
     try:
@@ -101,9 +107,23 @@ async def websocket_endpoint(websocket: WebSocket):
         await websocket.close(code=4404)
         return
 
-    await manager.connect(websocket, workspace["id"])
+    def authorize_live_connection():
+        current_user, _ = auth._authenticated_record(websocket)
+        if current_user["id"] != user["id"]:
+            raise AuthorizationError("Permission denied.")
+        resolve_workspace_authorization(repository, user_id=current_user["id"],
+            workspace_id=workspace["id"]).require(Permission.WORKSPACE_VIEW)
+
+    await manager.connect(websocket, workspace["id"], authorize=authorize_live_connection)
     try:
-        while True:
-            await websocket.receive_text()
+        while await manager.authorized(websocket):
+            try:
+                # Idle sockets also lose revoked authority within 30 seconds;
+                # every outgoing event performs another live check before sending.
+                await asyncio.wait_for(websocket.receive_text(), timeout=30)
+            except asyncio.TimeoutError:
+                continue
     except WebSocketDisconnect:
+        pass
+    finally:
         manager.disconnect(websocket)
