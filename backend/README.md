@@ -130,3 +130,13 @@ persistence, recovery, and tenant-security acceptance now pass. See
 for settings, the authenticated task resume endpoint, local migration state,
 validation commands, and external-side-effect limitations. Never use the
 checkpoint migration owner or a PostgreSQL superuser as the runtime login.
+
+## Executable Agent Builder
+
+Schema 11 adds workspace-owned definitions and immutable configuration revisions.
+Authenticated `/api/v1/agent-builder` routes manage bounded text agents;
+`POST /agent-builder/{id}/runs` calls the existing Groq adapter through the shared
+Task/StageExecution lifecycle. Only server-permitted default/fast models are
+supported. No credentials, tools, scripts or arbitrary provider URLs are exposed.
+See [Phase 4.9](../docs/PHASE4_AGENT_BUILDER.md) for API contracts, IAM/RLS,
+acceptance and deployment gates. Graph runtime defaults remain unchanged.

@@ -111,13 +111,23 @@ Automated tests mock providers and use temporary databases; they consume no Groq
 credits. See [V1 audit and validation](docs/V1_AUDIT.md) for the audit matrix,
 limits, schema/API changes, and real integration results.
 
+## Executable Agent Builder (Phase 4.9)
+
+The Agents page supports tenant-owned, revisioned text agents with validated
+configuration, owner/admin management and member execution. Runs use the existing
+Groq adapter and persist real Task/StageExecution evidence. Schema 11 is additive;
+new PostgreSQL tables use FORCE RLS. See [Agent Builder behavior and local
+acceptance](docs/PHASE4_AGENT_BUILDER.md) for APIs, security boundaries and gates.
+
 ## Not implemented
 
-Web Search, PDF extraction, authentication, custom executable agents,
-pause/cancel of active model requests, and automatic retry/resume remain unavailable.
-LLM-based routing, evaluation scoring and a LangGraph execution runtime are also
-not implemented. Rule-based adaptive execution is implemented and tested locally;
-production verification of Phase 3.3 remains **PARTIAL**. No comparative study
+Web Search, PDF extraction, user-requested pause/cancel of active model requests,
+automatic retry, arbitrary agent tools and LLM-based routing remain unavailable.
+Authentication, workspace IAM, evaluation, recycle bin and bounded custom agents
+are implemented locally. The LangGraph runtime has passed local acceptance but
+remains disabled by default pending its documented deployment gates. Custom agents
+use a separate one-stage path and cannot resume through LangGraph.
+Production verification remains a separate deployment gate. No comparative study
 has established superiority over Single or Fixed.
 Event History inspects recorded events; it does not pretend to replay execution.
 The old `agents/orchestrator.py` LangGraph prototype and unused frontend demo
