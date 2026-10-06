@@ -63,6 +63,7 @@ class RouteSelection(InternalModel):
 
 
 class ExecutionContext(InternalModel):
+    hr_agent_id: Literal["hr_requirement_analysis", "hr_jd_draft", "hr_draft_validation"] | None = None
     original_directive: StrictStr = Field(min_length=1, max_length=10000)
     execution_mode: TaskExecutionMode = TaskExecutionMode.SINGLE_AGENT
     task_type: StrictStr | None = Field(default=None, max_length=80)

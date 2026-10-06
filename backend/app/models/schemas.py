@@ -433,6 +433,7 @@ class Task(CamelModel):
     experiment_id: str | None = None
     custom_agent_revision: int | None = Field(default=None, ge=1)
     custom_agent_config_hash: str | None = None
+    hr_execution: "HRAgentEvidence | None" = None
 
     @model_validator(mode="after")
     def readable_title(self):
@@ -833,3 +834,67 @@ class HRRecord(CamelModel):
     updated_by_user_id: str
     updated_at: datetime
     content: HiringRequirementInput | RoleKnowledgeInput | JobDescriptionInput
+
+
+HRAgentId = Literal["hr_requirement_analysis", "hr_jd_draft", "hr_draft_validation"]
+
+
+class HRAgentRequest(CamelModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    agent_id: HRAgentId
+    requirement: HRSource
+    role_knowledge: HRSource | None = None
+    job_description: HRSource | None = None
+
+    @model_validator(mode="after")
+    def draft_boundary(self):
+        if (self.agent_id == "hr_draft_validation") != (self.job_description is not None):
+            raise ValueError("Only validation requires a saved description revision")
+        return self
+
+
+class HRFinding(CamelModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, frozen=True)
+    category: Literal["supported", "missing", "ambiguous", "inconsistent", "suggestion"]
+    source: Literal["requirement", "role_knowledge", "job_description"]
+    field: str = Field(min_length=1, max_length=80, strict=True)
+    explanation: HRText
+
+
+class HRAssessment(CamelModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, frozen=True)
+    summary: HRText
+    findings: Annotated[tuple[HRFinding, ...], Field(max_length=80)]
+
+
+class HRDraftProposal(CamelModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, frozen=True)
+    title: str = Field(min_length=1, max_length=200, strict=True)
+    summary: HRText
+    responsibilities: Annotated[tuple[HRText, ...], Field(max_length=80)]
+    required_skills: Annotated[tuple[HRText, ...], Field(max_length=80)]
+    preferred_skills: Annotated[tuple[HRText, ...], Field(max_length=80)]
+    experience: str = Field(max_length=4000, strict=True)
+    qualifications: str = Field(max_length=4000, strict=True)
+    human_review_notes: Annotated[tuple[HRText, ...], Field(max_length=80)]
+
+
+class HRSourceEvidence(HRSource):
+    kind: Literal["requirement", "role_knowledge", "job_description"]
+    fingerprint: str
+
+
+class HRAgentEvidence(CamelModel):
+    model_config = ConfigDict(extra="forbid")
+    request: HRAgentRequest
+    implementation_version: str
+    provider: Literal["groq"]
+    model: str
+    sources: list[HRSourceEvidence]
+    execution_context: dict
+    system_prompt: str
+    output_schema: dict
+    proposal_only: Literal[True] = True
+
+
+Task.model_rebuild()

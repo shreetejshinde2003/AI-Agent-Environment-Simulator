@@ -143,3 +143,31 @@ class HiringRepository:
                 return self._hiring_record(connection, kind, record_id, workspace_id)
         except IntegrityError as exc:
             raise HiringError(409, "hr_integrity_conflict", "Record revision or source conflicts with saved data.") from exc
+
+
+    def bind_hr_sources(self, request, *, workspace_id, user_id):
+        """Admission and worker checks bind immutable revisions in one transaction."""
+        with tenant_transaction(self.engine, workspace_id=workspace_id, user_id=user_id) as connection:
+            permission = (HRHumanPermission.JD_REVIEW if request.agent_id == "hr_draft_validation"
+                          else HRHumanPermission.JD_DRAFT_EDIT)
+            self._hiring_scope(connection, workspace_id, user_id, permission)
+            sources = {}
+            for name, kind in (("requirement", "requirements"), ("role_knowledge", "role_knowledge"),
+                               ("job_description", "job_descriptions")):
+                reference = getattr(request, name)
+                if reference:
+                    sources[name] = self._hiring_record(connection, kind, reference.id, workspace_id, reference.revision)
+            if "job_description" in sources:
+                draft = sources["job_description"].content
+                if draft.requirement != request.requirement or draft.role_knowledge != request.role_knowledge:
+                    raise HiringError(409, "source_mismatch", "Validation must use the description's exact saved source revisions.")
+            return sources
+
+
+    def list_hr_runs(self, *, workspace_id, user_id):
+        with tenant_transaction(self.engine, workspace_id=workspace_id, user_id=user_id) as connection:
+            self._hiring_scope(connection, workspace_id, user_id, HRHumanPermission.HIRING_REQUEST_VIEW)
+            rows = connection.execute(select(dbm.simulations).where(
+                dbm.simulations.c.workspace_id == workspace_id, dbm.simulations.c.task_type == "hr_agent",
+                dbm.simulations.c.deleted_at.is_(None)).order_by(dbm.simulations.c.created_at.desc())).mappings().all()
+            return [self._task_from_row(row) for row in rows]
