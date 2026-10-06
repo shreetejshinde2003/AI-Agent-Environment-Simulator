@@ -61,6 +61,9 @@ app.add_middleware(
 # --------------------------------------------------------------------
 # Routers — each one is namespaced under API_V1_PREFIX (see config.py)
 # --------------------------------------------------------------------
+from app.api.routes import hiring
+
+app.include_router(hiring.router, prefix=settings.API_V1_PREFIX)
 app.include_router(agent_builder.router, prefix=settings.API_V1_PREFIX)
 app.include_router(recycle_bin.router, prefix=settings.API_V1_PREFIX)
 app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
