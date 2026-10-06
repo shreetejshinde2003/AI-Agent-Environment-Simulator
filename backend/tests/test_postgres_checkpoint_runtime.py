@@ -40,9 +40,9 @@ def test_real_checkpoint_reconnect_resume_and_tenant_denial(runtime_world, mode)
         try:
             failing = task.stages[-1].agent_id
             agents[failing].failure = 'deterministic failure'
-            async with postgres_checkpointer(url, **identity) as saver:
+            async with postgres_checkpointer(url, schema=os.environ.get("CHECKPOINT_TEST_SCHEMA", "langgraph_checkpoints"), **identity) as saver:
                 with pytest.raises(CheckpointBusyError):
-                    async with postgres_checkpointer(url, **identity):
+                    async with postgres_checkpointer(url, schema=os.environ.get("CHECKPOINT_TEST_SCHEMA", "langgraph_checkpoints"), **identity):
                         pass
                 async with saver.conn.cursor() as cur:
                     await cur.execute('SELECT current_database() AS name')
@@ -62,15 +62,15 @@ def test_real_checkpoint_reconnect_resume_and_tenant_denial(runtime_world, mode)
                     assert await cur.fetchall() == []
             agents[failing].failure = None
             loaded = repo.get_for_tenant(task.id,workspace_id=task.workspace_id,user_id='USR-test')
-            async with postgres_checkpointer(url, **identity) as saver:
+            async with postgres_checkpointer(url, schema=os.environ.get("CHECKPOINT_TEST_SCHEMA", "langgraph_checkpoints"), **identity) as saver:
                 await tasks._run_task_inner(task.id,task=loaded,user_id='USR-test',checkpointer=saver,resume=True)
                 assert loaded.status == TaskStatus.COMPLETED
                 assert order == [s.agent_id for s in task.stages] + [failing]
             for change in ({'workspace_id':'OTHER'}, {'user_id':None}):
                 with pytest.raises(AuthorizationError):
-                    async with postgres_checkpointer(url, **{**identity, **change}):
+                    async with postgres_checkpointer(url, schema=os.environ.get("CHECKPOINT_TEST_SCHEMA", "langgraph_checkpoints"), **{**identity, **change}):
                         pass
         finally:
-            async with postgres_checkpointer(url, **identity) as saver:
+            async with postgres_checkpointer(url, schema=os.environ.get("CHECKPOINT_TEST_SCHEMA", "langgraph_checkpoints"), **identity) as saver:
                 await saver.adelete_thread(config['configurable']['thread_id'])
     asyncio.run(run())

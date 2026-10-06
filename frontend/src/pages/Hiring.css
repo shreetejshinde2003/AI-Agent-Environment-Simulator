@@ -1,0 +1,68 @@
+.hiring-columns {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(320px, 2fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+.hiring-tabs {
+  display: flex;
+  gap: 12px;
+  margin: 20px 0;
+  flex-wrap: wrap;
+}
+.hiring-tabs [aria-pressed="true"] {
+  border-color: var(--accent-primary);
+}
+.hiring-form, .hiring-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.hiring-form {
+  gap: 16px;
+  margin: 16px 0;
+}
+.hiring-form textarea, .hiring-form input, .hiring-form select {
+  font: inherit;
+  color: var(--text-primary);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.hiring-form textarea {
+  resize: vertical;
+}
+.hiring-records {
+  list-style: none;
+  padding: 0;
+}
+.hiring-records button {
+  width: 100%;
+  text-align: left;
+  margin: 8px 0;
+}
+.hiring-records small, .hiring-form small {
+  display: block;
+  color: var(--text-secondary);
+}
+.hiring-workspace dd {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 900px) {
+  .hiring-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.hiring-workspace .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.hiring-tabs [aria-pressed="true"] {
+  color: var(--text-primary);
+  background: var(--accent-primary-soft);
+}

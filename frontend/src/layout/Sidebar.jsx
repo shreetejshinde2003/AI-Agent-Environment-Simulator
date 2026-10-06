@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { id: "messages", label: "Messages", icon: MessageSquare },
   { id: "logs", label: "Logs", icon: ScrollText },
   { id: "replay", label: "Event History", icon: RotateCcw },
+  { id: "hiring", label: "HR Hiring", icon: ClipboardList },
   { id: "organizations", label: "Organizations", icon: Building2, Trash2 },
   { id: "recycle-bin", label: "Recycle Bin", icon: Trash2 },
   { id: "settings", label: "Settings", icon: Settings },

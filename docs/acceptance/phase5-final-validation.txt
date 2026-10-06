@@ -1,0 +1,151 @@
+Phase 5 final validation; backend completed 6 October 2026; frontend and cleanup reverified 7 October 2026 (Asia/Kolkata).
+
+COMMAND: .venv/bin/python -m pytest backend/tests -q --tb=short (all local PostgreSQL gates configured)
+........................................................................ [ 11%]
+........................................................................ [ 22%]
+........................................................................ [ 34%]
+........................................................................ [ 45%]
+........................................................................ [ 56%]
+........................................................................ [ 68%]
+........................................................................ [ 79%]
+........................................................................ [ 90%]
+...........................................................              [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/langgraph/cache/base/__init__.py:8
+  /Users/shreetej/Downloads/FMProject/.venv/lib/python3.13/site-packages/langgraph/cache/base/__init__.py:8: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
+    from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+
+.venv/lib/python3.13/site-packages/starlette/testclient.py:40
+  /Users/shreetej/Downloads/FMProject/.venv/lib/python3.13/site-packages/starlette/testclient.py:40: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+635 passed, 2 warnings in 89.17s (0:01:29)
+
+COMMAND: npm --prefix frontend test
+
+> frontend@0.0.0 test
+> node --test tests/*.test.js
+
+✔ agent management follows workspace IAM and not HR roles (760.294375ms)
+✔ configuration requires meaningful bounded fields (0.670958ms)
+✔ only supported models and bounded execution settings pass (0.306084ms)
+✔ run input validates before submission (0.181167ms)
+✔ builder API client sends authenticated workspace-scoped definitions revisions and runs (2.855416ms)
+✔ builder surfaces API conflicts and uncertain run acknowledgement without fabricating output (1.050417ms)
+✔ builder loading and management affordances respect IAM in rendered UI (28.71125ms)
+✔ custom execution keeps a distinct mode and only its saved stage in the graph (0.824916ms)
+✔ stage lifecycle and failure events use persisted agent identities (78.720584ms)
+✔ only an actual message record can open its handoff without guessing (0.414ms)
+✔ route and completion events open existing route/result objects only (4.78675ms)
+✔ unknown events and missing agent relations remain safely inspectable (0.488833ms)
+✔ record IDs are source-qualified and timestamp ordering never synthesizes time (0.429667ms)
+✔ event selection resolves from authoritative records and clears on run switch/removal (0.564042ms)
+✔ object selection correlates only to known records without selecting an invented message event (0.461584ms)
+✔ live authoritative snapshots update stage states, keep selected identity, then become static (0.829208ms)
+✔ fitting keys follow actual topology and all standard route lengths fit supported panels (0.741333ms)
+✔ stage labels distinguish selected, running, completed, failed, and never started (6.267625ms)
+✔ saved handoffs never imply an ongoing transfer, including while receiver runs (0.46125ms)
+✔ mode descriptions remain accurate and benchmark options require registry entries (0.46425ms)
+✔ reduced-motion stylesheet disables non-essential badge and edge movement (0.950667ms)
+✔ requirement forms validate and normalize structured fields (390.979916ms)
+✔ knowledge editing retains structured content and optimistic revision (2.551375ms)
+✔ draft editing pins sources and never fabricates AI provenance (22.582209ms)
+✔ lifecycle options respect phase boundaries (0.275208ms)
+✔ HR API integrates authenticated current workspace requests and revision payloads (1.547541ms)
+✔ HR authorization and revision conflicts surface actionable errors (2.401ms)
+✔ HR-role labels and management access remain distinct from IAM roles (891.879ms)
+✔ human-role assignments group multiple responsibilities per member (67.257958ms)
+✔ owner surface explicitly separates access roles from HR responsibilities (16.106416ms)
+✔ admin surface can manage HR responsibilities without gaining owner access-role controls (1.805458ms)
+✔ adaptive canvas includes only recorded plan and selected stage rows (8.926792ms)
+✔ research provenance exposes recorded comparison metadata without fabrication (0.649583ms)
+✔ single, fixed, and legacy canvas paths retain their actual distinct topology (0.8275ms)
+✔ stage inspection links only persisted incoming/outgoing handoffs and events (0.591916ms)
+✔ failed stage preserves its error and only waiting downstream is not executed (0.403625ms)
+✔ token coverage distinguishes complete, partial, unavailable, and real zero (0.4375ms)
+✔ absent topology is empty and route metadata belongs only to Adaptive (3.993583ms)
+✔ available reference context does not require or fabricate an incoming message (0.239125ms)
+✔ no selection renders the recorded run overview with real mode and ID (1328.430833ms)
+✔ run overview renders research provenance and honest token coverage (11.354958ms)
+✔ historical run overview does not fabricate research provenance (145.552584ms)
+✔ stage selection renders stored telemetry and source provenance (36.788375ms)
+✔ final result is a dedicated view with run summary and exports (7.049333ms)
+✔ adaptive route selection shows a model-free deterministic plan (4.331958ms)
+✔ real handoff selection renders persisted content and record identity (3.908791ms)
+✔ handoff size distinguishes absent content from a recorded empty string (42.962709ms)
+✔ Single, Fixed and legacy utility overviews retain distinct mode semantics (12.82525ms)
+✔ failure inspection preserves missing-input evidence and downstream nonexecution (17.423333ms)
+✔ missing telemetry stays unknown while actual zero remains measurable (14.431417ms)
+✔ long recorded output escapes HTML and preserves an expandable keyboard-scrollable full record (2.032084ms)
+✔ empty inspector and missing text do not invent output or telemetry (0.804583ms)
+✔ unlinked message event exposes its own record without fabricating a handoff (4.198167ms)
+✔ contextual entries are keyboard buttons with explicit selected and related semantics (7.542625ms)
+✔ selected event context retains its timestamp and ID alongside the stage inspector (13.757459ms)
+✔ empty contextual stream remains honest and bounded even with large histories (8.930667ms)
+✔ member-management visibility follows centralized frontend role semantics (1363.301584ms)
+✔ member workspace does not expose management controls (46.206167ms)
+✔ admin gets read-only member-management surface (29.627209ms)
+✔ owner gets role-management surface and Personal Workspace gets no org controls (20.155666ms)
+✔ organization page exposes only private create/join membership actions (1657.094666ms)
+✔ organization forms use bounded native inputs and do not echo invalid values (7.3155ms)
+✔ workspace client includes credentials and uses only scoped workspace endpoints (2.269541ms)
+✔ recycle bin controls follow personal ownership and organization IAM (10.29625ms)
+✔ authoritative refresh removes deleted runs while keeping later evidence for present runs (6.403ms)
+✔ acknowledgement during an older refresh survives once but next complete list is authoritative (0.207125ms)
+✔ run browsing normalizes terms, orders newest first and filters a large history without mutation (870.801042ms)
+✔ run rows keep full accessible titles primary, IDs secondary, selection visible and rendering bounded (29.155208ms)
+✔ run keyboard navigation supports bounded arrows, Home, End and native activation (0.274375ms)
+✔ picker empty, loading and error states do not fabricate runs (9.571291ms)
+✔ composer explains three research strategies with native labelled radios and a separate specialist utility (5.573833ms)
+✔ composer benchmark states are explicit and options contain only active registry metadata (22.450792ms)
+✔ composer validates required and bounded inputs without changing backend payload conventions (0.929125ms)
+✔ legacy utility exposes only executable specialists and does not imply upload consumption (3.588458ms)
+✔ reference upload preflight checks the whole batch and a synchronous lock prevents double submission (0.666584ms)
+✔ busy composer disables configuration and actions, preserves draft, and distinguishes upload from submit (8.186ms)
+✔ structured API errors are readable without echoing validation input and uncertain creation never claims failure or success (2.620417ms)
+✔ server acknowledgement survives stale refresh and later authoritative completion updates the same immutable ID (0.641ms)
+✔ untrusted titles, goals and uploaded previews remain escaped, selectable text (4.082459ms)
+✔ new server-acknowledged run remains selectable during stale refresh and WS updates (2.390083ms)
+✔ stable readable labels retain immutable IDs and legacy directive fallback (0.412542ms)
+✔ graph topology uses actual backend stages, not skipped agents (62.814125ms)
+✔ dataset options use only registered active metadata and explicit empty state (6.774791ms)
+✔ workspace options keep Personal Workspace first and include only discovered organizations (286.988208ms)
+✔ workspace selection preserves an accessible preference and safely falls back to Personal Workspace (0.320834ms)
+✔ workspace switcher exposes Personal Workspace and IICT with current membership context (10.973125ms)
+✔ one run ID scopes inspector targets; stale selections and missing objects clear (31.702709ms)
+✔ route and coordinator inspection exist only for recorded mode evidence (0.572416ms)
+✔ recent events and topology derive only from the selected saved run (0.293167ms)
+✔ acknowledged creation and later authoritative refresh retain the active ID (0.320291ms)
+ℹ tests 90
+ℹ suites 0
+ℹ pass 90
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3735.688875
+
+COMMAND: npm --prefix frontend run lint
+
+> frontend@0.0.0 lint
+> oxlint
+
+src/layout/AppShell.jsx:54:17: warning react(only-export-components): Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.
+src/context/SimulationContext.jsx:28:17: warning react(only-export-components): Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.
+
+COMMAND: npm --prefix frontend run build
+
+> frontend@0.0.0 build
+> vite build
+
+vite v8.1.4 building client environment for production...
+[2K
+transforming...✓ 2016 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.45 kB │ gzip:   0.29 kB
+dist/assets/index-C3wWsZX7.css   52.80 kB │ gzip:   9.79 kB
+dist/assets/index-Cy6qymGB.js   466.10 kB │ gzip: 141.99 kB
+
+✓ built in 231ms

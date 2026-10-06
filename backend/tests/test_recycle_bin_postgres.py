@@ -1,4 +1,6 @@
 """Live Phase 4.8 acceptance under the existing isolated non-bypass RLS fixture."""
+import os
+
 import pytest
 from sqlalchemy import delete, select, text, update
 
@@ -72,7 +74,7 @@ def test_live_v9_additive_migration_preserves_payload_and_evidence(pg_repo):
     assert pg_repo.get_for_tenant(task.id, **scoped(task)).model_dump(mode="json") == task.model_dump(mode="json")
     assert evidence(pg_repo, task) == before
     with pg_repo.engine.connect() as connection:
-        assert connection.execute(select(dbm.schema_version.c.version)).scalar_one() == 11
+        assert connection.execute(select(dbm.schema_version.c.version)).scalar_one() == 12
 
 
 def test_live_completed_run_cannot_be_purged(pg_repo):
@@ -135,7 +137,7 @@ def test_live_checkpoint_and_route_contract_survive_recycle_restore(runtime_worl
 
     async def check():
         try:
-            async with postgres_checkpointer(checkpoint_url, **identity) as saver:
+            async with postgres_checkpointer(checkpoint_url, schema=os.environ.get("CHECKPOINT_TEST_SCHEMA", "langgraph_checkpoints"), **identity) as saver:
                 await task_routes._run_task_inner(task.id, task=task, user_id="USR-test", checkpointer=saver)
                 saved = await saver.aget_tuple(config)
                 assert saved is not None
@@ -156,6 +158,6 @@ def test_live_checkpoint_and_route_contract_survive_recycle_restore(runtime_worl
         finally:
             if repo.get_for_tenant(task.id, **scope) is None:
                 repo.recycle_simulation(task.id, action="restore", **scope)
-            async with postgres_checkpointer(checkpoint_url, **identity) as saver:
+            async with postgres_checkpointer(checkpoint_url, schema=os.environ.get("CHECKPOINT_TEST_SCHEMA", "langgraph_checkpoints"), **identity) as saver:
                 await saver.adelete_thread(config["configurable"]["thread_id"])
     asyncio.run(check())

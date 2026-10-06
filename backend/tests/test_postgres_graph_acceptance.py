@@ -47,6 +47,7 @@ async def main():
         stack.enter_context(patch.object(tasks.manager,'broadcast',AsyncMock()))
         stack.enter_context(patch.object(settings,'LANGGRAPH_RUNTIME_ENABLED',True))
         stack.enter_context(patch.object(settings,'CHECKPOINT_DATABASE_URL',os.environ['CHECKPOINT_TEST_DATABASE_URL']))
+        stack.enter_context(patch.object(settings,'CHECKPOINT_SCHEMA',os.environ.get('CHECKPOINT_TEST_SCHEMA','langgraph_checkpoints')))
         for aid in ('direct','research','data','analysis','summarizer','report'):
             async def provider(*args,_aid=aid,**kwargs):
                 if os.environ['FM_ACCEPTANCE_ACTION']=='crash' and _aid==os.environ['FM_ACCEPTANCE_CRASH_AGENT']:
@@ -110,7 +111,7 @@ def test_postgres_worker_death_recovery_resume_and_evidence_parity(pg_repo,check
     repo.engine.dispose()
 
     async def inspect_and_cleanup(cleanup=False):
-        async with postgres_checkpointer(checkpoint_url,**bound(repo,task,'USR-a')) as saver:
+        async with postgres_checkpointer(checkpoint_url, schema=os.environ.get("CHECKPOINT_TEST_SCHEMA", "langgraph_checkpoints"),**bound(repo,task,'USR-a')) as saver:
             config = checkpoint_config(task_id=task.id,workspace_id=workspace)
             if cleanup:
                 await saver.adelete_thread(config['configurable']['thread_id'])
@@ -135,7 +136,7 @@ def test_postgres_worker_death_recovery_resume_and_evidence_parity(pg_repo,check
                 assert await cursor.fetchall() == []
         for changed in ({'user_id':None},{'workspace_id':foreign_workspace},{'user_id':'USR-b'}):
             with pytest.raises(AuthorizationError):
-                async with postgres_checkpointer(checkpoint_url,**{**bound(repo,task,'USR-a'),**changed}):
+                async with postgres_checkpointer(checkpoint_url, schema=os.environ.get("CHECKPOINT_TEST_SCHEMA", "langgraph_checkpoints"),**{**bound(repo,task,'USR-a'),**changed}):
                     pass
 
     try:
@@ -182,7 +183,7 @@ def test_checkpoint_membership_revocation_reauthorizes_live_connection(pg_repo,c
 
     async def run():
         try:
-            async with postgres_checkpointer(checkpoint_url,**bound(repo,task,'USR-a')) as saver:
+            async with postgres_checkpointer(checkpoint_url, schema=os.environ.get("CHECKPOINT_TEST_SCHEMA", "langgraph_checkpoints"),**bound(repo,task,'USR-a')) as saver:
                 config = checkpoint_config(task_id=task.id,workspace_id=task.workspace_id)
                 assert await saver.aget_tuple(config) is None
                 repo.deactivate_organization_membership(workspace_id=organization['id'],
@@ -194,6 +195,6 @@ def test_checkpoint_membership_revocation_reauthorizes_live_connection(pg_repo,c
                 with pytest.raises(AuthorizationError):
                     await saver.adelete_thread(config['configurable']['thread_id'])
         finally:
-            async with postgres_checkpointer(checkpoint_url,**bound(repo,task,'USR-b')) as owner:
+            async with postgres_checkpointer(checkpoint_url, schema=os.environ.get("CHECKPOINT_TEST_SCHEMA", "langgraph_checkpoints"),**bound(repo,task,'USR-b')) as owner:
                 await owner.adelete_thread(checkpoint_config(task_id=task.id,workspace_id=task.workspace_id)['configurable']['thread_id'])
     asyncio.run(run())
