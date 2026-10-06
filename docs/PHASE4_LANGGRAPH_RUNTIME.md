@@ -5,18 +5,20 @@
 The Single, Fixed, and Adaptive graphs (4.7.1–4.7.5) already existed at
 `d4ea9fb`. Phase 4.7 now includes an executable graph runtime adapter, authorized
 checkpoint lifecycle, recovery endpoint, and deterministic evidence/telemetry
-coverage. **Acceptance remains incomplete and the sequential runtime stays
-active by default.** A dedicated restricted checkpoint runtime login and real
-Psycopg persistence/reconnect acceptance are outstanding. No Phase 4.8 work,
+coverage. **Local acceptance has passed; the sequential runtime stays active by
+default.** Real restricted-login Psycopg persistence/reconnect, application
+PostgreSQL RLS, and separate-worker crash/recovery/resume have now been verified.
+Graph activation remains gated on the deployment checks below. No Phase 4.8 work,
 production changes, deployment, or push is included.
 
 Historical Phase 4.5 notes are snapshots, not current completion claims:
 `d2a31c0` committed HR human-role RLS; `f2548f1` committed upload ownership and
 tenant-scoped isolation; `01c6edb` added live PostgreSQL verification;
 `3ae6df0` committed organization member removal. The earlier uncommitted
-4.5.5B changes therefore no longer need reimplementation. Current live tests
-still require explicit local test credentials; historical test counts are not
-substitutes for this run's results.
+4.5.5B changes therefore no longer need reimplementation. Live tests require
+explicit local test credentials. The continuation configured
+private temporary acceptance credentials and ran every case; the results below
+supersede the earlier skipped-gate snapshot.
 
 ## Authoritative boundaries
 
@@ -83,7 +85,7 @@ not use pickle or dynamic imports. These graphs do not support arbitrary custom
 Send/message objects. Serializer/graph-version changes require a migration and
 recovery regression gate.
 
-## Local database state and provisioning gate
+## Local database state and credential separation
 
 Local inspection confirmed `fm-tenant-postgres`, PostgreSQL 16,
 `fm_tenant_test`, port 55432. The dedicated `langgraph_checkpoints` schema and
@@ -95,10 +97,27 @@ neither USAGE nor CREATE in the dedicated schema.
 
 `fm_checkpoint` is the existing NOLOGIN, NOSUPERUSER, NOBYPASSRLS,
 NOCREATEDB, NOCREATEROLE, NOINHERIT migration/table-owner role. No authorized
-runtime login or role membership existed. No login/password was created or
-reset. Host access as existing `fm_app` without a password did not work.
+runtime login or role membership existed at the original audit. Host access as
+existing `fm_app` without a password did not work. During the approved continuation,
+two temporary local acceptance logins were provisioned without resetting any
+existing credential:
 
-An operator must privately provision a **separate** NOSUPERUSER/NOBYPASSRLS
+- `fm_checkpoint_acceptance`: CONNECT, dedicated-schema USAGE, and DML only on
+  the three checkpoint data tables; no migration-table or application access.
+- `fm_tenant_acceptance`: CONNECT and database CREATE for random test-owned
+  application schemas; no checkpoint-schema access.
+
+Both have NOINHERIT, NOSUPERUSER, NOBYPASSRLS, NOCREATEDB, NOCREATEROLE,
+NOREPLICATION, no role memberships, two-connection limits, and 24-hour password
+expiry. Passwords were generated privately, supplied through a mode-0600
+`PGPASSFILE` in a mode-0700 temporary directory, and never placed in source,
+Git, URLs, command arguments, chat, or test logs. Test URLs were password-free
+process-environment values; `.env` and production settings were unchanged.
+The private password file was removed and the temporary logins disabled after
+acceptance. These are test accounts, not configured deployment runtime accounts.
+
+For deployment, an operator must privately provision a **separate**
+NOSUPERUSER/NOBYPASSRLS
 runtime login, with USAGE on the checkpoint schema and only
 SELECT/INSERT/UPDATE/DELETE on `checkpoints`, `checkpoint_blobs`, and
 `checkpoint_writes`. Grant no schema CREATE, migration-table privileges,
@@ -111,14 +130,18 @@ silently replacing an unknown policy.
 
 Settings live only in `app/core/config.py`:
 
-- `LANGGRAPH_RUNTIME_ENABLED=false` (safe default; retain until acceptance passes)
+- `LANGGRAPH_RUNTIME_ENABLED=false` (safe default; retain until deployment gates pass)
 - `CHECKPOINT_DATABASE_URL` (private runtime URL; never reuse the application URL)
 - `CHECKPOINT_SCHEMA=langgraph_checkpoints`
 
-There is no Railway configuration change. Activation requires all three modes
-passing real saver persistence/reconnect tests, application PostgreSQL tenant
-regressions, concurrent-worker checks, and production-specific configuration,
-role grants, WebSocket, and restart validation. Until startup recovery is validated across multiple live server processes,
+There is no Railway configuration change. Local activation prerequisites have
+passed: all three modes with real saver persistence/reconnect, application
+PostgreSQL tenant regressions, same-task concurrent-worker exclusion, and
+process-crash recovery. Deployment activation still requires private production
+role/connection/schema validation, a reviewed server-worker configuration,
+authenticated WebSocket delivery/reconnect, and restart validation in that
+environment. Local test passes do not authorize production changes. Until startup
+recovery is validated across multiple live server processes,
 deploy with a single server worker: startup recovery predates the graph lock
 and can mark another process's task interrupted. Do not enable merely because
 the graph unit tests or schema checks pass.
@@ -193,11 +216,12 @@ copies, runs assertions as non-bypass `fm_app` with `fm_checkpoint` owning the
 tables, and rolls back the entire test; it does not create credentials or touch
 existing records. Its success is SQL RLS proof, **not** saver reconnect proof.
 
-Skipped PostgreSQL acceptance cases remain unverified gates. The final chat
-report contains this run's actual counts and commits; historical phase documents
-retain their original evidence rather than being silently rewritten.
+When test URLs are absent, PostgreSQL tests deliberately skip and make no
+security claim for that invocation. The recorded continuation ran them with
+restricted local credentials. Historical validation snapshots below are retained
+so the earlier skipped results are not mistaken for the final acceptance run.
 
-## Validation recorded on 2026-10-06
+## Initial validation snapshot on 2026-10-06
 
 Final command:
 `RUN_LOCAL_CHECKPOINT_SQL_TESTS=1 .venv/bin/python -m pytest -q --tb=short`
@@ -216,3 +240,72 @@ passed; `pip check` reported no broken requirements (with a harmless cache
 permission warning). The two suite warnings concern LangChain serialization
 and Starlette/AnyIO deprecations. Runtime remains disabled and the sequential
 implementation remains authoritative until the skipped acceptance gates pass.
+
+## Completed local acceptance on 2026-10-06
+
+The continuation started from `4a82580`, `c3c400b`, and `fc026e1` with no tracked
+working-tree changes. All 30 previous skips were reproduced with `pytest -rs`
+and traced individually to their fixtures:
+
+| Test group | Previously skipped | Exact missing prerequisite | Acceptance result |
+| --- | ---: | --- | --- |
+| Data-plane RLS | 6 | `TENANT_TEST_DATABASE_URL` | 6 passed |
+| Workspace/bootstrap and recovery | 10 | `TENANT_TEST_DATABASE_URL` | 10 passed |
+| HR human roles and membership removal | 11 | `TENANT_TEST_DATABASE_URL` | 11 passed |
+| Restricted checkpoint saver, reconnect, and same-task lock | 3 | `CHECKPOINT_TEST_DATABASE_URL` | 3 passed |
+
+No dataset/private-benchmark skip occurred in that baseline. The opt-in SQL test
+was enabled separately by `RUN_LOCAL_CHECKPOINT_SQL_TESTS=1`; it also passed.
+The existing fixtures were inspected before execution: they remove only their
+randomly created schemas, while saver cleanup deletes only fresh bound test
+threads. No application/production database URL fallback was used.
+
+`backend/tests/test_postgres_graph_acceptance.py` adds four local acceptance
+cases without changing runtime behavior:
+
+- Single, Fixed, and Adaptive execute through the actual worker dispatcher,
+  real agent adapters (only provider responses are mocked), application
+  PostgreSQL FORCE RLS, and restricted Psycopg checkpoint connections.
+- A separate worker process exits abruptly during an active stage, skipping
+  cleanup/finalization. Persisted task/stage state remains honestly active;
+  scoped startup recovery marks interruption and is idempotent. A fresh worker
+  process resumes, reacquires the checkpoint lock, restores typed immutable
+  context/nested outputs, and completes without repeating completed stages.
+- Task/StageExecution evidence, route/provenance, handoff IDs, stage ordering,
+  metrics, and terminal events retain parity. Cross-workspace/foreign-thread
+  access and missing identity fail closed. A real checkpoint SQL error rolls
+  back and leaves no persistent context on the connection.
+- Removing an organization membership immediately denies read, pending-write,
+  and delete operations on an already-open authorized saver; an authorized
+  owner performs only the fresh test-thread cleanup.
+
+The first targeted run passed all 30 formerly skipped tests; the four new
+all-PostgreSQL cases then passed. The final full suite ran serially through a
+private test-session driver, with both password-free local test URLs,
+`PGPASSFILE`, and the SQL opt-in supplied only to that process:
+
+**479 passed, 0 skipped, 0 failed, 2 warnings in 51.14 seconds.**
+
+Compilation of `backend/app` and `backend/tests`, `pip check`, `git diff --check`,
+and `git fsck --no-dangling` passed. Warnings remain the LangChain serializer and
+Starlette/AnyIO deprecations, plus pip's harmless disabled-cache notice. No
+confirmed runtime defect was found, so changes are tests and documentation only.
+
+Fingerprints for all eight pre-existing checkpoint tables across `public` and
+`langgraph_checkpoints` matched before/after the final suite. No test schemas or
+versioned test checkpoint threads remained. The private password file and
+session manifest were removed; both new acceptance roles were set NOLOGIN.
+Existing `fm_app` and `fm_checkpoint` credentials/attributes were not changed,
+and `fm_app` still has neither USAGE nor CREATE in the checkpoint schema.
+No secrets were committed or emitted, and no production/Railway settings,
+provider calls, pushes, or deployments were involved.
+
+**Phase 4.7 local acceptance is complete.** The graph runtime was enabled only
+inside isolated worker tests; persistent `LANGGRAPH_RUNTIME_ENABLED` remains
+false. Remaining deployment-only gates are separate permanent runtime credential
+provisioning, actual production role/schema/connection verification, reviewed
+single-worker startup configuration, deployed authenticated WebSocket/reconnect
+behavior, and production restart validation. Multiple live server processes
+remain unsupported until the documented startup-recovery concurrency limitation
+is addressed. Local acceptance does not authorize enabling or deploying the
+runtime, and no Phase 4.8 work is included.

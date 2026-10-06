@@ -124,7 +124,8 @@ enforcement exists yet. See
 
 The graph adapter supports Single, Fixed and Adaptive execution through the
 existing task/stage evidence and telemetry functions. It is disabled by default
-pending restricted-login PostgreSQL persistence/recovery acceptance. See
+pending deployment activation checks; restricted-login local PostgreSQL
+persistence, recovery, and tenant-security acceptance now pass. See
 [checkpoint security, runtime activation, and recovery](../docs/PHASE4_LANGGRAPH_RUNTIME.md)
 for settings, the authenticated task resume endpoint, local migration state,
 validation commands, and external-side-effect limitations. Never use the
