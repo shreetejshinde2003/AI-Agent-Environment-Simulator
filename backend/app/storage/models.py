@@ -1,4 +1,4 @@
-"""Version 9 operational tables; benchmark records never enter this schema."""
+"""Version 10 operational tables; benchmark records never enter this schema."""
 
 from sqlalchemy import (JSON, Boolean, CheckConstraint, Column, Float, ForeignKey,
                         Index, Integer, MetaData, String, Table, Text)
@@ -250,10 +250,14 @@ simulations = Table("simulations", metadata,
     Column("dataset_checksum", String(64)), Column("status", String(30), nullable=False),
     Column("execution_mode", String(30), nullable=False), Column("task_type", String(80)),
     Column("created_at", String(40), nullable=False), Column("started_at", String(40)),
-    Column("completed_at", String(40)), Column("payload", json_type, nullable=False))
+    Column("completed_at", String(40)),
+    Column("deleted_at", String(40)), Column("deleted_by_user_id", String(80)),
+    Column("restored_at", String(40)), Column("restored_by_user_id", String(80)),
+    Column("payload", json_type, nullable=False))
 Index("ix_simulations_status_created", simulations.c.status, simulations.c.created_at)
 Index("ix_simulations_workspace_created", simulations.c.workspace_id, simulations.c.created_at)
 Index("ix_simulations_dataset", simulations.c.dataset_id)
+Index("ix_simulations_workspace_deleted", simulations.c.workspace_id, simulations.c.deleted_at)
 tasks = Table("tasks", metadata,
     Column("id", String(80), primary_key=True),
     Column("simulation_id", String(80), ForeignKey("simulations.id", ondelete="CASCADE"), unique=True, nullable=False),

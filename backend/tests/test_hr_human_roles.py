@@ -69,7 +69,7 @@ def seed_org(tmp_path):
     return repo, workspace
 
 
-def test_fresh_v9_database_contains_hr_human_role_table(tmp_path):
+def test_fresh_v10_database_contains_hr_human_role_table(tmp_path):
     repo = Repository(f"sqlite:///{tmp_path / 'fresh-v8.db'}")
     repo.initialize()
 
@@ -78,13 +78,13 @@ def test_fresh_v9_database_contains_hr_human_role_table(tmp_path):
         version = connection.execute(select(dbm.schema_version.c.version)).scalar_one()
 
     assert "organization_human_role_assignments" in names
-    assert version == SCHEMA_VERSION == 9
+    assert version == SCHEMA_VERSION == 10
 
     with sqlite3.connect(repo.path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 9
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 10
 
 
-def test_v7_database_migrates_additively_to_v9(tmp_path):
+def test_v7_database_migrates_additively_to_v10(tmp_path):
     path = tmp_path / "v7.db"
     repo = Repository(f"sqlite:///{path}")
 
@@ -109,7 +109,7 @@ def test_v7_database_migrates_additively_to_v9(tmp_path):
         version = connection.execute(select(dbm.schema_version.c.version)).scalar_one()
 
     assert "organization_human_role_assignments" in names
-    assert version == 9
+    assert version == 10
 
 
 def test_hr_human_role_capability_matrix_is_separate_and_explicit():

@@ -13,6 +13,7 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import (
+    recycle_bin,
     agents,
     auth,
     datasets,
@@ -56,6 +57,7 @@ app.add_middleware(
 # --------------------------------------------------------------------
 # Routers — each one is namespaced under API_V1_PREFIX (see config.py)
 # --------------------------------------------------------------------
+app.include_router(recycle_bin.router, prefix=settings.API_V1_PREFIX)
 app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
 app.include_router(workspaces.router, prefix=settings.API_V1_PREFIX)
 app.include_router(agents.router, prefix=settings.API_V1_PREFIX)

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { apiClient } from "../services/apiClient";
 import { useBackendConnection } from "./useBackendConnection";
 import { useLiveSocket } from "./useLiveSocket";
-import { mergeRuns } from "../utils/runs";
+import { mergeRuns, mergeActiveRuns } from "../utils/runs";
 import { useWorkspace } from "./useWorkspace";
 const EMPTY = {agents: [], tasks: [], metrics: {summary: {}, agents: [], history: []}};
 export function useSimulationData() {
@@ -12,6 +12,7 @@ export function useSimulationData() {
   const [error, setError] = useState(null);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [lastRefreshedAt, setLastRefreshedAt] = useState(null);
+  const accepted = useRef(new Map()), revision = useRef(0);
   const busy = useRef(false), pending = useRef(false), mounted = useRef(true);
   const workspaceRef = useRef(activeWorkspaceId);
   workspaceRef.current = activeWorkspaceId;
@@ -22,12 +23,14 @@ export function useSimulationData() {
     do {
       pending.current = false;
       const workspaceId = workspaceRef.current;
+      const refreshRevision = revision.current;
       if (!workspaceId) break;
       try {
         const [agents, tasks, metrics] = await Promise.all([
           apiClient.getAgents(), apiClient.getTasks(workspaceId), apiClient.getMetrics(workspaceId)]);
         if (mounted.current && workspaceRef.current === workspaceId) {
-          setData(previous => ({agents, tasks: mergeRuns(tasks, previous.tasks), metrics}));
+          setData(previous => ({agents, tasks: mergeActiveRuns(tasks, previous.tasks,
+            [...accepted.current].filter(([, value]) => value > refreshRevision).map(([id]) => id)), metrics}));
           setError(null);
           setHasLoaded(true);
           setLastRefreshedAt(new Date().toISOString());
@@ -40,6 +43,7 @@ export function useSimulationData() {
   }, []);
   useEffect(() => {
     mounted.current = true;
+    accepted.current.clear();
     setData(EMPTY);
     setError(null);
     setHasLoaded(false);
@@ -53,7 +57,10 @@ export function useSimulationData() {
     health === "connected" && Boolean(activeWorkspaceId),
     activeWorkspaceId,
   );
-  const acceptRun = useCallback(run => setData(previous => ({...previous, tasks: mergeRuns([run], previous.tasks)})), []);
+  const acceptRun = useCallback(run => {
+    accepted.current.set(run.id, ++revision.current);
+    setData(previous => ({...previous, tasks: mergeRuns([run], previous.tasks)}));
+  }, []);
   return {...data, stats: data.metrics.summary, refresh, acceptRun, error, socketStatus, hasLoaded, lastRefreshedAt,
     connectionStatus: error ? "disconnected" : health, isDemoMode: false,
     isLoading: !hasLoaded && !error};

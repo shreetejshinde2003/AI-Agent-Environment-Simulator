@@ -76,7 +76,7 @@ class ActivationConnection:
         if "FROM simulations WHERE workspace_id IS NULL" in sql:
             return Result(self.unassigned)
         if "schema_version.version" in sql:
-            return Result([9])
+            return Result([10])
         pytest.fail(f"Unexpected activation query: {sql}")
 
     def exec_driver_sql(self, statement):

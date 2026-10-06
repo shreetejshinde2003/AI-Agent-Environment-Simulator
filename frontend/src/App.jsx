@@ -9,6 +9,7 @@ import Agents from "./pages/Agents";
 import Messages from "./pages/Messages";
 import Logs from "./pages/Logs";
 import Replay from "./pages/Replay";
+import RecycleBin from "./pages/RecycleBin";
 import Settings from "./pages/Settings";
 import Organizations from "./pages/Organizations";
 import { PrivacyPolicy, TermsOfService } from "./pages/LegalPages";
@@ -16,7 +17,7 @@ import Login from "./pages/Login";
 import { useAuth } from "./hooks/useAuth";
 import "./components/dashboard/SimulationWorkspace.css";
 const PAGES = {live: LiveSimulation, "task-summary": TaskSummary, agents: Agents,
-  messages: Messages, logs: Logs, replay: Replay, organizations: Organizations, settings: Settings};
+  messages: Messages, logs: Logs, replay: Replay, organizations: Organizations, settings: Settings, "recycle-bin": RecycleBin};
 function AppContent({ authUser, onSignOut }) {
   const workspace = useWorkspace();
   const {

@@ -24,6 +24,8 @@ class Permission(str, Enum):
     SIMULATION_VIEW = "simulation.view"
     SIMULATION_EVALUATE = "simulation.evaluate"
     SIMULATION_EXPORT = "simulation.export"
+    RECYCLE_BIN_MANAGE = "recycle_bin.manage"
+    RECYCLE_BIN_PURGE = "recycle_bin.purge"
 
     ORGANIZATION_MEMBERS_VIEW = "organization.members.view"
     ORGANIZATION_MEMBERS_MANAGE = "organization.members.manage"
@@ -48,6 +50,7 @@ ROLE_PERMISSIONS: Mapping[WorkspaceRole, frozenset[Permission]] = {
     WorkspaceRole.ADMIN: _BASE_WORKSPACE_PERMISSIONS
     | frozenset(
         {
+            Permission.RECYCLE_BIN_MANAGE,
             Permission.ORGANIZATION_MEMBERS_VIEW,
             Permission.ORGANIZATION_MEMBERS_MANAGE,
             Permission.ORGANIZATION_HUMAN_ROLES_MANAGE,
@@ -57,11 +60,13 @@ ROLE_PERMISSIONS: Mapping[WorkspaceRole, frozenset[Permission]] = {
     WorkspaceRole.OWNER: _BASE_WORKSPACE_PERMISSIONS
     | frozenset(
         {
+            Permission.RECYCLE_BIN_MANAGE,
             Permission.ORGANIZATION_MEMBERS_VIEW,
             Permission.ORGANIZATION_MEMBERS_MANAGE,
             Permission.ORGANIZATION_ADMINS_MANAGE,
             Permission.ORGANIZATION_HUMAN_ROLES_MANAGE,
             Permission.ORGANIZATION_SETTINGS_MANAGE,
+            Permission.RECYCLE_BIN_PURGE,
             Permission.ORGANIZATION_OWNERSHIP_MANAGE,
         }
     ),

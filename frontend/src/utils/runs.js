@@ -4,8 +4,7 @@ export const modeLabel = mode => ({single: "Single", fixed: "Fixed", full_pipeli
 export const newestRuns = tasks => [...tasks].sort((a, b) =>
   (Date.parse(b.createdAt ?? b.startedAt) || 0) - (Date.parse(a.createdAt ?? a.startedAt) || 0) || a.id.localeCompare(b.id));
 
-// No delete API exists. Retain acknowledged records omitted by a stale concurrent
-// refresh; never let an earlier event snapshot replace a later one.
+// Incremental updates retain acknowledged records and later event snapshots.
 export function mergeRuns(incoming, known) {
   const merged = new Map(known.map(task => [task.id, task]));
   for (const task of incoming) {
@@ -29,3 +28,10 @@ export function datasetOptions(datasets) {
     label: `${d.family === "hr" ? "HR" : "Employee"} · ${d.sizeVariant[0].toUpperCase() + d.sizeVariant.slice(1)} · ${d.recordCount} records`}));
 }
 export const DATASET_EMPTY = "No benchmark datasets are registered on this deployment. The deployment administrator must privately provision and register the benchmark files.";
+
+// A complete active list is authoritative. Only local acknowledgements made
+// during this refresh may survive omission until the next refresh.
+export function mergeActiveRuns(incoming, known, acceptedDuringRefresh = []) {
+  const ids = new Set([...incoming.map(run => run.id), ...acceptedDuringRefresh]);
+  return mergeRuns(incoming, known.filter(run => ids.has(run.id)));
+}

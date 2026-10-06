@@ -716,3 +716,7 @@ class AgentRuntimeStats(CamelModel):
     last_response_preview: str | None = None   # first ~200 chars of the agent's last output
     last_called_at: datetime | None = None
     model_used: str | None = None
+
+
+class PermanentDeletionRequest(CamelModel):
+    confirm_permanent_deletion: bool = Field(default=False, strict=True)

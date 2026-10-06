@@ -1,4 +1,4 @@
-import { Activity, ClipboardList, Users, MessageSquare, ScrollText, RotateCcw, Settings, Bot, LogOut, Building2 } from "lucide-react";
+import { Activity, ClipboardList, Users, MessageSquare, ScrollText, RotateCcw, Settings, Bot, LogOut, Building2, Trash2 } from "lucide-react";
 import SimulationInfoPanel from "../components/dashboard/SimulationInfoPanel";
 import WorkspaceSwitcher from "./WorkspaceSwitcher";
 import "./Sidebar.css";
@@ -10,7 +10,8 @@ const NAV_ITEMS = [
   { id: "messages", label: "Messages", icon: MessageSquare },
   { id: "logs", label: "Logs", icon: ScrollText },
   { id: "replay", label: "Event History", icon: RotateCcw },
-  { id: "organizations", label: "Organizations", icon: Building2 },
+  { id: "organizations", label: "Organizations", icon: Building2, Trash2 },
+  { id: "recycle-bin", label: "Recycle Bin", icon: Trash2 },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 

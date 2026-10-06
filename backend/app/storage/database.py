@@ -7,6 +7,7 @@ foundation. Version 5 added organization memberships. Version 6 adds persisted
 simulation workspace ownership while preserving historical run payloads. Version 7
 adds the persisted organization admin role and safe role-management primitives.
 Version 8 adds organization-scoped HR-domain human role assignments.
+Version 9 adds upload ownership; version 10 adds simulation recycle-bin metadata.
 """
 
 from __future__ import annotations
@@ -36,7 +37,7 @@ from app.security.workspaces import (
     join_code_digest,
 )
 
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 
 
 def normalize_url(url: str | None) -> str:
@@ -53,6 +54,13 @@ def normalize_url(url: str | None) -> str:
 
 def timestamp(value):
     return value.isoformat() if value else None
+
+
+class RecycleBinError(ValueError):
+    def __init__(self, status_code, code, message):
+        self.status_code = status_code
+        self.detail = {"code": code, "message": message}
+        super().__init__(message)
 
 
 class Repository:
@@ -210,6 +218,21 @@ class Repository:
             """
         )
 
+    @staticmethod
+    def _ensure_recycle_bin_columns(connection):
+        """V10 is additive on both SQLite and PostgreSQL; payloads are untouched."""
+        columns = {column["name"] for column in inspect(connection).get_columns("simulations")}
+        for name, size in (("deleted_at", 40), ("deleted_by_user_id", 80),
+                           ("restored_at", 40), ("restored_by_user_id", 80)):
+            if name not in columns:
+                connection.exec_driver_sql(
+                    f"ALTER TABLE simulations ADD COLUMN {name} VARCHAR({size})"
+                )
+        connection.exec_driver_sql(
+            "CREATE INDEX IF NOT EXISTS ix_simulations_workspace_deleted "
+            "ON simulations (workspace_id, deleted_at)"
+        )
+
     def initialize(self):
         engine = self.engine
         if engine.dialect.name == "sqlite":
@@ -235,8 +258,8 @@ class Repository:
                         )
                     )
 
-                elif versions in ([2], [3], [4], [5], [6], [7], [8]):
-                    # V9 remains additive. create_all above safely creates
+                elif versions in ([2], [3], [4], [5], [6], [7], [8], [9]):
+                    # V10 remains additive. create_all above safely creates
                     # newer tables; migrations add simulation ownership and,
                     # for V5/V6 membership tables, widen the role constraint.
                     previous_version = versions[0]
@@ -245,6 +268,7 @@ class Repository:
                     if previous_version in (5, 6):
                         self._ensure_admin_membership_role(connection)
                     self._ensure_upload_ownership_columns(connection)
+                    self._ensure_recycle_bin_columns(connection)
 
                     connection.execute(
                         update(dbm.schema_version)
@@ -299,13 +323,14 @@ class Repository:
                     )
                 )
 
-            elif versions in ([2], [3], [4], [5], [6], [7], [8]):
+            elif versions in ([2], [3], [4], [5], [6], [7], [8], [9]):
                 previous_version = versions[0]
 
                 self._ensure_simulation_workspace_column(connection)
                 if previous_version in (5, 6):
                     self._ensure_admin_membership_role(connection)
                 self._ensure_upload_ownership_columns(connection)
+                self._ensure_recycle_bin_columns(connection)
 
                 connection.execute(
                     update(dbm.schema_version)
@@ -456,6 +481,10 @@ class Repository:
         return UploadedContext.model_validate(payload) if payload is not None else None
 
     def _save_task(self, connection, task: Task):
+        existing = connection.execute(select(dbm.simulations.c.deleted_at).where(
+            dbm.simulations.c.id == task.id).with_for_update()).first()
+        if existing is not None and existing.deleted_at is not None:
+            raise ValueError("Deleted simulations cannot be modified; restore first.")
         for upload in task.uploads:
             if task.workspace_id is None:
                 self._save_upload(connection, upload)
@@ -471,14 +500,23 @@ class Repository:
                     "Task upload does not belong to the task workspace."
                 )
 
-        self._upsert(connection, dbm.simulations, "id", dict(
+        simulation_values = dict(
             id=task.id, owner_id=task.owner_id, workspace_id=task.workspace_id,
             dataset_id=task.dataset_id,
             dataset_checksum=task.dataset_checksum, status=task.status.value,
             execution_mode=task.execution_mode.value, task_type=task.task_type,
             created_at=timestamp(task.created_at or task.started_at),
             started_at=timestamp(task.execution_started_at), completed_at=timestamp(task.completed_at),
-            payload=task.model_dump(mode="json")))
+            payload=task.model_dump(mode="json"))
+        if existing is None:
+            connection.execute(insert(dbm.simulations).values(**simulation_values))
+        else:
+            saved = connection.execute(update(dbm.simulations).where(
+                dbm.simulations.c.id == task.id,
+                dbm.simulations.c.deleted_at.is_(None)
+            ).values(**simulation_values))
+            if saved.rowcount != 1:
+                raise ValueError("Deleted simulations cannot be modified; restore first.")
         self._upsert(connection, dbm.tasks, "id", dict(
             id=task.id, simulation_id=task.id, directive=task.directive,
             assigned_agent_id=task.assigned_agent_id, priority=task.priority.value,
@@ -566,6 +604,7 @@ class Repository:
                     dbm.simulations.c.payload,
                 ).where(
                     dbm.simulations.c.id == task_id,
+                    dbm.simulations.c.deleted_at.is_(None),
                     dbm.simulations.c.workspace_id == workspace_id,
                 )
             ).mappings().first()
@@ -589,7 +628,8 @@ class Repository:
                     dbm.simulations.c.workspace_id,
                     dbm.simulations.c.payload,
                 ).where(
-                    dbm.simulations.c.workspace_id == workspace_id
+                    dbm.simulations.c.workspace_id == workspace_id,
+                    dbm.simulations.c.deleted_at.is_(None),
                 ).order_by(
                     dbm.simulations.c.created_at,
                     dbm.simulations.c.id,
@@ -615,7 +655,7 @@ class Repository:
                 select(
                     dbm.simulations.c.workspace_id,
                     dbm.simulations.c.payload,
-                ).where(dbm.simulations.c.id == task_id)
+                ).where(dbm.simulations.c.id == task_id, dbm.simulations.c.deleted_at.is_(None))
             ).mappings().first()
         return self._task_from_row(row)
 
@@ -628,6 +668,7 @@ class Repository:
                     dbm.simulations.c.payload,
                 ).where(
                     dbm.simulations.c.id == task_id,
+                    dbm.simulations.c.deleted_at.is_(None),
                     dbm.simulations.c.workspace_id == workspace_id,
                 )
             ).mappings().first()
@@ -640,7 +681,7 @@ class Repository:
                 select(
                     dbm.simulations.c.workspace_id,
                     dbm.simulations.c.payload,
-                ).order_by(
+                ).where(dbm.simulations.c.deleted_at.is_(None)).order_by(
                     dbm.simulations.c.created_at,
                     dbm.simulations.c.id,
                 )
@@ -655,13 +696,136 @@ class Repository:
                     dbm.simulations.c.workspace_id,
                     dbm.simulations.c.payload,
                 ).where(
-                    dbm.simulations.c.workspace_id == workspace_id
+                    dbm.simulations.c.workspace_id == workspace_id,
+                    dbm.simulations.c.deleted_at.is_(None),
                 ).order_by(
                     dbm.simulations.c.created_at,
                     dbm.simulations.c.id,
                 )
             ).mappings().all()
         return [self._task_from_row(row) for row in rows]
+
+    @staticmethod
+    def _recycle_authorization(connection, *, workspace_id, user_id, permission):
+        """Recheck live IAM inside the operation; HR roles confer no authority."""
+        from app.security.rbac import AuthorizationError, WorkspaceAuthorization, WorkspaceRole
+
+        user = connection.execute(select(dbm.users.c.active).where(
+            dbm.users.c.id == user_id)).scalar_one_or_none()
+        workspace = connection.execute(select(dbm.workspaces).where(
+            dbm.workspaces.c.id == workspace_id,
+            dbm.workspaces.c.active.is_(True)).with_for_update()).mappings().first()
+        if not user or workspace is None:
+            raise AuthorizationError("Permission denied.")
+        if workspace["kind"] == "personal":
+            if workspace["personal_owner_user_id"] != user_id:
+                raise AuthorizationError("Permission denied.")
+            role = WorkspaceRole.OWNER
+        else:
+            actor = connection.execute(select(dbm.organization_memberships).where(
+                dbm.organization_memberships.c.workspace_id == workspace_id,
+                dbm.organization_memberships.c.user_id == user_id,
+                dbm.organization_memberships.c.active.is_(True)
+            ).with_for_update()).mappings().first()
+            try:
+                role = WorkspaceRole(actor["membership_role"]) if actor else None
+            except ValueError as exc:
+                raise AuthorizationError("Permission denied.") from exc
+            if role is None:
+                raise AuthorizationError("Permission denied.")
+        WorkspaceAuthorization(user_id, workspace_id, workspace["kind"], role).require(permission)
+
+    @staticmethod
+    def _recycle_item(row):
+        payload = row["payload"]
+        return dict(id=row["id"], entityType="simulation",
+                    title=payload.get("title") or payload.get("directive", "Simulation")[:160],
+                    status=row["status"], deletedAt=row["deleted_at"],
+                    deletedByUserId=row["deleted_by_user_id"],
+                    restoredAt=row["restored_at"], restoredByUserId=row["restored_by_user_id"])
+
+    def list_recycled_simulations(self, *, workspace_id, user_id):
+        from app.security.rbac import Permission
+        with tenant_transaction(self.engine, workspace_id=workspace_id, user_id=user_id) as connection:
+            self._recycle_authorization(connection, workspace_id=workspace_id,
+                                        user_id=user_id, permission=Permission.RECYCLE_BIN_MANAGE)
+            rows = connection.execute(select(dbm.simulations).where(
+                dbm.simulations.c.workspace_id == workspace_id,
+                dbm.simulations.c.deleted_at.is_not(None)
+            ).order_by(dbm.simulations.c.deleted_at.desc(), dbm.simulations.c.id)).mappings().all()
+            return [self._recycle_item(row) for row in rows]
+
+    def recycle_simulation(self, simulation_id, *, workspace_id, user_id,
+                           action="delete", confirmed=False):
+        """Atomic lifecycle changes; child evidence and shared uploads stay intact.
+
+        Only terminal runs can enter the bin. Physical deletion is deliberately
+        restricted to failed, never-executed legacy runs without evidence or any
+        potential graph checkpoint. No checkpoint credentials are used here.
+        """
+        from app.security.rbac import Permission
+        if action not in {"delete", "restore", "purge"}:
+            raise ValueError("Unknown recycle-bin action.")
+        permission = Permission.RECYCLE_BIN_PURGE if action == "purge" else Permission.RECYCLE_BIN_MANAGE
+        with tenant_transaction(self.engine, workspace_id=workspace_id, user_id=user_id) as connection:
+            if connection.dialect.name == "sqlite":
+                connection.exec_driver_sql("BEGIN IMMEDIATE")
+            self._recycle_authorization(connection, workspace_id=workspace_id,
+                                        user_id=user_id, permission=permission)
+            row = connection.execute(select(dbm.simulations).where(
+                dbm.simulations.c.id == simulation_id,
+                dbm.simulations.c.workspace_id == workspace_id
+            ).with_for_update()).mappings().first()
+            if row is None:
+                raise RecycleBinError(404, "simulation_not_found", "Simulation not found.")
+            deleted = row["deleted_at"] is not None
+            if action == "delete" and deleted:
+                raise RecycleBinError(409, "already_deleted", "Simulation is already in the recycle bin.")
+            if action != "delete" and not deleted:
+                raise RecycleBinError(409, "not_deleted", "Simulation is not in the recycle bin.")
+            if row["status"] not in {"completed", "failed"}:
+                raise RecycleBinError(409, "simulation_busy", "Only completed or failed simulations can be deleted.")
+            stamp = timestamp(datetime.now(timezone.utc))
+            condition = (dbm.simulations.c.id == simulation_id,
+                         dbm.simulations.c.workspace_id == workspace_id,
+                         dbm.simulations.c.deleted_at == row["deleted_at"] if deleted
+                         else dbm.simulations.c.deleted_at.is_(None),
+                         dbm.simulations.c.status == row["status"])
+            if action == "purge":
+                if confirmed is not True:
+                    raise RecycleBinError(422, "confirmation_required", "Explicit permanent-deletion confirmation is required.")
+                task = self._task_from_row(row)
+                has_evidence = (task.status.value == "completed" or row["started_at"] or
+                    task.execution_started_at or task.elapsed_seconds is not None or
+                    task.duration_seconds > 0 or task.evaluation_scores or
+                    task.output or task.stages or task.messages or
+                    task.activities or task.events or task.evaluation or
+                    row["execution_mode"] in {"single", "fixed", "adaptive"})
+                # Check both contracts and relational evidence; fail closed on drift.
+                evidence_tables = (dbm.agent_executions, dbm.agent_messages,
+                                   dbm.activity_events, dbm.run_events)
+                has_evidence = has_evidence or any(connection.execute(select(table.c.simulation_id).where(
+                    table.c.simulation_id == simulation_id).limit(1)).first() for table in evidence_tables)
+                metrics = connection.execute(select(dbm.simulation_metrics).where(
+                    dbm.simulation_metrics.c.simulation_id == simulation_id)).mappings().first()
+                persisted_task = connection.execute(select(dbm.tasks.c.output).where(
+                    dbm.tasks.c.simulation_id == simulation_id)).scalar_one_or_none()
+                has_evidence = has_evidence or persisted_task or (metrics and (
+                    metrics["elapsed_seconds"] is not None or metrics["total_tokens"] is not None or
+                    metrics["measured_stages"] > 0))
+                if has_evidence:
+                    raise RecycleBinError(409, "execution_evidence_retained",
+                                          "Execution evidence must be retained; restore this simulation instead.")
+                result = connection.execute(delete(dbm.simulations).where(*condition))
+                item = dict(id=simulation_id, permanentlyDeleted=True)
+            else:
+                values = (dict(deleted_at=stamp, deleted_by_user_id=user_id) if action == "delete"
+                          else dict(deleted_at=None, restored_at=stamp, restored_by_user_id=user_id))
+                result = connection.execute(update(dbm.simulations).where(*condition).values(**values))
+                item = self._recycle_item({**row, **values})
+            if result.rowcount != 1:
+                raise RecycleBinError(409, "lifecycle_conflict", "Simulation changed; refresh and retry.")
+            return item
 
     def _require_legacy_sqlite(self):
         """Legacy fixture/development methods cannot open unscoped PG access."""
@@ -686,7 +850,7 @@ class Repository:
             nonlocal count
             statement = select(
                 dbm.simulations.c.workspace_id, dbm.simulations.c.payload
-            ).where(dbm.simulations.c.status.in_(pending))
+            ).where(dbm.simulations.c.status.in_(pending), dbm.simulations.c.deleted_at.is_(None))
             if workspace_id is not None:
                 statement = statement.where(
                     dbm.simulations.c.workspace_id == workspace_id
