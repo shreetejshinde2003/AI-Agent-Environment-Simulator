@@ -641,6 +641,7 @@ async def _run_task(
         # Preserve the trusted internal compatibility seam used by coordinator tests.
         task = _TASKS.get(task_id) or task
     if settings.LANGGRAPH_RUNTIME_ENABLED and task.execution_mode in GRAPH_MODES:
+        execution_entered = False
         try:
             if not settings.CHECKPOINT_DATABASE_URL:
                 raise RuntimeError('Graph runtime requires a dedicated checkpoint connection.')
@@ -652,17 +653,25 @@ async def _run_task(
                     return
                 if not resume and task.status != TaskStatus.QUEUED:
                     return
+                execution_entered = True
                 await _run_task_inner(task_id, workspace_id, user_id, task=task,
                                       checkpointer=saver, resume=resume)
         except (AuthorizationError, CheckpointBusyError):
             raise
         except Exception:
+            if execution_entered:
+                # A failed final evidence write/connection close is not a second
+                # task failure. Let recovery handle unavailable application storage.
+                raise
             # No connection strings or database exception details enter user evidence.
             task.status = TaskStatus.FAILED
             task.error = 'Durable checkpoint service unavailable; execution stopped.'
             task.output = None
             task.completed_at = now()
+            task.evaluation = build_run_evaluation(task)
+            await record_activity('simulation', 'Simulation failed', task=task, user_id=user_id)
             await emit(task, 'simulation_failed', task.error, user_id=user_id)
+            await register_task_finished(task, task.elapsed_seconds or 0, False, user_id=user_id)
             _TASKS.pop(task.id, None)
     else:
         if resume:
@@ -790,7 +799,7 @@ def _mark_interrupted_failed(task: Task):
         task.output = None
 
         if task.execution_started_at:
-            task.elapsed_seconds = (
+            task.elapsed_seconds = (task.elapsed_seconds or 0) + (
                 timestamp - task.execution_started_at
             ).total_seconds()
             task.duration_seconds = int(task.elapsed_seconds)
@@ -800,6 +809,10 @@ def _mark_interrupted_failed(task: Task):
                 stage.status = "failed"
                 stage.error = task.error
                 stage.completed_at = timestamp
+                if stage.started_at:
+                    stage.duration_seconds = (stage.duration_seconds or 0) + (
+                        timestamp - stage.started_at
+                    ).total_seconds()
 
         task.progress_steps = [
             TaskProgressStep(

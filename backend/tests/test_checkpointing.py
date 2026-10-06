@@ -93,3 +93,41 @@ class SaverBoundaryTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(AuthorizationError):
                 await saver.aput(config,{}, {}, {})
             self.assertEqual(auth.call_count,2)
+
+class ConnectionSecurityTests(unittest.IsolatedAsyncioTestCase):
+    async def test_bypass_migration_and_application_privileges_are_rejected(self):
+        from unittest.mock import AsyncMock
+        from app.agents.checkpointing import verify_checkpoint_connection
+        # Ordered catalog responses model each independently unsafe grant.
+        cases = [
+            ([{'rolsuper':True,'rolbypassrls':False}], 'bypass RLS'),
+            ([{'rolsuper':False,'rolbypassrls':True}], 'bypass RLS'),
+            ([{'rolsuper':False,'rolbypassrls':False},{'allowed':True}], 'assume a bypass'),
+            ([{'rolsuper':False,'rolbypassrls':False},{'allowed':False},{'allowed':True}], 'migration privileges'),
+            ([{'rolsuper':False,'rolbypassrls':False},{'allowed':False},{'allowed':False},{'allowed':True}], 'application tables'),
+            ([{'rolsuper':False,'rolbypassrls':False},{'allowed':False},{'allowed':False},{'allowed':False},{'allowed':True}], 'migration metadata'),
+        ]
+        for responses, message in cases:
+            connection = Mock()
+            cursor = AsyncMock()
+            cursor.__aenter__.return_value = cursor
+            cursor.fetchone.side_effect = responses
+            connection.cursor.return_value = cursor
+            with self.assertRaisesRegex(PermissionError,message):
+                await verify_checkpoint_connection(connection,'langgraph_checkpoints')
+
+    async def test_missing_force_rls_or_owner_membership_denied(self):
+        from unittest.mock import AsyncMock
+        from app.agents.checkpointing import verify_checkpoint_connection
+        for change in ({'relforcerowsecurity':False},{'relrowsecurity':False},{'owns':True}):
+            connection = Mock()
+            cursor = AsyncMock()
+            cursor.__aenter__.return_value = cursor
+            cursor.fetchone.side_effect = [{'rolsuper':False,'rolbypassrls':False}] + [{'allowed':False}]*4
+            rows = [dict(relname=name,relrowsecurity=True,relforcerowsecurity=True,owns=False)
+                    for name in ('checkpoints','checkpoint_blobs','checkpoint_writes')]
+            rows[0].update(change)
+            cursor.fetchall.return_value = rows
+            connection.cursor.return_value = cursor
+            with self.assertRaisesRegex(PermissionError,'FORCE RLS'):
+                await verify_checkpoint_connection(connection,'langgraph_checkpoints')

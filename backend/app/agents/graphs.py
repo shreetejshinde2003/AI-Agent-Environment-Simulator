@@ -1,8 +1,8 @@
 """Compiled LangGraph execution topologies.
 
 These graphs orchestrate the canonical GraphRunState and existing agent-node
-adapters. Task persistence, StageExecution lifecycle, events, messages,
-evaluation, and WebSocket telemetry remain outside the graph at this phase.
+adapters. Runtime-supplied nodes delegate Task persistence, StageExecution
+lifecycle, messages, evaluation, and telemetry to the existing task boundary.
 """
 
 from langgraph.graph import END, START, StateGraph

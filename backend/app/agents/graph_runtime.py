@@ -54,6 +54,10 @@ def validate_snapshot(task, values, base_context, sequence):
     context = values.get('context')
     if not isinstance(context, ExecutionContext) or context != expected:
         raise ValueError('Checkpoint inputs or outputs differ from authoritative evidence')
+    expected_output = task.stages[len(completed)-1].output if completed else None
+    expected_agent = completed[-1] if completed else None
+    if values.get('final_output') != expected_output or values.get('current_agent') != expected_agent:
+        raise ValueError('Checkpoint cursor or final output differs from authoritative evidence')
 
 
 async def execute_graph(task, *, user_id=None, checkpointer=None, config=None, resume=False):

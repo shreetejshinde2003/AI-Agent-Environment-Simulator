@@ -2,7 +2,8 @@
 
 These adapters deliberately do not own Task persistence, StageExecution
 telemetry, WebSocket events, or handoff-message persistence. Those remain
-with the existing task runtime until later LangGraph integration phases.
+with the task runtime. graph_runtime supplies evidence-aware adapters when
+executing through the application interfaces.
 """
 
 from collections.abc import Awaitable, Callable

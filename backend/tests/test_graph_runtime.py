@@ -239,3 +239,81 @@ async def test_worker_cannot_use_cache_to_bypass_workspace_visibility(runtime_wo
         assert not order
     finally:
         tasks._TASKS.pop(task.id,None)
+
+@async_test
+async def test_resume_api_auth_workspace_gate_and_real_background_dispatch(runtime_world):
+    from contextlib import asynccontextmanager
+    from datetime import datetime, timezone
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from app.security.session import create_opaque_token, token_digest, session_expiry
+    from app.agents.checkpointing import authorize_checkpoint
+    repo, agents, order, _ = runtime_world
+    task = new_task('fixed')
+    repo.save_for_tenant(task,workspace_id=task.workspace_id,user_id='USR-test')
+    saver = InMemorySaver(serde=ContextSerializer())
+    agents['data'].failure = 'retryable failure'
+    await tasks._run_task_inner(task.id,task=task,user_id='USR-test',checkpointer=saver)
+    token = create_opaque_token()
+    repo.save_auth_session(dict(id='SES-test',user_id='USR-test',token_digest=token_digest(token),
+        created_at=datetime.now(timezone.utc).isoformat(),expires_at=session_expiry().isoformat(),revoked_at=None))
+    @asynccontextmanager
+    async def checkpoint_service(*args, **identity):
+        authorize_checkpoint(repo,task_id=identity['task_id'],workspace_id=identity['workspace_id'],user_id=identity['user_id'])
+        yield saver
+    with patch('app.main.repository',repo), patch('app.api.routes.auth.repository',repo), \
+         patch('app.api.routes.workspaces.repository',repo), \
+         patch.object(tasks,'postgres_checkpointer',checkpoint_service), TestClient(app) as client:
+        path = f'/api/v1/tasks/{task.id}/resume'
+        assert client.post(path).status_code == 401
+        client.cookies.set('app_session',token)
+        assert client.post(path,headers={'X-Workspace-Id':'OTHER'}).status_code == 404
+        assert client.post(path,headers={'X-Workspace-Id':task.workspace_id}).status_code == 409
+        agents['data'].failure = None
+        with patch.object(tasks.settings,'LANGGRAPH_RUNTIME_ENABLED',True), \
+             patch.object(tasks.settings,'CHECKPOINT_DATABASE_URL','configured'):
+            response = client.post(path,headers={'X-Workspace-Id':task.workspace_id})
+            assert response.status_code == 202, response.text
+            assert repo.get_for_tenant(task.id,workspace_id=task.workspace_id,user_id='USR-test').status == TaskStatus.COMPLETED
+            assert client.post(path,headers={'X-Workspace-Id':task.workspace_id}).status_code == 409
+    assert order == ['research','data','data','analysis','summarizer','report']
+
+@async_test
+async def test_terminal_checkpoint_cannot_fabricate_task_output(runtime_world):
+    repo, agents, order, _ = runtime_world
+    task = new_task('single')
+    repo.save(task)
+    saver = InMemorySaver(serde=ContextSerializer())
+    config = checkpoint_config(task_id=task.id,workspace_id=task.workspace_id)
+    await tasks._run_task_inner(task.id,task=task,checkpointer=saver)
+    from app.agents.graphs import build_single_graph
+    graph = build_single_graph(checkpointer=saver)
+    await graph.aupdate_state(config,{'final_output':'fabricated answer'})
+    with pytest.raises(ValueError,match='final output differs'):
+        await execute_graph(task,checkpointer=saver,config=config,resume=True)
+    assert task.output == 'direct actual output'
+    assert order == ['direct']
+
+@async_test
+async def test_checkpoint_failure_after_evidence_commit_resumes_without_duplicate(runtime_world):
+    repo, agents, order, _ = runtime_world
+    task = new_task('fixed')
+    repo.save(task)
+    class FailAfterResearch(InMemorySaver):
+        broken = True
+        async def aput(self, config, checkpoint, metadata, new_versions):
+            if self.broken and checkpoint.get('channel_values',{}).get('current_agent') == 'research':
+                raise RuntimeError('checkpoint write interrupted')
+            return await super().aput(config,checkpoint,metadata,new_versions)
+    saver = FailAfterResearch(serde=ContextSerializer())
+    await tasks._run_task_inner(task.id,task=task,checkpointer=saver)
+    failed = repo.get(task.id)
+    assert failed.status == TaskStatus.FAILED
+    assert failed.stages[0].status == 'completed'
+    assert order == ['research']
+    saver.broken = False
+    await tasks._run_task_inner(task.id,task=failed,checkpointer=saver,resume=True)
+    assert repo.get(task.id).status == TaskStatus.COMPLETED
+    assert order == ['research','data','analysis','summarizer','report']
+    assert len(failed.messages) == 4
+    assert len([e for e in failed.events if e.type == 'agent_completed']) == 5

@@ -119,3 +119,13 @@ not survival of PostgreSQL service loss. Benchmark JSON provisioning in producti
 remains unverified. No automatic retention, job queue, login or ownership
 enforcement exists yet. See
 `../docs/PHASE2_DATABASE_DEPLOYMENT.md` for setup and migration limits.
+
+## LangGraph runtime (Phase 4.7)
+
+The graph adapter supports Single, Fixed and Adaptive execution through the
+existing task/stage evidence and telemetry functions. It is disabled by default
+pending restricted-login PostgreSQL persistence/recovery acceptance. See
+[checkpoint security, runtime activation, and recovery](../docs/PHASE4_LANGGRAPH_RUNTIME.md)
+for settings, the authenticated task resume endpoint, local migration state,
+validation commands, and external-side-effect limitations. Never use the
+checkpoint migration owner or a PostgreSQL superuser as the runtime login.

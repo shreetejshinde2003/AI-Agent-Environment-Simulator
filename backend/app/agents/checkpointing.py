@@ -140,9 +140,25 @@ async def verify_checkpoint_connection(conn, schema):
         role = await cur.fetchone()
         if not role or role['rolsuper'] or role['rolbypassrls']:
             raise PermissionError("Checkpoint runtime must not bypass RLS.")
+        await cur.execute("""SELECT EXISTS(SELECT 1 FROM pg_roles
+            WHERE (rolsuper OR rolbypassrls)
+            AND pg_has_role(current_user,oid,'MEMBER')) AS allowed""")
+        if (await cur.fetchone())['allowed']:
+            raise PermissionError('Checkpoint runtime cannot assume a bypass role.')
         await cur.execute("SELECT has_schema_privilege(current_user,%s,'CREATE') AS allowed", (schema,))
         if (await cur.fetchone())['allowed']:
             raise PermissionError("Checkpoint runtime must not have migration privileges.")
+        await cur.execute("""SELECT EXISTS(SELECT 1 FROM pg_class c
+            JOIN pg_namespace n ON n.oid=c.relnamespace
+            WHERE c.relkind IN ('r','p') AND n.nspname <> %s
+            AND n.nspname NOT LIKE 'pg_%%' AND n.nspname <> 'information_schema'
+            AND has_table_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,DELETE')) AS allowed""", (schema,))
+        if (await cur.fetchone())['allowed']:
+            raise PermissionError('Checkpoint runtime must be separated from application tables.')
+        await cur.execute("SELECT has_table_privilege(current_user,%s,'SELECT,INSERT,UPDATE,DELETE') AS allowed",
+                          (schema + '.checkpoint_migrations',))
+        if (await cur.fetchone())['allowed']:
+            raise PermissionError('Checkpoint runtime cannot access migration metadata.')
         await cur.execute("""SELECT c.relname,c.relrowsecurity,c.relforcerowsecurity,
             pg_has_role(current_user,c.relowner,'MEMBER') AS owns
             FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
