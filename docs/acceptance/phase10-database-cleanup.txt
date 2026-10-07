@@ -1,0 +1,29 @@
+Existing checkpoint tables and private user/application files unchanged: False
+fm_phase10_acceptance|f|f|f|t
+fm_phase10_checkpoint_runtime|f|f|f|t
+Temporary sessions: 0 ; temporary schemas: 0 ; private files removed: True
+Traceback (most recent call last):
+  File "/private/tmp/fm_phase10_pg.py", line 55, in <module>
+    assert retained and sessions=='0' and schemas=='0'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError
+fm_phase10_acceptance|f|f|f|t
+fm_phase10_checkpoint_runtime|f|f|f|t
+0
+0
+0
+0
+
+Final cleanup resolution (7 October 2026):
+- Both temporary login roles are NOLOGIN/NOSUPERUSER/NOBYPASSRLS with NULL passwords.
+- Independent recheck above: 0 sessions, 0 owned test schemas, 0 checkpoint owner roles, 0 role memberships.
+- The original combined byte-fingerprint assertion failed. Its temporary baseline was removed before the assertion, so a complete original byte comparison cannot be claimed.
+- Root simulator.db is schema 13, integral, and contains no business records. Four legacy unauthenticated TestClient cases started this default repository.
+- A disposable-copy reproduction changed SQLite offsets 27 and 95 only; logical dump hash stayed identical. See phase10-startup-isolation-reproduction.txt.
+- Those four tests now explicitly isolate startup and guard the default file fingerprint. Targeted validation: 4 passed; 0 changed bytes; logical contents unchanged. See phase10-startup-isolation-validation.txt.
+- Historical backend/simulator.db remains schema 9 with existing execution evidence and a pre-task modification time; it was not migrated. AGENTS.md and backend/.env retain pre-task modification times. No data loss was observed.
+- Private password/baseline/XML directory and both temporary controller scripts removed.
+- API PID 10390, Vite PID 10410 and npm launcher PID 10395 terminated; independent process/listener checks show no remaining process or listener on 8019/5179.
+- SIGTERM bypassed fixture teardown; its exact disposable directory fm-phase8-ui-j1k_aoeh was explicitly removed and verified absent.
+- Browser tab closed and temporary viewport override reset.
+- Existing PostgreSQL container retained. No production settings, provider credentials, runtime activation, push or deployment changed.

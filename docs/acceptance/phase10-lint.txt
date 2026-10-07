@@ -1,0 +1,6 @@
+
+> frontend@0.0.0 lint
+> oxlint
+
+src/context/SimulationContext.jsx:28:17: warning react(only-export-components): Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.
+src/layout/AppShell.jsx:54:17: warning react(only-export-components): Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.

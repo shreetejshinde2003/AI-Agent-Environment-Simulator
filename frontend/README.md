@@ -30,6 +30,10 @@ backend's trusted `CORS_ORIGINS` for the actual browser origin.
 - Organizations: creation/join, IAM member management and separate HR human roles.
 - Recycle Bin: manager list/delete/restore and owner-only evidence-preserving purge.
 - Messages, Logs and Event History: persisted evidence, with no claimed execution replay.
+- HR Hiring: requirements, knowledge, human drafts, exact source/revision navigation,
+  proposal-only AI evidence and revision-pinned human review/approval.
+- Research Lab: seven versioned cases, repetitions, per-case descriptive mode
+  comparisons, individual evidence, human rubric history and report preview/export.
 - Settings and legal/sign-in pages.
 
 Route-level UI lives in `src/pages/`, reusable controls in `components/common/`,
@@ -37,7 +41,9 @@ execution views in `components/dashboard/`, connection/data behavior in `hooks/`
 and authenticated request access in `services/`. Reuse `src/index.css` tokens.
 
 `useLiveSocket` re-reads authoritative REST data on events and reconnects; it does
-not treat notifications as an independent evidence store. Backend IAM remains
+not treat notifications as an independent evidence store. Simulation reads use
+workspace generations to discard obsolete responses, including A to B to A
+switches; previous workspace evidence is hidden before effect cleanup. Backend IAM remains
 authoritative when permissions change. Custom agents have one saved text stage;
 they cannot configure tools, providers, credentials, topology or durable graph resume.
 
@@ -47,7 +53,8 @@ Frontend tests use Node's test runner and mocked request responses. The explicit
 `backend/tests/agent_builder_browser_fixture.py` supplies a disposable localhost
 browser session with deterministic mocked provider responses; it is never part
 of the production API. Browser acceptance proves UI/API integration, not live Groq.
-See [Phase 4 final acceptance](../docs/PHASE4_FINAL_ACCEPTANCE_REPORT.md).
+See [Phase 10 final acceptance](../docs/PHASE10_ACCEPTANCE_REPORT.md) and
+[the disposable final demo fixture](../docs/FINAL_DEMO_GUIDE.md).
 
 Production builds deliberately use the frontend origin for `authClient` and
 `workspaceClient`, while other requests may use `VITE_API_BASE_URL`. The checked-in

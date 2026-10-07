@@ -1,0 +1,12 @@
+✔ workspace change immediately hides prior simulation evidence before effects run (7.569958ms)
+✔ A to B to A rejects the original delayed response and loads a fresh snapshot (1.472084ms)
+✔ A to B to A discards an old error after the original request fails (1.574041ms)
+✔ late creation acknowledgement cannot inject a run into another workspace (1.31475ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 157.122375

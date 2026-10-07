@@ -1,157 +1,73 @@
-# FastAPI backend
+# FMProject FastAPI backend
 
-The default engine is the sequential coordinator in `app/api/routes/tasks.py`.
-It uses FastAPI BackgroundTasks and the existing Groq client. The integrated
-LangGraph adapter remains disabled by default pending its activation gates.
-Phase 3.1 adds `single` (one neutral Direct Agent call) and names the existing
-five-agent pipeline `fixed`. Phase 3.3 implements `adaptive` with versioned,
-deterministic capability rules and input validation, not an LLM router.
+The active default is the sequential coordinator in `app/api/routes/tasks.py`.
+The installed LangGraph adapter supports Single, Fixed and Adaptive with durable,
+authorized checkpoints, but `LANGGRAPH_RUNTIME_ENABLED` remains false by default.
+Both paths reuse Task, StageExecution, RoutePlan, telemetry and provenance. Custom
+agents and HR assistance use their bounded existing execution paths.
 
-## Run and validate
+## Local operation
 
-Run from this directory so existing `.env` loading and relative SQLite paths work:
+Run from this directory with a virtual environment containing `requirements.txt`:
 
-```bash
+```sh
 python run.py
-python -m pytest -q
-python -m compileall app
+python -m compileall -q app tests scripts
 ```
 
-Install `requirements.txt` into a virtual environment first. Configure credentials
-privately; never print or commit their values. Tests mock agents/providers and use
-temporary databases. No provider credits are required.
+Run regression from the repository root with `.venv/bin/python -m pytest backend/tests`.
+No dependency reinstall is necessary in the accepted checkout. Settings come only
+from `app/core/config.py`, environment variables and working-directory `.env`.
+The relative SQLite path selects `backend/simulator.db` when run here; choose
+`DATABASE_URL` explicitly if another local database is intended. Never print keys.
+Copy `.env.example` to `.env` for documented placeholders. Tests use disposable stores and mocked providers.
+Google authentication and Groq execution require separately supplied configuration.
 
-## Contracts
+## Contracts and APIs
 
-Python fields are snake_case; `CamelModel` serializes REST/WebSocket JSON camelCase.
-Legacy `/api/v1/tasks` retains `queued/in_progress/completed/failed`. A missing
-mode on that legacy endpoint still selects one specialist; `/simulations` defaults
-to `fixed`. Legacy `full_pipeline` inputs and persisted snapshots read as `fixed`.
-The `/api/v1/simulations` projection calls `in_progress` **running**.
+Python uses snake_case; CamelModel emits camelCase. `/api/v1/tasks` retains
+queued/in_progress/completed/failed; the simulation projection names in_progress
+running. `/simulations` defaults to Fixed; legacy `/tasks` without a mode selects
+an individual specialist. Legacy full_pipeline maps to Fixed. Single is the
+neutral Direct baseline; Adaptive uses deterministic rules-v1 and no routing LLM.
 
-Research receives the directive plus optional uploaded reference context.
-Data receives that directive, exact `research_findings`, and uploaded context.
-Analysis receives the directive and `structured_data`; Summarizer receives the
-directive and `insights`; Report receives the directive and `summary`.
-The exact Report text becomes `task.output`. Context is local to each run.
-These are Fixed handoffs. Adaptive uses only the selected path and the existing
-flexible specialist contracts; no skipped artifact is synthesized.
-In `single` mode the Direct Agent receives the original directive and the same
-bounded prepared uploads and safe benchmark aggregates, makes one Groq request,
-and stores its answer as `task.output`. It records one stage and no handoffs.
+| API namespace | Implemented responsibility |
+| --- | --- |
+| `/auth` | Google login/callback, session check and logout/revocation. |
+| `/workspaces` | Private workspace discovery, organization create/join, IAM member/HR-role management. |
+| `/tasks`, `/simulations` | Admit/read runs, events/metrics/terminal TXT/JSON/CSV export, explicit gated graph resume and evaluation. |
+| `/uploads` | Owned, bounded TXT/CSV/JSON prepared reference context. |
+| `/agents`, `/messages`, `/simulation`, `/datasets` | System roster and saved telemetry/evidence/registered benchmark metadata. Legacy pause/resume/stop report unsupported. |
+| `/agent-builder` | Owned revisioned text-agent definitions, options, immutable history and runs. |
+| `/recycle-bin` | Manager restore/list and owner-only eligible purge. |
+| `/hiring` | Requirements, knowledge, JDs, immutable revisions, exact source usage and human review/approval. |
+| `/hiring/agents` | Revision-bound requirement assessment, JD proposals and validation; saved private evidence. |
+| `/experiments` | Matched modes and Research Lab benchmarks/admission/history/comparison/rerun/report/human rubric. |
+| `/ws/live` | Origin-validated authenticated workspace event hints; REST recovery after reconnect. |
 
-Adaptive `taskType` may be omitted for inference, or be `summarization`,
-`transformation`, `analysis`, `reporting`, `research_synthesis`,
-`structured_data_analysis`, or `mixed`. Unknown adaptive types or unsatisfied
-contracts return HTTP 422 with `detail.code=invalid_route` and a safe message.
-Pure summarization requires a real upload/benchmark or explicit inline material
-after a new-line `Source:`/`Text:` delimiter. There is no silent Fixed fallback.
-Clients cannot submit their own route. `routePlan` records `rules-v1`, task type,
-ordered selected IDs, skipped IDs, capabilities, available inputs, reasons and
-validation. Task `title` is an optional supplied title or deterministic excerpt;
-`agentInvocationCount` counts started stage attempts, `handoffCount` real messages.
-Model/tokens/latency remain on real stages. See the Phase 3 architecture for rules.
+Uploads are at most three × 256 KiB; prepared context is bounded to 6,000 characters
+per file and 20 CSV rows. CSV exports escape formula prefixes. Files are not executed,
+PDF is unavailable, and raw upload bytes are not an archival storage facility.
 
-Per-stage metrics are captured from the real LLMResponse via a ContextVar, avoiding
-cross-run contamination from shared counters. The shared adapter maps provider
-failures to safe messages; other errors are credential-redacted before persistence.
-On failure, completed stages stay completed, the current stage
-fails, downstream stages remain waiting, and no final success is invented.
+Schema **13** contains 22 tenant-owned tables with PostgreSQL ENABLE/FORCE RLS.
+Trusted transactions bind user/workspace identity and clear it on commit/rollback.
+Personal Workspaces have no organization HR authority. Workspace IAM and HR human
+roles are separate. Generic simulation APIs exclude HR evidence. HR source access
+is checked before reading, before provider execution and before accepting output.
+Human approval remains pinned to the exact submitted revision.
 
-## Endpoints
+Use one worker: execution is in process and startup recovery is not coordinated
+across multiple live servers. Restart marks interrupted runs failed. Explicit graph
+resume requires a separate restricted checkpoint login/schema; no runtime migrations,
+BYPASSRLS or table-owner membership. Evidence/checkpoint reconciliation avoids repeating
+committed stages but cannot guarantee exactly-once external provider requests.
 
-All paths below are relative to `/api/v1`.
+Research admission and the model judge are disabled by default. Fixture machinery
+acceptance does not establish live quality, latency, usage/cost advantage or significance.
+The reproduction script accepts `--output` to preserve historical reports.
 
-| Endpoint | Behavior |
-|---|---|
-| GET/POST /tasks; GET /tasks/{id} | Compatible task creation/read API |
-| GET/POST /simulations; GET /simulations/{id} | Complete run records; POST defaults to `fixed` |
-| GET /simulations/metrics | Persisted aggregate, per-agent and duration history metrics |
-| GET /simulations/{id}/events | Chronological real event list |
-| GET /simulations/{id}/export?format=txt,json,csv | One format per request; terminal runs only |
-| POST /uploads?filename=reference.txt | Raw UTF-8 file body; bounded parser |
-| GET /uploads/{id} | Metadata and prepared preview |
-| GET /agents; /agents/stats; /agents/{id}/stats | Roster and persisted execution statistics |
-| POST /agents | Authorized managers receive 410; use /agent-builder |
-| GET /messages; /simulation/activity | Optional simulation_id filter |
-| GET /simulation/stats | Legacy aggregate view |
-| POST /simulation/pause,resume,stop | Explicit supported=false; no fake state changes |
-| GET /datasets; GET /datasets/{id} | Registered benchmark metadata; no raw rows |
-
-Uploads support TXT, rectangular CSV, JSON. Maximum 256 KiB per file, three per
-run. Prepared context is limited to 6,000 characters per file and 20 CSV data rows,
-with an explicit truncation marker. File names are sanitized, input is never
-executed, malformed files are rejected, and CSV exports escape formula prefixes.
-Use `uploadIds` in task/simulation creation to actually supply uploaded context.
-
-## Events and storage
-
-`/ws/live` keeps the existing `{event,data,timestamp}` envelope.
-Events: simulation_created/started/completed/failed, agent_started/completed/failed,
-message_created, task_created/updated, message_sent, activity_event, stats_updated,
-and `route_planned` for a validated Adaptive plan. The full plan travels with
-`task_created`/`task_updated`; no skipped-agent execution events are emitted.
-State is committed before broadcast. REST is authoritative after reconnect.
-Cookie browser mutations and WebSocket handshakes validate exact configured
-`CORS_ORIGINS`, with a trusted Referer fallback. Browser requests with Fetch
-Metadata but no trusted source fail closed; header-less non-browser API clients
-still require their opaque session. Live connections recheck session, active
-user/workspace and membership before every delivery and every 30 seconds while
-idle. Logout, expiry and revoked authority stop future delivery.
-
-The SQLAlchemy repository uses SQLite locally and PostgreSQL via `DATABASE_URL`.
-The current schema is version 11. It retains normalized V2 execution tables and
-the compatible run snapshot, adding identities/sessions, tenancy, IAM/HR roles,
-owned uploads, recycle lifecycle metadata and immutable custom-agent revisions.
-All 14 tenant-owned PostgreSQL tables receive ENABLE/FORCE RLS at initialization.
-Phase 3.3 title/route metadata uses that JSON/JSONB snapshot; no SQL migration or
-schema-version change is needed. Existing records default to a directive title
-and null route; no historic route is fabricated. On startup,
-fresh schemas are created automatically. A V1 SQLite file is validated and
-copied to a timestamped `.v1.*.db` backup; legacy tables are retained as
-`*_v1_archive` after migration. Never delete either without a verified backup.
-
-Provision the six authorized benchmark JSON files under `../data/benchmark/`
-or set server-only `BENCHMARK_DATA_DIR` to their private absolute directory,
-then run `python -m app.datasets.cli register` from this directory. The command
-validates all six before registry writes and stores metadata only. Clients can
-list `GET /api/v1/datasets` and pass `datasetId` plus optional `taskType` in
-`POST /api/v1/tasks` or `/simulations`. Each selected agent receives bounded,
-non-personal aggregates; full rows, names, IDs, protected attributes, and salary
-never enter benchmark context. Registration is explicit; no Drive fetch occurs.
-
-Default database: `./simulator.db`. Start one worker only. In-progress/queued runs
-become failed on restart; finished history survives on the same disk. Use backups
-and a durable database for long-lived data. The Railway PostgreSQL service is
-connected in production: a completed run from commit `ef27951` remained available
-after a backend restart on 2026-09-29. This verifies backend-restart durability,
-not survival of PostgreSQL service loss. Benchmark JSON provisioning in production
-remains unverified. Automatic retention and a durable job queue are unavailable;
-Google OIDC sessions, workspace ownership and IAM enforcement are implemented.
-This older deployment observation does not verify Phase 4 in production. See
-`../docs/PHASE2_DATABASE_DEPLOYMENT.md` for setup and migration limits.
-
-## LangGraph runtime (Phase 4.7)
-
-The graph adapter supports Single, Fixed and Adaptive execution through the
-existing task/stage evidence and telemetry functions. It is disabled by default
-pending deployment activation checks; restricted-login local PostgreSQL
-persistence, recovery, and tenant-security acceptance now pass. See
-[checkpoint security, runtime activation, and recovery](../docs/PHASE4_LANGGRAPH_RUNTIME.md)
-for settings, the authenticated task resume endpoint, local migration state,
-validation commands, and external-side-effect limitations. Never use the
-checkpoint migration owner or a PostgreSQL superuser as the runtime login.
-
-## Executable Agent Builder
-
-Schema 11 adds workspace-owned definitions and immutable configuration revisions.
-Authenticated `/api/v1/agent-builder` routes manage bounded text agents;
-`POST /agent-builder/{id}/runs` calls the existing Groq adapter through the shared
-Task/StageExecution lifecycle. Only server-permitted default/fast models are
-supported. No credentials, tools, scripts or arbitrary provider URLs are exposed.
-See [Phase 4.9](../docs/PHASE4_AGENT_BUILDER.md) for API contracts, IAM/RLS,
-acceptance and deployment gates. Graph runtime defaults remain unchanged.
-
-See [Phase 4 final acceptance](../docs/PHASE4_FINAL_ACCEPTANCE_REPORT.md) for the
-current consolidated audit. Marked older checkpoint documents are historical
-snapshots and do not supersede that report.
+See [current architecture](../docs/FINAL_PROJECT_GUIDE.md),
+[release/security gates](../docs/RELEASE_READINESS.md),
+[final acceptance](../docs/PHASE10_ACCEPTANCE_REPORT.md),
+[checkpoint contracts](../docs/PHASE4_LANGGRAPH_RUNTIME.md), and
+[research methodology](../docs/PHASE9_RESEARCH_EVALUATION.md).

@@ -1,5 +1,10 @@
 # Phase 3 research architecture
 
+> Historical Phase 3 snapshot and design rationale. Current implementation is
+> documented in [FINAL_PROJECT_GUIDE.md](FINAL_PROJECT_GUIDE.md), including installed
+> but gated LangGraph, authentication, HR/HITL and Research Lab. Statements below
+> about unavailable evaluation/auth/graphs describe that earlier phase, not Phase 10.
+
 Status: Phase 3.1 **COMPLETED** and production-verified at `8f0a489`.
 Phase 3.2 contracts are **COMPLETED**, production-verified at `2c80606` as reported
 by the project team. Phase 3.3 rule-based Adaptive execution and focused run UX

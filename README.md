@@ -1,201 +1,150 @@
-# AI-Agent-Environment-Simulator
+# FMProject — Multi-Agent AI Environment Simulator
 
-An existing React/Vite + FastAPI application for observing real multi-agent execution.
-Originally focused on HR analytics, the V1 workspace also accepts general directives.
-LLM responses are generated through the existing server-side Groq client.
+FMProject is an academic React/Vite and FastAPI application for observing persisted
+AI execution, comparing Single / Fixed / Adaptive orchestration, and assisting
+organization HR teams with revision-bound proposals and explicit human review.
+It uses the central Groq adapter; Google supplies identity through OIDC, not AI.
 
-## What works
+Phase 10 final local acceptance is documented in
+[the consolidated report](docs/PHASE10_ACCEPTANCE_REPORT.md).
+Local acceptance and production acceptance are separate. Live-provider research,
+production tenancy, proxy/cookie topology and graph activation remain release gates.
+No experiment establishes a globally superior mode or statistical significance.
 
-Create a simulation, optionally attach TXT/CSV/JSON reference data, and choose
-`fixed` (default), `single`, or rule-based `adaptive`:
+## What was built
 
-```text
-Original goal → Sequential coordinator → Research → Data → Analysis → Summarizer → Report
-                                         findings   records   insights    summary    final output
-```
+| Area | Current behavior |
+| --- | --- |
+| Simulation | Create a run with bounded TXT/CSV/JSON context; inspect saved stages, handoffs, events, measurements and final output; export terminal runs. |
+| Single | One neutral Direct Agent stage, without specialist handoffs. |
+| Fixed | Research → Data → Analysis → Summarizer → Report; five specialist stages. |
+| Adaptive | Versioned deterministic capability rules choose a validated specialist route. Selected/skipped agents and reasons are retained. No model-based router. |
+| LangGraph | Integrated graphs reuse the shared Task/stage lifecycle and separate restricted PostgreSQL checkpoints. Disabled by default; explicit authenticated resume is available only when configured. |
+| Identity and tenancy | Google OIDC; opaque revocable sessions; private Personal Workspaces; active Organization memberships with Owner/Admin/Member IAM. |
+| Agent Builder | Bounded, workspace-owned text agents; immutable saved configuration revisions; manager authoring and member execution. |
+| HR Hiring | Persistent requirements, organization role knowledge, human JD drafts, immutable revisions and exact source links. Personal Workspaces have no organization HR semantics. |
+| HR assistance | Requirement assessment, JD proposals and saved-draft validation through Groq. Task/StageExecution retain original evidence; AI never overwrites human records. |
+| Human review | Recruiter submission, Reviewer recommendation/change request, Approver approval/rejection; decisions apply only to the exact submitted revision. IAM roles alone grant no HR authority. |
+| Research Lab | Seven versioned synthetic benchmarks, controlled modes/repetitions, per-case descriptive comparisons, independent human rubric history, rerun provenance and evidence export. |
+| Recycle Bin | Soft-delete and restore complete simulation records; owner-only purge is blocked when execution evidence must be retained. |
 
-Every stage receives the original goal. Each output becomes the next agent's context.
-The direct-answer `single` baseline makes one model call with the same bounded
-permitted input and records one stage, without handoffs. The five specialist
-agents can still execute individually through legacy `single_agent` mode; that
-is not the research baseline. `adaptive` selects specialist capabilities using
-versioned deterministic rules, validates their input contracts, and executes only
-that route. No routing model call is made. Selected/skipped agents and concise
-reasons are saved and displayed; this is not learned or LLM-based routing.
-The coordinator remains in
-`backend/app/api/routes/tasks.py`; LangGraph is not a runtime dependency.
+Task is the authoritative run lifecycle/evidence record. StageExecution owns stage
+evidence; RoutePlan owns Adaptive selection. LangGraph checkpoint state stores
+orchestration progress. REST is authoritative after WebSocket reconnect.
 
-The workspace shows a live React Flow graph, stage details, handoffs, timestamped
-events, real metrics/charts, final results, saved history, and TXT/JSON/CSV exports.
-No execution data is seeded or silently replaced with a demo. Missing measurements
-are labeled as unavailable.
-New runs open automatically. A searchable run picker uses deterministic directive
-excerpts as titles; immutable IDs remain in details/API/exports. Adaptive graphs
-show only selected stages, not the skipped five-agent chain.
+See the current [project/architecture guide](docs/FINAL_PROJECT_GUIDE.md),
+[security and release assessment](docs/RELEASE_READINESS.md), and
+[academic demo and technical summary](docs/FINAL_DEMO_GUIDE.md).
+Historical phase reports remain evidence of their own checkout and date.
 
 ## Local development
 
-Use Python 3.10+ with the pinned backend requirements (validation used Python 3.13).
+The accepted environment uses the existing root `.venv`, Python 3.13.3 and Node 25.5.0.
+For a fresh checkout, install the backend requirements into a virtual environment:
 
-```bash
+```sh
 cd backend
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-# Configure your existing backend/.env securely; never commit credentials.
 python run.py
 ```
 
-Start from `backend/`: settings resolve the local `.env` and SQLite path relative
-to the working directory. Keep the existing Groq key/model configuration.
-The browser never receives provider credentials.
+Configure settings privately through environment variables or the `.env` in the
+backend process's working directory. All application settings live in
+`backend/app/core/config.py`. Supply Google OAuth client/secret, exact callback URL,
+frontend origin and trusted CORS origins to use real sign-in; supply a Groq key to
+run real AI. Never commit credentials or put provider keys in frontend variables.
+Missing configuration produces explicit errors. From `backend/`, copy
+`.env.example` to `.env` and supply only the settings needed for your environment.
 
-```bash
+```sh
 cd frontend
 npm install
 npm run dev
 ```
 
-Vite defaults to port 5173; the API defaults to 8000. Set the frontend build's
-`VITE_API_BASE_URL` to the backend origin. WebSocket uses that origin with
-`ws/wss` and `/ws/live`, unless `VITE_WS_URL` is provided. A production build
-does not default to localhost.
+Vite defaults to 5173 and the API to 8000. Set `VITE_API_BASE_URL` for the actual API
+origin and optionally `VITE_WS_URL` for `/ws/live`. Backend/.env loading and the
+relative `sqlite:///./simulator.db` path depend on the backend working directory;
+starting from the repository root selects a different database from starting in
+`backend/`. Choose the intended database explicitly. Use one API worker.
 
-## Storage and benchmark data
+For an offline, disposable academic demonstration using synthetic inputs and
+mocked provider responses, follow [the demo fixture instructions](docs/FINAL_DEMO_GUIDE.md).
+That fixture is test infrastructure and never part of the deployed API.
 
-The current version 13 schema stores simulations, one task per simulation,
-stages, handoffs, events, metrics, owned uploads, identities/sessions,
-workspaces/memberships, HR human roles, custom-agent revisions, hiring records,
-immutable review/decision history, dataset metadata and the roster. SQLite remains the local fallback without `DATABASE_URL`;
-a PostgreSQL URL selects PostgreSQL. Startup initializes/migrates schema 13
-and activates ENABLE/FORCE RLS on all 22 tenant-owned PostgreSQL tables.
-Existing V1 SQLite records are validated, backed up and migrated
-without deleting the original tables. Interrupted runs are marked failed after
-a restart; they are never silently retried or marked successful.
-The existing `execution_mode` string column and run snapshot store Phase 3.1
-mode values without a schema change; old `full_pipeline` records read as `fixed`.
+## Persistence and data
 
-The six `employee_*` and `hr_*` JSON files are **benchmark/domain inputs**, not
-the operational database. For local benchmark use, place them under
-`data/benchmark/` (or private `BENCHMARK_DATA_DIR`); they are excluded from Git, validated and registered with
-`(cd backend && python -m app.datasets.cli register)`. Raw records stay on disk;
-only metadata and bounded non-personal aggregates enter the application.
-See [dataset audit](docs/PHASE2_DATASET_AUDIT.md) and
-[database/deployment guide](docs/PHASE2_DATABASE_DEPLOYMENT.md).
+Operational schema remains **13**. SQLite provides local storage; `DATABASE_URL`
+selects PostgreSQL. Initialization installs ENABLE/FORCE RLS on **22 tenant-owned
+PostgreSQL tables**. Identities/sessions and system-global metadata have separate
+trusted-service access assumptions. Production database role and migration checks
+are described in the release assessment.
 
-Google OIDC establishes an opaque, revocable application session. Personal
-Workspaces are private to their owner; Organizations share data with active
-members. Workspace IAM and HR human roles remain separate. The legacy owner
-field does not authorize access. Browser mutations and live connections validate
-trusted origins; live delivery rechecks session and workspace authority. Do not upload
-secrets or sensitive personal/HR data. Uploaded context is sent to Groq during
-execution. Only bounded prepared context is retained; original file bytes are not
-an archival upload facility.
+V1 SQLite migrations preserve archive tables and a separate backup; additive
+upgrades preserve execution, HR and human-decision history. Restart marks interrupted
+runs failed; it never silently repeats a provider call or invents success. Configured
+LangGraph resume reconciles checkpoints with committed evidence. Exactly-once
+external provider calls are not promised.
 
-Use one API worker: execution remains in-process, and multiple workers are not
-coordinated. Production uses Vercel → Railway FastAPI → Railway PostgreSQL.
-On 2026-09-29, a real five-agent run from commit `ef27951` remained in Simulation
-History with its result and execution details after a backend restart. This
-verifies operational persistence across backend restarts, not loss of the
-PostgreSQL service. Production provisioning of the benchmark JSON files remains
-unverified; they are separate from operational storage. See the
-[production verification](docs/PHASE2_DATABASE_DEPLOYMENT.md#production-verification--2026-09-29).
+Six privately provisioned employee/HR JSON datasets are benchmark inputs, separate
+from the operational database. Place them under `data/benchmark/` or set
+`BENCHMARK_DATA_DIR`; register from `backend/` with `python -m app.datasets.cli register`.
+Only bounded non-personal aggregates enter dataset-based prompts. User-uploaded
+context and selected HR sources are sent to Groq during AI execution and are not
+automatically anonymized. Use synthetic demonstration material.
+
+Research benchmarks are committed separately at `database/benchmarks/research-v1.json`.
+Fixture acceptance measures orchestration, persistence and measurement machinery.
+Fixture token values are controlled; fixture latency includes local overhead and
+has no live-provider/network component. Missing usage/cost stays unknown. Surface
+checks and human rubric assessments are separate. No live quality, pricing, speed,
+significance or superiority claim follows from fixture acceptance.
 
 ## Validation
 
-```bash
-python -m compileall backend/app
-python -m pytest -q
+From the repository root with the existing `.venv`:
+
+```sh
+.venv/bin/python -m pytest backend/tests
 npm --prefix frontend test
 npm --prefix frontend run lint
 npm --prefix frontend run build
+.venv/bin/python -m compileall -q backend/app backend/tests backend/scripts
+.venv/bin/python -m pip check
 git diff --check
 ```
 
-Automated tests mock providers and use temporary databases; they consume no Groq
-credits. PostgreSQL integration tests require approved restricted local credentials;
-missing credentials cause skips, not acceptance. See
-[Phase 4 final acceptance](docs/PHASE4_FINAL_ACCEPTANCE_REPORT.md) for current
-results and production gates. See [V1 audit and validation](docs/V1_AUDIT.md) for the historical audit matrix,
-limits, schema/API changes, and real integration results.
+Providers are mocked in tests. Real local PostgreSQL tests require explicitly
+approved restricted credentials and isolated schemas; absent credentials cause
+skips, not verified enforcement. Run expensive suites serially on an 8 GB machine.
+The [final report](docs/PHASE10_ACCEPTANCE_REPORT.md) records exact counts and cleanup.
 
-## Executable Agent Builder (Phase 4.9)
+## Limits and release gates
 
-The Agents page supports tenant-owned, revisioned text agents with validated
-configuration, owner/admin management and member execution. Runs use the existing
-Groq adapter and persist real Task/StageExecution evidence. Schema 11 is additive;
-new PostgreSQL tables use FORCE RLS. See [Agent Builder behavior and local
-acceptance](docs/PHASE4_AGENT_BUILDER.md) for APIs, security boundaries and gates.
+Web Search, PDF extraction, arbitrary tools/scripts, autonomous HR decisions,
+publication, automatic retries, user-requested pause/cancel of model calls, a durable
+job queue and coordinated multi-worker startup are unavailable. Event History
+steps through recorded events; it does not replay execution. The inactive legacy
+`agents/orchestrator.py` prototype and frontend demo fixtures are outside the active
+application runtime.
 
-## Not implemented
-
-Web Search, PDF extraction, user-requested pause/cancel of active model requests,
-automatic retry, arbitrary agent tools and LLM-based routing remain unavailable.
-Authentication, workspace IAM, evaluation, recycle bin and bounded custom agents
-are implemented locally. The LangGraph runtime has passed local acceptance but
-remains disabled by default pending its documented deployment gates. Custom agents
-use a separate one-stage path and cannot resume through LangGraph.
-Production verification remains a separate deployment gate. No comparative study
-has established superiority over Single or Fixed.
-Event History inspects recorded events; it does not pretend to replay execution.
-The old `agents/orchestrator.py` LangGraph prototype and unused frontend demo
-fixtures remain reference code only, outside the active runtime.
+The documented deployment target is Vercel → Railway FastAPI → PostgreSQL.
+Checked-in Vercel routing proxies authentication only, while production workspace
+requests use the frontend origin. That topology requires an explicitly authorized
+configuration change and deployed verification. No production configuration,
+provider credentials, graph activation, push or deployment is part of Phase 10.
 
 ## Repository and team
 
-- `frontend/src/`: workspace pages, dashboard components, hooks and API client.
-- `backend/app/`: FastAPI routes, schemas, agents and relational repository.
-- `backend/tests/`: mocked backend regression tests.
-- `data/benchmark/`: privately provisioned validated benchmark JSON files.
+- `frontend/src/`: pages, reusable controls, execution views, hooks and API clients.
+- `backend/app/`: routes, request models, agents, security and persistence.
+- `backend/tests/`, `frontend/tests/`: regression and explicit test-only fixtures.
+- `docs/`: architecture, phase reports, final guides and acceptance evidence.
+- `data/benchmark/`: privately provisioned domain datasets.
+- `database/benchmarks/`: versioned synthetic research definitions.
 
-Shreetej Shinde leads backend, agents, integration and repository management.
-Sumit Jadhav works on datasets and database documentation. Parag Kulkarni works
-on frontend, UI/UX and visualization. This remains an academic project; license
-selection is pending.
-
-
-## Specialized HR assistance (Phase 6)
-
-HR Hiring now offers requirement assessment, proposed job descriptions and saved
-draft validation through the existing Groq adapter. Select an organization, use
-an authorized HR human role and choose exact saved source revisions. AI outputs
-remain proposals in persistent Task/StageExecution evidence; human records are
-never overwritten automatically. HR run history includes structured results,
-provider usage, errors and source provenance. Phase 7 adds human approval below;
-publication is not implemented. Production LangGraph remains disabled by default.
-
-See [HR agent contracts](docs/PHASE6_HR_AGENTS.md) and
-[Phase 6 local acceptance](docs/PHASE6_ACCEPTANCE_REPORT.md). All automated and
-browser acceptance uses deterministic provider mocks; live provider verification
-and deployment remain separate gates.
-
-
-## Human review and approval (Phase 7)
-
-Authorized Recruiters submit exact saved JD revisions. Human Reviewers recommend
-approval or request changes; authorized Approvers review, approve or reject.
-Every decision retains the authenticated actor, timestamp, notes, submitted JD
-and pinned requirement/knowledge revisions. Editing requires a new submission;
-historical approvals never transfer. AI evidence can be explicitly associated
-and inspected, but stays proposal-only. IAM ownership alone grants no HR authority.
-
-Schema 13 adds immutable tenant-owned submissions and transition events, with
-SQLite migration/guards and PostgreSQL FORCE RLS. See the
-[workflow/API contract](docs/PHASE7_HUMAN_REVIEW.md) and
-[Phase 7 local acceptance](docs/PHASE7_ACCEPTANCE_REPORT.md). No publication,
-deployment or production activation is included.
-
-
-## Integrated HR workspace (Phase 8)
-
-HR Hiring connects requirements, exact organization knowledge revisions, human
-JD drafts, AI evidence, review submissions and approval history. The workflow
-shows revision-specific status and role-eligible next actions. Source links include
-historical JD usage even after a draft changes its pinned source. AI output remains
-a proposal; users explicitly edit and submit authoritative revisions. Workspace
-switching discards old selections and pending reads. Schema remains 13.
-
-See [integration/API behavior](docs/PHASE8_HR_INTEGRATION.md) and
-[Phase 8 local acceptance](docs/PHASE8_ACCEPTANCE_REPORT.md).
-Phase 9/10, live provider verification, deployment and production activation remain
-outside this phase.
+Shreetej Shinde leads backend, agents, integration and repository management;
+Sumit Jadhav works on datasets and database documentation; Parag Kulkarni works on
+frontend, UI/UX and visualization. License selection remains pending.

@@ -1,0 +1,182 @@
+FFF.                                                                     [100%]
+=================================== FAILURES ===================================
+____ test_completed_legacy_migration_can_upgrade_with_retained_archives[2] _____
+backend/tests/test_phase2_storage.py:134: in test_completed_legacy_migration_can_upgrade_with_retained_archives
+    repo.initialize()
+backend/app/storage/database.py:248: in initialize
+    self._initialize_sqlite()
+backend/app/storage/database.py:330: in _initialize_sqlite
+    raise RuntimeError("Interrupted V1 migration; restore the .v1 backup before retrying")
+E   RuntimeError: Interrupted V1 migration; restore the .v1 backup before retrying
+____ test_completed_legacy_migration_can_upgrade_with_retained_archives[9] _____
+backend/tests/test_phase2_storage.py:134: in test_completed_legacy_migration_can_upgrade_with_retained_archives
+    repo.initialize()
+backend/app/storage/database.py:248: in initialize
+    self._initialize_sqlite()
+backend/app/storage/database.py:330: in _initialize_sqlite
+    raise RuntimeError("Interrupted V1 migration; restore the .v1 backup before retrying")
+E   RuntimeError: Interrupted V1 migration; restore the .v1 backup before retrying
+____ test_completed_legacy_migration_can_upgrade_with_retained_archives[12] ____
+backend/tests/test_phase2_storage.py:134: in test_completed_legacy_migration_can_upgrade_with_retained_archives
+    repo.initialize()
+backend/app/storage/database.py:248: in initialize
+    self._initialize_sqlite()
+backend/app/storage/database.py:330: in _initialize_sqlite
+    raise RuntimeError("Interrupted V1 migration; restore the .v1 backup before retrying")
+E   RuntimeError: Interrupted V1 migration; restore the .v1 backup before retrying
+=========================== short test summary info ============================
+FAILED backend/tests/test_phase2_storage.py::test_completed_legacy_migration_can_upgrade_with_retained_archives[2]
+FAILED backend/tests/test_phase2_storage.py::test_completed_legacy_migration_can_upgrade_with_retained_archives[9]
+FAILED backend/tests/test_phase2_storage.py::test_completed_legacy_migration_can_upgrade_with_retained_archives[12]
+3 failed, 1 passed, 11 deselected in 0.72s
+FFFFFF                                                                   [100%]
+=================================== FAILURES ===================================
+___________ test_corrupt_input_provenance_blocks_comparison[missing] ___________
+backend/tests/test_research.py:273: in test_corrupt_input_provenance_blocks_comparison
+    assert not result['comparable']
+E   assert not True
+______ test_corrupt_input_provenance_blocks_comparison[all_fingerprints] _______
+backend/tests/test_research.py:273: in test_corrupt_input_provenance_blocks_comparison
+    assert not result['comparable']
+E   assert not True
+_______ test_corrupt_input_provenance_blocks_comparison[directive_hash] ________
+backend/tests/test_research.py:273: in test_corrupt_input_provenance_blocks_comparison
+    assert not result['comparable']
+E   assert not True
+_ test_research_configuration_detects_protocol_implementation_drift[api/routes/experiments.py] _
+backend/tests/test_research.py:289: in test_research_configuration_detects_protocol_implementation_drift
+    assert current_configuration().implementation_sha256 != original.implementation_sha256
+E   AssertionError: assert '58a9c6f4bf096c6b010082b2b42ab1c7e00bdf162259dbe9f7faf5fe558edaed' != '58a9c6f4bf096c6b010082b2b42ab1c7e00bdf162259dbe9f7faf5fe558edaed'
+E    +  where '58a9c6f4bf096c6b010082b2b42ab1c7e00bdf162259dbe9f7faf5fe558edaed' = ResearchConfiguration(provider='groq', agent_models=(('analysis', 'openai/gpt-oss-120b'), ('data', 'openai/gpt-oss-120...None, sampling='provider-default; seed unavailable', retry_policy='existing SDK defaults; provider retries unobserved').implementation_sha256
+E    +    where ResearchConfiguration(provider='groq', agent_models=(('analysis', 'openai/gpt-oss-120b'), ('data', 'openai/gpt-oss-120...None, sampling='provider-default; seed unavailable', retry_policy='existing SDK defaults; provider retries unobserved') = <function current_configuration at 0x1100a99e0>()
+E    +  and   '58a9c6f4bf096c6b010082b2b42ab1c7e00bdf162259dbe9f7faf5fe558edaed' = ResearchConfiguration(provider='groq', agent_models=(('analysis', 'openai/gpt-oss-120b'), ('data', 'openai/gpt-oss-120...None, sampling='provider-default; seed unavailable', retry_policy='existing SDK defaults; provider retries unobserved').implementation_sha256
+_ test_research_configuration_detects_protocol_implementation_drift[experiments/provenance.py] _
+backend/tests/test_research.py:289: in test_research_configuration_detects_protocol_implementation_drift
+    assert current_configuration().implementation_sha256 != original.implementation_sha256
+E   AssertionError: assert '58a9c6f4bf096c6b010082b2b42ab1c7e00bdf162259dbe9f7faf5fe558edaed' != '58a9c6f4bf096c6b010082b2b42ab1c7e00bdf162259dbe9f7faf5fe558edaed'
+E    +  where '58a9c6f4bf096c6b010082b2b42ab1c7e00bdf162259dbe9f7faf5fe558edaed' = ResearchConfiguration(provider='groq', agent_models=(('analysis', 'openai/gpt-oss-120b'), ('data', 'openai/gpt-oss-120...None, sampling='provider-default; seed unavailable', retry_policy='existing SDK defaults; provider retries unobserved').implementation_sha256
+E    +    where ResearchConfiguration(provider='groq', agent_models=(('analysis', 'openai/gpt-oss-120b'), ('data', 'openai/gpt-oss-120...None, sampling='provider-default; seed unavailable', retry_policy='existing SDK defaults; provider retries unobserved') = <function current_configuration at 0x1100a99e0>()
+E    +  and   '58a9c6f4bf096c6b010082b2b42ab1c7e00bdf162259dbe9f7faf5fe558edaed' = ResearchConfiguration(provider='groq', agent_models=(('analysis', 'openai/gpt-oss-120b'), ('data', 'openai/gpt-oss-120...None, sampling='provider-default; seed unavailable', retry_policy='existing SDK defaults; provider retries unobserved').implementation_sha256
+_ test_research_configuration_detects_protocol_implementation_drift[experiments/evaluation.py] _
+backend/tests/test_research.py:289: in test_research_configuration_detects_protocol_implementation_drift
+    assert current_configuration().implementation_sha256 != original.implementation_sha256
+E   AssertionError: assert '58a9c6f4bf096c6b010082b2b42ab1c7e00bdf162259dbe9f7faf5fe558edaed' != '58a9c6f4bf096c6b010082b2b42ab1c7e00bdf162259dbe9f7faf5fe558edaed'
+E    +  where '58a9c6f4bf096c6b010082b2b42ab1c7e00bdf162259dbe9f7faf5fe558edaed' = ResearchConfiguration(provider='groq', agent_models=(('analysis', 'openai/gpt-oss-120b'), ('data', 'openai/gpt-oss-120...None, sampling='provider-default; seed unavailable', retry_policy='existing SDK defaults; provider retries unobserved').implementation_sha256
+E    +    where ResearchConfiguration(provider='groq', agent_models=(('analysis', 'openai/gpt-oss-120b'), ('data', 'openai/gpt-oss-120...None, sampling='provider-default; seed unavailable', retry_policy='existing SDK defaults; provider retries unobserved') = <function current_configuration at 0x1100a99e0>()
+E    +  and   '58a9c6f4bf096c6b010082b2b42ab1c7e00bdf162259dbe9f7faf5fe558edaed' = ResearchConfiguration(provider='groq', agent_models=(('analysis', 'openai/gpt-oss-120b'), ('data', 'openai/gpt-oss-120...None, sampling='provider-default; seed unavailable', retry_policy='existing SDK defaults; provider retries unobserved').implementation_sha256
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/starlette/testclient.py:40
+  /Users/shreetej/Downloads/FMProject/.venv/lib/python3.13/site-packages/starlette/testclient.py:40: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+.venv/lib/python3.13/site-packages/langgraph/checkpoint/base/__init__.py:17
+  /Users/shreetej/Downloads/FMProject/.venv/lib/python3.13/site-packages/langgraph/checkpoint/base/__init__.py:17: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
+    from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED backend/tests/test_research.py::test_corrupt_input_provenance_blocks_comparison[missing]
+FAILED backend/tests/test_research.py::test_corrupt_input_provenance_blocks_comparison[all_fingerprints]
+FAILED backend/tests/test_research.py::test_corrupt_input_provenance_blocks_comparison[directive_hash]
+FAILED backend/tests/test_research.py::test_research_configuration_detects_protocol_implementation_drift[api/routes/experiments.py]
+FAILED backend/tests/test_research.py::test_research_configuration_detects_protocol_implementation_drift[experiments/provenance.py]
+FAILED backend/tests/test_research.py::test_research_configuration_detects_protocol_implementation_drift[experiments/evaluation.py]
+6 failed, 38 deselected, 2 warnings in 4.39s
+✖ workspace change immediately hides prior simulation evidence before effects run (12.366667ms)
+✖ A to B to A rejects the original delayed response and loads a fresh snapshot (2.195ms)
+✖ A to B to A discards an old error after the original request fails (2.58625ms)
+✖ late creation acknowledgement cannot inject a run into another workspace (1.4595ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 0
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 161.907916
+
+✖ failing tests:
+
+test at frontend/tests/simulationData.test.js:52:1
+✖ workspace change immediately hides prior simulation evidence before effects run (12.366667ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  1 !== 0
+
+      at TestContext.<anonymous> (file:///Users/shreetej/Downloads/FMProject/frontend/tests/simulationData.test.js:56:10)
+      at async Test.run (node:internal/test_runner/test:1116:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at frontend/tests/simulationData.test.js:61:1
+✖ A to B to A rejects the original delayed response and loads a fresh snapshot (2.195ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  1 !== 0
+
+      at TestContext.<anonymous> (file:///Users/shreetej/Downloads/FMProject/frontend/tests/simulationData.test.js:64:10)
+      at async Test.run (node:internal/test_runner/test:1116:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:786:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at frontend/tests/simulationData.test.js:69:1
+✖ A to B to A discards an old error after the original request fails (2.58625ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + Error: obsolete-error
+  +     at TestContext.<anonymous> (file:///Users/shreetej/Downloads/FMProject/frontend/tests/simulationData.test.js:71:51)
+  +     at Test.runInAsyncScope (node:async_hooks:212:14)
+  +     at Test.run (node:internal/test_runner/test:1109:25)
+  +     at Test.processPendingSubtests (node:internal/test_runner/test:786:18)
+  +     at Test.postRun (node:internal/test_runner/test:1238:19)
+  +     at Test.run (node:internal/test_runner/test:1166:12)
+  +     at async Test.processPendingSubtests (node:internal/test_runner/test:786:7)
+  - null
+
+      at TestContext.<anonymous> (file:///Users/shreetej/Downloads/FMProject/frontend/tests/simulationData.test.js:73:10)
+      at async Test.run (node:internal/test_runner/test:1116:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:786:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: obsolete-error
+        at TestContext.<anonymous> (file:///Users/shreetej/Downloads/FMProject/frontend/tests/simulationData.test.js:71:51)
+        at Test.runInAsyncScope (node:async_hooks:212:14)
+        at Test.run (node:internal/test_runner/test:1109:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:786:18)
+        at Test.postRun (node:internal/test_runner/test:1238:19)
+        at Test.run (node:internal/test_runner/test:1166:12)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:786:7),
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at frontend/tests/simulationData.test.js:78:1
+✖ late creation acknowledgement cannot inject a run into another workspace (1.4595ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  1 !== 0
+
+      at TestContext.<anonymous> (file:///Users/shreetej/Downloads/FMProject/frontend/tests/simulationData.test.js:82:10)
+      at async Test.run (node:internal/test_runner/test:1116:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:786:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
