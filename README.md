@@ -183,4 +183,19 @@ Schema 13 adds immutable tenant-owned submissions and transition events, with
 SQLite migration/guards and PostgreSQL FORCE RLS. See the
 [workflow/API contract](docs/PHASE7_HUMAN_REVIEW.md) and
 [Phase 7 local acceptance](docs/PHASE7_ACCEPTANCE_REPORT.md). No publication,
-Phase 8 work, deployment or production activation is included.
+deployment or production activation is included.
+
+
+## Integrated HR workspace (Phase 8)
+
+HR Hiring connects requirements, exact organization knowledge revisions, human
+JD drafts, AI evidence, review submissions and approval history. The workflow
+shows revision-specific status and role-eligible next actions. Source links include
+historical JD usage even after a draft changes its pinned source. AI output remains
+a proposal; users explicitly edit and submit authoritative revisions. Workspace
+switching discards old selections and pending reads. Schema remains 13.
+
+See [integration/API behavior](docs/PHASE8_HR_INTEGRATION.md) and
+[Phase 8 local acceptance](docs/PHASE8_ACCEPTANCE_REPORT.md).
+Phase 9/10, live provider verification, deployment and production activation remain
+outside this phase.

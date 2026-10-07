@@ -1,0 +1,25 @@
+ALTER ROLE
+ALTER ROLE
+REVOKE
+REVOKE
+DROP SCHEMA
+           rolname            | rolcanlogin | rolsuper | rolbypassrls
+------------------------------+-------------+----------+--------------
+ fm_phase8_acceptance         | f           | f        | f
+ fm_phase8_checkpoint_runtime | f           | f        | f
+(2 rows)
+
+ remaining_test_sessions
+-------------------------
+                       0
+(1 row)
+
+ remaining_app_test_schemas
+----------------------------
+                          0
+(1 row)
+
+ remaining_checkpoint_schema
+-----------------------------
+                           0
+(1 row)
