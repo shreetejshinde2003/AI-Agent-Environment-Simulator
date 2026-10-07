@@ -52,3 +52,19 @@ test("reduced-motion stylesheet disables non-essential badge and edge movement",
   assert.match(rules, /\.badge-pulse \.badge-dot \{ animation: none !important/);
   assert.match(rules, /\.react-flow__edge\.animated path \{ animation: none !important/);
 });
+
+
+test("graph measurements survive telemetry refresh without becoming execution evidence", async () => {
+  const {mergeGraphDimensions} = await import("../src/utils/graphPresentation.js");
+  const previous = {runId: "A", nodes: {research: {width:230,height:80}}};
+  assert.equal(mergeGraphDimensions(previous,"A",[{type:"select",id:"research"}]),previous);
+  const measured = mergeGraphDimensions(previous,"A",[{type:"dimensions",id:"report",dimensions:{width:230,height:90}}]);
+  assert.equal(measured.nodes.research.height,80);
+  assert.equal(measured.nodes.report.height,90);
+  assert.equal(previous.nodes.report,undefined);
+});
+test("graph dimensions from workspace or run A cannot be reused by run B", async () => {
+  const {mergeGraphDimensions} = await import("../src/utils/graphPresentation.js");
+  const next=mergeGraphDimensions({runId:"A",nodes:{research:{width:230,height:80}}},"B",[{type:"dimensions",id:"direct",dimensions:{width:230,height:80}}]);
+  assert.deepEqual(Object.keys(next.nodes),["direct"]);
+});

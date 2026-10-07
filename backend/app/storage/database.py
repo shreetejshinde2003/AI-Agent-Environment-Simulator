@@ -849,6 +849,29 @@ class Repository(CustomAgentRepository, HiringRepository, HRReviewRepository):
                     deletedByUserId=row["deleted_by_user_id"],
                     restoredAt=row["restored_at"], restoredByUserId=row["restored_by_user_id"])
 
+    def _has_protected_execution(self, connection, row):
+        simulation_id = row["id"]
+        task = self._task_from_row(row)
+        has_evidence = (task.status.value == "completed" or row["started_at"] or
+            task.execution_started_at or task.elapsed_seconds is not None or
+            task.duration_seconds > 0 or task.evaluation_scores or
+            task.output or task.stages or task.messages or
+            task.activities or task.events or task.evaluation or
+            row["execution_mode"] in {"single", "fixed", "adaptive"})
+        # Check both contracts and relational evidence; fail closed on drift.
+        evidence_tables = (dbm.agent_executions, dbm.agent_messages,
+                           dbm.activity_events, dbm.run_events)
+        has_evidence = has_evidence or any(connection.execute(select(table.c.simulation_id).where(
+            table.c.simulation_id == simulation_id).limit(1)).first() for table in evidence_tables)
+        metrics = connection.execute(select(dbm.simulation_metrics).where(
+            dbm.simulation_metrics.c.simulation_id == simulation_id)).mappings().first()
+        persisted_task = connection.execute(select(dbm.tasks.c.output).where(
+            dbm.tasks.c.simulation_id == simulation_id)).scalar_one_or_none()
+        has_evidence = has_evidence or persisted_task or (metrics and (
+            metrics["elapsed_seconds"] is not None or metrics["total_tokens"] is not None or
+            metrics["measured_stages"] > 0))
+        return bool(has_evidence)
+
     def list_recycled_simulations(self, *, workspace_id, user_id):
         from app.security.rbac import Permission
         with tenant_transaction(self.engine, workspace_id=workspace_id, user_id=user_id) as connection:
@@ -858,7 +881,14 @@ class Repository(CustomAgentRepository, HiringRepository, HRReviewRepository):
                 dbm.simulations.c.workspace_id == workspace_id,
                 dbm.simulations.c.deleted_at.is_not(None)
             ).order_by(dbm.simulations.c.deleted_at.desc(), dbm.simulations.c.id)).mappings().all()
-            return [self._recycle_item(row) for row in rows if self._hr_evidence_visible(connection, row, workspace_id, user_id)]
+            items = []
+            for row in rows:
+                if not self._hr_evidence_visible(connection, row, workspace_id, user_id):
+                    continue
+                protected = self._has_protected_execution(connection, row)
+                items.append({**self._recycle_item(row), "permanentDeletionEligible": not protected,
+                              "protectionReason": "execution_evidence_retained" if protected else None})
+            return items
 
     def recycle_simulation(self, simulation_id, *, workspace_id, user_id,
                            action="delete", confirmed=False):
@@ -899,25 +929,7 @@ class Repository(CustomAgentRepository, HiringRepository, HRReviewRepository):
             if action == "purge":
                 if confirmed is not True:
                     raise RecycleBinError(422, "confirmation_required", "Explicit permanent-deletion confirmation is required.")
-                task = self._task_from_row(row)
-                has_evidence = (task.status.value == "completed" or row["started_at"] or
-                    task.execution_started_at or task.elapsed_seconds is not None or
-                    task.duration_seconds > 0 or task.evaluation_scores or
-                    task.output or task.stages or task.messages or
-                    task.activities or task.events or task.evaluation or
-                    row["execution_mode"] in {"single", "fixed", "adaptive"})
-                # Check both contracts and relational evidence; fail closed on drift.
-                evidence_tables = (dbm.agent_executions, dbm.agent_messages,
-                                   dbm.activity_events, dbm.run_events)
-                has_evidence = has_evidence or any(connection.execute(select(table.c.simulation_id).where(
-                    table.c.simulation_id == simulation_id).limit(1)).first() for table in evidence_tables)
-                metrics = connection.execute(select(dbm.simulation_metrics).where(
-                    dbm.simulation_metrics.c.simulation_id == simulation_id)).mappings().first()
-                persisted_task = connection.execute(select(dbm.tasks.c.output).where(
-                    dbm.tasks.c.simulation_id == simulation_id)).scalar_one_or_none()
-                has_evidence = has_evidence or persisted_task or (metrics and (
-                    metrics["elapsed_seconds"] is not None or metrics["total_tokens"] is not None or
-                    metrics["measured_stages"] > 0))
+                has_evidence = self._has_protected_execution(connection, row)
                 if has_evidence:
                     raise RecycleBinError(409, "execution_evidence_retained",
                                           "Execution evidence must be retained; restore this simulation instead.")

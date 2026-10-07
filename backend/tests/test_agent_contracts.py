@@ -1,4 +1,5 @@
 """Prompt alignment and request-local metrics; provider calls are mocked."""
+import json
 import asyncio
 import importlib
 import unittest
@@ -17,6 +18,14 @@ from app.api.routes.uploads import parse_upload
 from app.core.errors import safe_error
 from app.core.config import settings
 from fastapi import HTTPException
+
+
+def readable_prompt(prompt):
+    anchor, serialized = prompt.split("\n\nStructured stage contract (data):\n")
+    payload = json.loads(serialized)
+    prior = payload["prior_result"]
+    return anchor + "\n" + "\n".join(payload["relevant_sources"].values()) + (
+        "\nSupplied " + prior["output_type"] + ":\n" + prior["prior_result_summary"] if prior else "")
 
 
 class ContractTests(unittest.IsolatedAsyncioTestCase):
@@ -102,8 +111,8 @@ class ContractTests(unittest.IsolatedAsyncioTestCase):
                 mock = AsyncMock(return_value=LLMResponse("answer", 2, 3, 0.1, "test-model"))
                 with patch.object(module, "call_llm", mock):
                     await getattr(module, class_name)().process("ORIGINAL goal", {})
-                prompt = mock.await_args.kwargs["prompt"]
-                self.assertEqual(prompt, "Original user directive:\nORIGINAL goal")
+                prompt = readable_prompt(mock.await_args.kwargs["prompt"])
+                self.assertEqual(prompt.strip(), "Original user directive:\nORIGINAL goal")
                 self.assertNotIn("Supplied", prompt)
         # Legacy individual specialist input may contain source text directly
         # in the directive, so its previous standalone action remains usable.
@@ -129,7 +138,7 @@ class ContractTests(unittest.IsolatedAsyncioTestCase):
                 mock = AsyncMock(return_value=LLMResponse("answer", 2, 3, 0.1, "test-model"))
                 with patch.object(module, "call_llm", mock):
                     await getattr(module, class_name)().process("ORIGINAL goal", context)
-                prompt = mock.await_args.kwargs["prompt"]
+                prompt = readable_prompt(mock.await_args.kwargs["prompt"])
                 self.assertIn("ORIGINAL goal", prompt)
                 self.assertIn(text, prompt)
                 self.assertIn("Supplied " + name, prompt)
@@ -147,13 +156,13 @@ class ContractTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(analysis_agent, "call_llm", new_callable=AsyncMock,
                           return_value=analysis_response) as analysis_llm:
             actual = await analysis_agent.AnalysisAgent().process(context.original_directive, context)
-        self.assertIn("EXACT research\nuncertain", analysis_llm.await_args.kwargs["prompt"])
+        self.assertIn("EXACT research\nuncertain", readable_prompt(analysis_llm.await_args.kwargs["prompt"]))
         context = context.with_output("analysis", actual.text)
         report_response = LLMResponse("Final answer", 3, 4, 0.1, "test-model")
         with patch.object(report_agent, "call_llm", new_callable=AsyncMock,
                           return_value=report_response) as report_llm:
             await report_agent.ReportAgent().process(context.original_directive, context)
-        prompt = report_llm.await_args.kwargs["prompt"]
+        prompt = readable_prompt(report_llm.await_args.kwargs["prompt"])
         self.assertIn("EXACT analysis\nwith caveat", prompt)
         self.assertNotIn("Supplied summary", prompt)
         self.assertEqual(context.available_outputs, ("research_findings", "insights"))
@@ -188,12 +197,12 @@ class ContractTests(unittest.IsolatedAsyncioTestCase):
             ("summarizer", "Analytical insight", "Structured record"),
             ("report", "Final summary", "Analytical insight"),
         ):
-            prompt = specialist_prompt(agent_id, "ORIGINAL goal", context)
+            prompt = readable_prompt(specialist_prompt(agent_id, "ORIGINAL goal", context))
             self.assertIn(included, prompt)
             self.assertNotIn(omitted, prompt)
             self.assertIn("Records: 3", prompt)
             if agent_id in ("analysis", "summarizer", "report"):
-                self.assertNotIn("team,count", prompt)
+                self.assertIn("team,count", prompt)
             else:
                 self.assertIn("team,count", prompt)
 

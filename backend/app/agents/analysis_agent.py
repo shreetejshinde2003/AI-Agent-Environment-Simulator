@@ -16,6 +16,9 @@ Keep results concise and aligned with the requested deliverable; a creation requ
 must not become an unrelated critique. For standalone requests state missing evidence."""
 
 
+from app.agents.output_contract import PROMPT_POLICY
+SYSTEM_PROMPT += "\n\n" + PROMPT_POLICY
+
 class AnalysisAgent(BaseAgent):
     AGENT_ID = "analysis"
     ROLE = "analysis"

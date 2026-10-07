@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { apiClient } from "../../services/apiClient";
 import RecordedText from "./RecordedText";
+import OutputViewer from "./OutputViewer";
 import { runEvidence } from "../../utils/inspectorData";
 import { runTitle } from "../../utils/runs";
 const date = value => value ? new Date(value).toLocaleString() : "Not recorded";
@@ -70,13 +71,13 @@ export default function TaskDetailsPanel({task, view = "overview", onInspect}) {
         Inspect failed stage: {stage.agentId}
       </button>)}
     </>}
-    <h4>{view === "result" ? "Recorded final output" : "Final result"}</h4>
+    {view !== "metadata" && <><h4>{view === "result" ? "Recorded final output" : "Final result"}</h4>
     {view === "result" && task.output != null && <dl className="metadata">
       {task.output != null && <><dt>Characters</dt><dd>{task.output.length.toLocaleString()}</dd>
         {finalStage?.status === "completed" && finalStage.output === task.output && <><dt>Recorded source</dt><dd>{finalStage.agentId} · <code>{finalStage.outputKey}</code></dd></>}</>}
     </dl>}
     {task.output == null ? <p className="empty-note">{task.status === "failed" ? "No final result. See the failed stage for partial output and error details." : "No final result yet."}</p> :
-      <RecordedText text={task.output} label="final result" limit={view === "result" ? 3000 : 900}/>}
+      <OutputViewer text={task.output} directive={task.directive} contract={finalStage?.outputContract} label="Final answer"/>}</>}
     {view === "overview" && !!task.uploads?.length && <section><h4>Uploaded context</h4>{task.uploads.map(u =>
       <details key={u.id}><summary>{u.filename} · {u.sizeBytes} bytes{u.truncated ? " · Truncated for context" : ""}</summary>
         <p>{u.rowCount != null ? `${u.rowCount} rows${u.columns ? ` · ${u.columns.length} columns` : ""}` : u.format?.toUpperCase()}</p><RecordedText text={u.preview} label="upload preview"/></details>)}</section>}

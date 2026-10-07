@@ -4,13 +4,14 @@ import {useSimulation} from "../context/SimulationContext";
 import {apiClient} from "../services/apiClient";
 import {researchPayload, scorePayload, measured} from "../utils/research";
 import "./ResearchLab.css";
+import OutputViewer from "../components/dashboard/OutputViewer";
 
 const MODES = ["single", "fixed", "adaptive"];
 const HUMAN_DIMENSIONS = ["correctness", "relevance", "completeness", "clarity", "groundedness", "concision", "sourceConsistency"];
 
 export function ExportedResearchReport({report}) {
   if (!report) return null;
-  return <details open><summary>Evidence report ready</summary>
+  return <details><summary>Evidence report ready</summary>
     <p>Download requested. The complete JSON below remains available to select and copy if this browser does not save files.</p>
     <textarea aria-label="Exported research report JSON" readOnly rows={12} value={JSON.stringify(report,null,2)}/>
   </details>;
@@ -49,15 +50,14 @@ export function ResearchRun({run, task, onInspect, onReview, busy}) {
   }
   return <section className="research-run">
     <h3>Trial {run.trialNumber} · {run.benchmarkId} · {run.mode}</h3>
-    <p>{run.taskId} · {run.status}</p>
-    {run.error && <p role="alert">{run.error}</p>}
+    <p>{run.status}</p>{run.error && <p role="alert">{run.error}</p>}<details><summary>Trial execution and reproducibility details</summary><p>{run.taskId}</p>
     <p>Completed: {run.completedAgents.join(", ") || "None"} · Failed: {run.failedStages.join(", ") || "None"}</p>
     <p>Selected route: {run.selectedAgents?.join(" → ") ?? "Not adaptive"} · Skipped: {run.skippedAgents?.join(", ") ?? "Not adaptive"}</p>
     <p>Not executed: {run.notExecutedAgents.join(", ") || "None"} · Stage starts: {run.agentCalls} · Handoffs: {run.handoffs}</p>
     <p>Tokens: {measured(run.totalTokens.value)} · {run.totalTokens.coverage} coverage · Observed timeout: {run.timeoutObserved ? "Yes" : "No explicit evidence"}</p>
-    <button type="button" onClick={onInspect}>Open run evidence</button>
+    </details><button type="button" onClick={onInspect}>Open run evidence</button>
     <details><summary>Stage timings and deterministic checks</summary><pre>{JSON.stringify({timings:run.stageTimings,quality:run.deterministicQuality},null,2)}</pre></details>
-    {task ? <details open><summary>Persisted final output</summary><pre>{task.output ?? "No successful output recorded."}</pre></details> : <p>Loading saved output…</p>}
+    {task ? <OutputViewer key={task.id} text={task.output} directive={task.directive} contract={task.stages?.find(s=>s.output===task.output&&s.outputContract)?.outputContract}/> : <p>Loading saved output…</p>}
     {task?.output && run.status === "completed" && <form onSubmit={submit}>
       <h4>Human rubric · human-v1</h4><p>1 materially wrong/missing · 2 major weaknesses · 3 adequate with omissions · 4 strong, minor weaknesses · 5 fully meets criterion. Groundedness concerns unsupported claims; source consistency concerns contradictions. Concision rewards useful brevity.</p>
       <div className="research-score-grid">{HUMAN_DIMENSIONS.map(d => <label key={d}>{d.replace(/([A-Z])/g," $1")}
@@ -129,7 +129,7 @@ function ResearchWorkspace({workspaceId}) {
   const currentRun=summary?.runs.find(r=>r.taskId===runId);
   return <main className="research-lab"><h1>Research Lab</h1><p>Reproducible comparisons of Single, Fixed and Adaptive execution. Quality checks and human assessments remain separate from execution metrics.</p>
     {loading && <p role="status">Loading workspace research…</p>}{error && <p role="alert">{error}</p>}
-    {registry && <form onSubmit={start} className="research-config">
+    {registry && <details className="research-new"><summary>Configure a new experiment</summary><form onSubmit={start} className="research-config">
       <h2>Benchmark suite · version {registry.version}</h2>
       <label>Experiment purpose<input required maxLength={600} value={purpose} disabled={busy} onChange={e=>setPurpose(e.target.value)}/></label>
       <fieldset disabled={busy}><legend>Benchmark cases</legend>{registry.cases.map(c=><label key={c.id} className="research-case"><input type="checkbox" checked={cases.includes(c.id)} onChange={e=>setCases(e.target.checked?[...cases,c.id]:cases.filter(id=>id!==c.id))}/><span><strong>{c.title}</strong> · {c.id}<br/>{c.rationale}<details><summary>Directive, source and criteria</summary><pre>{JSON.stringify(c,null,2)}</pre></details></span></label>)}</fieldset>
@@ -139,13 +139,15 @@ function ResearchWorkspace({workspaceId}) {
       {!registry.executionEnabled && <p>Live research is disabled. Provider-live evaluation requires explicit approval and server configuration.</p>}
       {registry.executionEnabled && <p>{registry.configuration.evidenceKind === "deterministic_fixture" ? "Local fixture provider configured. These runs validate the evaluation machinery." : "Starting an experiment invokes the configured live provider."}</p>}
       <button disabled={busy||!registry.executionEnabled||!cases.length||!modes.length||cases.length*modes.length*repetitions>45}>Start evaluation runs</button>
-    </form>}
+    </form></details>}
+    {registry && <p role="status">{registry.configuration.evidenceKind === "deterministic_fixture" ? "Deterministic fixture environment — no live model conclusions." : "Provider environment"} · benchmark suite {registry.version}</p>}
     <section><h2>Persisted experiments</h2>{!loading&&!experiments.length&&<p>No experiments in this workspace. No metrics or conclusions are available.</p>}
       <label>Experiment<select value={selected} onChange={e=>setSelected(e.target.value)} disabled={busy}><option value="">Select experiment</option>{experiments.map(e=><option key={e.experimentId} value={e.experimentId}>{e.purpose} · {e.experimentId} · {e.recordedRuns}/{e.expectedRuns} runs</option>)}</select></label>
       <button type="button" disabled={busy||!selected} onClick={()=>act(async()=>apiClient.getResearchExperiment(selected,workspaceId,lifetime.current.signal))}>Reload results</button>
       <button type="button" disabled={busy||!summary||!registry?.executionEnabled} onClick={()=>act(()=>apiClient.rerunResearchExperiment(selected,workspaceId))}>Rerun same configuration</button>
       <button type="button" disabled={!summary} onClick={download}>Export evidence report</button>
       <ExportedResearchReport report={exportedReport}/>
+      {summary && <section aria-label="Experiment summary"><h2>{experiments.find(e=>e.experimentId===selected)?.purpose ?? "Selected experiment"}</h2><p>Modes: {summary.configuration.modes?.join(", ") ?? [...new Set(summary.runs.map(r=>r.mode))].join(", ")}</p><p>Benchmarks: {new Set(summary.runs.map(r=>r.benchmarkId)).size} · Repetitions: {Math.max(0,...summary.runs.map(r=>r.trialNumber))}</p><p>Trial progress: {summary.runs.filter(r=>["completed","failed"].includes(r.status)).length} / {summary.runs.length}</p></section>}
       <ComparisonTable summary={summary}/>
       {summary && <><h3>Individual trials and routing</h3><label>Trial<select value={runId} onChange={e=>setRunId(e.target.value)} disabled={busy}><option value="">Select run</option>{summary.runs.map(r=><option key={r.taskId} value={r.taskId}>{r.benchmarkId} · {r.mode} · trial {r.trialNumber} · {r.status}</option>)}</select></label></>}
       {currentRun&&<ResearchRun key={runId} run={currentRun} task={task} busy={busy} onReview={saveReview} onInspect={()=>{if(task){selectTask(task.id);setActivePage("live");}}}/>}

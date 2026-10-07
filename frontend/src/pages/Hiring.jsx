@@ -162,6 +162,6 @@ function HiringWorkspace({workspaceId}) {
 export default function Hiring() {
   const {activeWorkspace, activeWorkspaceId, status} = useWorkspace();
   return <section><h1>HR Hiring</h1>{status !== "ready" ? <p>Loading workspace…</p> : activeWorkspace?.kind !== "organization" ?
-    <p>Select an organization workspace to manage hiring. Personal workspaces do not contain organization HR records.</p> :
+    <p>HR Hiring is available in an organization workspace. Choose an organization from the workspace selector, or open Organizations to create or join one.</p> :
     <HiringWorkspace key={activeWorkspaceId} workspaceId={activeWorkspaceId}/>}</section>;
 }

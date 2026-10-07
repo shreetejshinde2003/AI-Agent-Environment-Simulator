@@ -15,8 +15,8 @@ from app.models.schemas import RunProvenance, UploadedContext
 
 
 EXPERIMENT_PROTOCOL_VERSION = "experiment-v1"
-PROMPT_PROTOCOL_VERSION = "prompts-v1"
-CONTRACTS_VERSION = "contracts-v1"
+PROMPT_PROTOCOL_VERSION = "prompts-v2-intent"
+CONTRACTS_VERSION = "contracts-v2-output"
 PROVIDER_NAME = "groq"
 
 

@@ -7,6 +7,9 @@ It uses the central Groq adapter; Google supplies identity through OIDC, not AI.
 
 Phase 10 final local acceptance is documented in
 [the consolidated report](docs/PHASE10_ACCEPTANCE_REPORT.md).
+The current [release-candidate state](docs/PROJECT_STATE.md) and
+[UX/output consolidation acceptance](docs/UX_OUTPUT_CONSOLIDATION_ACCEPTANCE.md)
+record subsequent local work without adding a feature phase.
 Local acceptance and production acceptance are separate. Live-provider research,
 production tenancy, proxy/cookie topology and graph activation remain release gates.
 No experiment establishes a globally superior mode or statistical significance.
@@ -27,6 +30,11 @@ No experiment establishes a globally superior mode or statistical significance.
 | Human review | Recruiter submission, Reviewer recommendation/change request, Approver approval/rejection; decisions apply only to the exact submitted revision. IAM roles alone grant no HR authority. |
 | Research Lab | Seven versioned synthetic benchmarks, controlled modes/repetitions, per-case descriptive comparisons, independent human rubric history, rerun provenance and evidence export. |
 | Recycle Bin | Soft-delete and restore complete simulation records; owner-only purge is blocked when execution evidence must be retained. |
+
+Navigation now centers on Live Simulation, Simulation History, Research Lab, Agents,
+HR Hiring, Organizations, Recycle Bin and Settings. Handoffs/events/history stepping
+are contextual run views. Final answers have full-width Rendered/Raw/copy/focused
+reading; technical evidence and workspace metrics remain collapsed and accessible.
 
 Task is the authoritative run lifecycle/evidence record. StageExecution owns stage
 evidence; RoutePlan owns Adaptive selection. LangGraph checkpoint state stores

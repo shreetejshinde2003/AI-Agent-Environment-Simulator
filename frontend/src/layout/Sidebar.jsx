@@ -1,4 +1,4 @@
-import { Activity, ClipboardList, Users, MessageSquare, ScrollText, RotateCcw, Settings, Bot, LogOut, Building2, Trash2 } from "lucide-react";
+import { Activity, ClipboardList, Users, Settings, Bot, LogOut, Building2, Trash2 } from "lucide-react";
 import SimulationInfoPanel from "../components/dashboard/SimulationInfoPanel";
 import WorkspaceSwitcher from "./WorkspaceSwitcher";
 import "./Sidebar.css";
@@ -8,11 +8,8 @@ const NAV_ITEMS = [
   { id: "research", label: "Research Lab", icon: ClipboardList },
   { id: "task-summary", label: "Simulation History", icon: ClipboardList },
   { id: "agents", label: "Agents", icon: Users },
-  { id: "messages", label: "Messages", icon: MessageSquare },
-  { id: "logs", label: "Logs", icon: ScrollText },
-  { id: "replay", label: "Event History", icon: RotateCcw },
   { id: "hiring", label: "HR Hiring", icon: ClipboardList },
-  { id: "organizations", label: "Organizations", icon: Building2, Trash2 },
+  { id: "organizations", label: "Organizations", icon: Building2 },
   { id: "recycle-bin", label: "Recycle Bin", icon: Trash2 },
   { id: "settings", label: "Settings", icon: Settings },
 ];
@@ -68,7 +65,7 @@ export default function Sidebar({ activePage = "live", onNavigate = () => {}, us
         })}
       </nav>
 
-      {stats && <SimulationInfoPanel stats={stats} />}
+      {stats && <details className="sidebar-totals"><summary>Workspace totals</summary><SimulationInfoPanel stats={stats} /></details>}
 
       <div className="sidebar-footer">
         <div className="sidebar-user">

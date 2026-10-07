@@ -6,6 +6,27 @@ authorized checkpoints, but `LANGGRAPH_RUNTIME_ENABLED` remains false by default
 Both paths reuse Task, StageExecution, RoutePlan, telemetry and provenance. Custom
 agents and HR assistance use their bounded existing execution paths.
 
+## Intent and output contracts
+
+System agents use prompts-v2-intent / contracts-v2-output. ExecutionContext keeps
+an immutable original directive; each prompt carries that request, a stage objective,
+original reference sources, an explicitly unverified bounded predecessor excerpt,
+and request-derived output requirements. The prior output never becomes the request.
+Research/summary prompts no longer impose a universal 200-word response cap.
+
+Final-stage format checks are saved as optional StageExecution.outputContract in
+existing Task JSON evidence. Raw provider outputs remain exact. Common explicit
+JSON keys, bullet counts and number-only requests are checked; wrappers and invalid
+formats are disclosed rather than silently accepted. This is format validation,
+not proof of semantic correctness or an arbitrary user-supplied JSON Schema engine.
+No new table or schema migration is needed. Historical provenance is not relabeled;
+research configuration hashes include the changed implementation.
+
+Recycle Bin listing now reports permanentDeletionEligible and protectionReason
+using the same evidence-retention check as purge. Listing eligibility is advisory;
+purge still reauthorizes and rechecks atomically. Unknown eligibility fails closed
+in the UI. No protected evidence can be permanently deleted.
+
 ## Local operation
 
 Run from this directory with a virtual environment containing `requirements.txt`:

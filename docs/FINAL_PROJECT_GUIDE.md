@@ -58,12 +58,73 @@ The old `agents/orchestrator.py` prototype is inactive.
 | HR assistance | One specialized HR contract | Exact saved sources and validated structured proposal output; separate HR authorization. |
 
 ExecutionContext retains the original directive, bounded uploads/benchmark
-aggregates and successful outputs with producer identities. Fixed prefers the
+aggregates and successful outputs with producer identities. Fixed prefers a bounded, explicitly unverified excerpt of the
 immediate predecessor artifact; Adaptive accepts only supported alternatives
 and never fabricates a skipped artifact. Summarization needs an actual source.
 Research means model reasoning on supplied material; Web Search is unavailable.
 Adaptive uses deterministic rules, not learning, an LLM planner, or dynamic
 replanning. Provider sampling uses SDK defaults; no controlled seed is promised.
+
+## Release-candidate UX and output behavior
+
+The eight main destinations are Live Simulation, Simulation History, Research Lab,
+Agents, HR Hiring, Organizations, Recycle Bin and Settings. Messages, Logs and
+Event History are available contextually as Handoffs and Execution events, including
+record filtering and a keyboard-operable history-position slider. No saved evidence
+or history stepping functionality was deleted. Workspace totals and history metrics
+are collapsed; unrelated pages do not display a selected-run toolbar or goal.
+Selections persist under workspace-specific keys. Old-workspace snapshots remain
+hidden by the existing generation/tenant guard; detail/output selection resets on
+workspace change.
+
+Live Simulation reads run → execution graph → selected detail. Overview, Output,
+Handoffs, Events and Technical details are mutually exclusive main views. Graph
+measurement state is scoped to a run and survives telemetry refreshes so controlled
+React Flow nodes remain visible. The graph's height follows its recorded path.
+Final answer is primary; intermediate output starts with an explicit preview and
+expand control. Outputs occupy the full reading width, with optional focused native
+dialog, copy, Rendered and Raw. Markdown headings/lists/emphasis/code/links/tables
+are rendered with escaped React elements; raw HTML is never executed. JSON is
+formatted when valid; invalid JSON stays visible with a contract problem. Explicit
+plain text stays plain. Original persisted content always remains available in Raw.
+
+System prompts now use prompts-v2-intent / contracts-v2-output. Every call includes
+the immutable original request, stage responsibility, bounded source context,
+subordinate prior-result context and requested output requirements. Prior responses
+are not new user directives. The default predecessor excerpt ceiling is 4,000
+characters, or 12,000 for report/detailed/comprehensive requests. Oversize excerpts
+retain a prefix and suffix, explicitly mark the omitted middle, and remain unverified;
+complete upstream responses remain in StageExecution/messages. This introduces no
+extra summarization calls or fact fabrication. Original supplied sources remain
+available to the final stage instead of being discarded after the Data stage.
+
+Research and Summarizer no longer force every result under 200 words; Report no
+longer forces plain text headings when the user requests JSON or another format.
+All six system prompts prioritize the shortest complete requested deliverable,
+without greetings, internal workflow chatter or task redefinition. Routing, model
+choice, provider token configuration and mode semantics remain unchanged.
+Final-stage common-format checks are stored as optional outputContract metadata in
+existing stage evidence. The checks cover explicit JSON/key sets, bullet counts,
+number-only answers and serialized/fenced wrappers; generic semantic accuracy and
+arbitrary JSON Schema compliance are not automatically proven. Violations are
+recorded without replacing raw output or inventing a corrected answer. JSON scalar
+strings and meaningful embedded quotation marks are preserved.
+
+Research Lab defaults to purpose, benchmark count, modes, repetitions, progress
+and results. Configuration/source/check/fingerprint/raw JSON details remain
+advanced. Existing benchmark fixtures are unchanged; earlier v1 provenance and
+acceptance reports remain historical evidence. Implementation/configuration hashes
+prevent silent cross-version research reruns. New browser cases explicitly use
+mocked provider output and do not establish live instruction fidelity.
+
+Recycle Bin uses backend-authoritative eligibility. Protected runs display Restore
+and “Protected — execution evidence retained”; they cannot open a purge dialog.
+Eligible owner-only deletion sits in a Danger zone and requires the existing
+irreversible confirmation. Backend authorization and atomic retention checks remain
+in force. Missing eligibility hides the destructive action.
+
+See [current state](PROJECT_STATE.md) and the
+[consolidation acceptance record](UX_OUTPUT_CONSOLIDATION_ACCEPTANCE.md).
 
 ## Persistence, migrations and recovery
 

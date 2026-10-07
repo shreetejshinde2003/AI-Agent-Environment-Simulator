@@ -10,7 +10,7 @@ export default function Topbar({goal, connectionStatus, onToggleReplay}) {
     </div>}
     <div className="topbar-actions">
       <ConnectionBadge connectionStatus={connectionStatus}/>
-      <button className="topbar-btn" onClick={onToggleReplay}><RotateCcw size={15}/> Event history</button>
+      {onToggleReplay && <button className="topbar-btn" onClick={onToggleReplay}><RotateCcw size={15}/> Execution events</button>}
     </div>
   </header>;
 }

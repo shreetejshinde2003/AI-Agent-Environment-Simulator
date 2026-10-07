@@ -118,7 +118,8 @@ function StageInspector({task, evidence, agents, onInspect, onInspectRecord}) {
     {unstartedDownstream.length > 0 && <p className="muted">Selected downstream stage{unstartedDownstream.length === 1 ? "" : "s"} not executed: {unstartedDownstream.map(item => name(item.agentId, agents)).join(", ")}.</p>}
     <section aria-labelledby="inspector-output-heading"><h4 id="inspector-output-heading">Recorded output</h4>
       {stage.output != null && <p className="muted">{stage.output.length.toLocaleString()} characters · <code>{stage.outputKey}</code></p>}
-      <RecordedText text={stage.output} label="stage output"/></section>
+      <RecordedText text={stage.output} label="stage output"/>
+      {stage.outputContract && <details><summary>Recorded output contract validation</summary><pre>{JSON.stringify(stage.outputContract,null,2)}</pre></details>}</section>
     {outgoing.length > 0 && <section aria-labelledby="inspector-handoffs-heading"><h4 id="inspector-handoffs-heading">Outgoing handoffs</h4>
       <ul className="inspector-link-list">{outgoing.map(message => <li key={message.id}>
         <button type="button" className="text-button" onClick={() => onInspect({kind: "handoff", id: message.id})}>

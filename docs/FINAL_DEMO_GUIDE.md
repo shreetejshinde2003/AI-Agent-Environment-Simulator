@@ -13,7 +13,7 @@ The [final acceptance report](PHASE10_ACCEPTANCE_REPORT.md) and
 From the repository root, using the existing dependencies, open two terminals:
 
 ```sh
-.venv/bin/python backend/tests/phase10_browser_fixture.py
+.venv/bin/python backend/tests/ux_output_browser_fixture.py
 ```
 
 ```sh
@@ -52,7 +52,7 @@ prerequisite.
 | --- | --- | --- |
 | 1 minute | Objective and architecture | The contribution is persistent inspectable execution plus controlled comparison and authorized human workflow; no model was trained. |
 | 2 minutes | Same glossary input in Single/Fixed/Adaptive | Single has Direct/no handoffs; Fixed has five specialists/four handoffs; Adaptive records selected/skipped agents and rule reasons. The coordinator/router makes no model request. |
-| 1 minute | Inspector, events, failure and recycle/restore | Task/stage evidence survives; a failed stage leaves honest failure and unstarted downstream stages. Event History is recorded inspection. Restore retains execution evidence. |
+| 1 minute | Inspector, events, failure and recycle/restore | Task/stage evidence survives; a failed stage leaves honest failure and unstarted downstream stages. The Events view includes recorded history stepping. Restore retains execution evidence. |
 | 1 minute | Custom Agent Builder | Save a bounded text definition/revision, run it and inspect the original configuration fingerprint/output. No tools/scripts/credentials are configurable. |
 | 2 minutes | Research Lab's 42 fixture trials and JSON report | Show matching inputs/configuration, repetitions, sample counts, route avoidance, coverage and unknown cost/human quality. Fewer stages alone does not establish better reasoning. |
 | 3 minutes | Organization requirement/knowledge → human JD → AI proposal | Select exact source revisions, explicitly author/save the JD and run assistance separately. AI output is only a proposal and never overwrites the saved human draft. |
@@ -73,6 +73,33 @@ For an Adaptive analysis example, select the explicit `analysis` category and us
 source-bound plan arithmetic. For the known failure fixture, use the directive
 `Phase10 provider failure`. The fixture deliberately rejects it; no provider outage
 is implied. Save human-review notes that explicitly say they are fixture acceptance.
+
+## Output/intent demonstration
+
+This fixture adds four synthetic request cases without editing the seven benchmark
+fixtures. Execute each in Single, Fixed and Adaptive:
+
+- `What is 6 times 7? Give only the final number.` → `42`.
+- `Summarize this in 3 bullet points.` followed by a new line
+  `Source: Cedar launches in May. Maple launches in June. Pine launches in July.`
+  → exactly three bullets.
+- `Return JSON with keys x and y. Set x to 1 and y to 2.` → `{"x":1,"y":2}`.
+- `Explain only the security risks of sharing a password in a longer analysis.`
+  → a longer Markdown security-risk fixture for reading/overflow checks.
+
+The SDK mock deliberately supplies verbose unrelated intermediate commentary.
+Open Handoffs to expand the complete persisted response; then read Final answer
+and switch Raw/Rendered. This verifies original-request/contract plumbing and UI
+behavior, not real model robustness. Show the focused reading dialog, copy, Escape
+and returned focus. Open Events to filter one chronology and step through records.
+Move a completed synthetic run to Recycle Bin and show Restore plus evidence
+protection, with no permanent-delete control. No live provider call is needed.
+
+Main navigation has eight task destinations; execution detail belongs to Live
+Simulation. Show Research Lab's collapsed configuration and fixture label before
+explaining metrics. Use current counts from PROJECT_STATE.md; the Phase 10 report
+retains its original counts and date. Production, fresh restricted PostgreSQL and
+live-provider quality checks remain separate gates.
 
 ## What was actually built
 

@@ -4,3 +4,6 @@ export function canManageRecycleBin(workspace) {
 export function canPurgeRecycleBin(workspace) {
   return workspace?.kind === "personal" || workspace?.membershipRole === "owner";
 }
+
+// Unknown eligibility fails closed until an authoritative refresh.
+export function canDeleteItem(item) { return item?.permanentDeletionEligible === true; }

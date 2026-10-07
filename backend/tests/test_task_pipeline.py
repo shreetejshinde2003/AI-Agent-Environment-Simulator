@@ -234,10 +234,13 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(actual, response.text)
         llm.assert_awaited_once()
         prompt = llm.await_args.kwargs["prompt"]
-        self.assertEqual(prompt, "Original user directive:\nOriginal goal"
-                         "\n\nPrepared uploaded reference context:\nFile: reference.txt\nSafe note"
-                         "\n\nValidated benchmark aggregates (not individual records):\n"
-                         "Records: 294; Department: Engineering")
+        import json
+        contract = json.loads(prompt.split("Structured stage contract (data):\n", 1)[1])
+        self.assertEqual(contract["original_directive"], "Original goal")
+        self.assertEqual(contract["relevant_sources"], {
+            "uploaded_context": "File: reference.txt\nSafe note",
+            "benchmark_context": "Records: 294; Department: Engineering"})
+        self.assertIsNone(contract["prior_result"])
     async def test_single_coordinator_records_real_model_usage(self):
         from app.agents import direct_agent
 

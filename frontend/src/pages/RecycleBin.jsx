@@ -3,7 +3,7 @@ import { useWorkspace } from "../hooks/useWorkspace";
 import { useSimulation } from "../context/SimulationContext";
 import ConfirmRecycleAction from "../components/common/ConfirmRecycleAction";
 import { apiClient } from "../services/apiClient";
-import { canManageRecycleBin, canPurgeRecycleBin } from "../utils/recycleBin";
+import { canManageRecycleBin, canPurgeRecycleBin, canDeleteItem } from "../utils/recycleBin";
 
 export default function RecycleBin() {
   const { activeWorkspace, activeWorkspaceId } = useWorkspace();
@@ -58,11 +58,11 @@ export default function RecycleBin() {
         !visible.items?.length ? <p role="status">The recycle bin is empty.</p> :
           <div className="table-scroll"><table><thead><tr><th>Simulation</th><th>Deleted</th><th>Deleted by</th><th>Last restored</th><th>Actions</th></tr></thead>
             <tbody>{visible.items.map(item => <tr key={item.id}>
-              <td>{item.title}<br/><small>{item.id}</small></td>
+              <td>{item.title}{item.permanentDeletionEligible !== true && <p role="status">Protected — execution evidence retained</p>}<details><summary>Record details</summary><small>{item.id}</small></details></td>
               <td>{new Date(item.deletedAt).toLocaleString()}</td><td>{item.deletedByUserId}</td>
               <td>{item.restoredAt ? `${new Date(item.restoredAt).toLocaleString()} · ${item.restoredByUserId}` : "—"}</td>
               <td><button className="text-button" disabled={busy} onClick={() => act(item)}>Restore</button>{" "}
-                {canPurgeRecycleBin(activeWorkspace) && <button className="text-button" disabled={busy} onClick={() => setPendingPurge({workspaceId: activeWorkspaceId, item})}>Delete permanently</button>}</td>
+                {canPurgeRecycleBin(activeWorkspace) && canDeleteItem(item) && <details><summary>Danger zone</summary><button className="text-button danger-action" disabled={busy} onClick={() => setPendingPurge({workspaceId: activeWorkspaceId, item})}>Delete permanently</button></details>}</td>
             </tr>)}</tbody></table></div>}
       {pendingPurge?.workspaceId === activeWorkspaceId && <ConfirmRecycleAction permanent
         title={pendingPurge.item.title} busy={busy} error={visible.error}

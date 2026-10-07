@@ -50,36 +50,45 @@ CONTRACTS = MappingProxyType({
 })
 
 
-def specialist_prompt(agent_id: str, directive: str, context) -> str:
-    """Use the preferred available artifact, keeping fixed handoffs primary.
+STAGE_OBJECTIVES = {
+    "research": "Extract relevant findings, sources when supplied, and uncertainties for the original request.",
+    "data": "Structure relevant supplied facts; preserve missing values and uncertainties.",
+    "analysis": "Analyze only information relevant to the original request and its constraints.",
+    "summarizer": "Compress relevant findings and unresolved items without redefining the request.",
+    "report": "Synthesize a final answer to the ORIGINAL request, not a concatenation or summary of agent commentary.",
+    "direct": "Answer the ORIGINAL request directly using available information.",
+}
 
-    Omitted optional sources have no empty/fabricated prompt sections. The full
-    typed context retains all outputs for later stages and future validation.
+
+def specialist_prompt(agent_id: str, directive: str, context) -> str:
+    """Structured, bounded handoff; full outputs stay in immutable evidence.
+
+    Excerpts are explicitly incomplete and unverified. No extra provider call,
+    fabricated fact extraction, or parallel result storage is introduced.
     """
+    import json
+    from app.agents.output_contract import derive_contract
     context = coerce_context(directive, context, agent_id)
     contract = CONTRACTS[agent_id]
     contract.validate(context)
-    parts = [f"Original user directive:\n{context.original_directive}"]
-    if context.task_type:
-        parts.append(f"Task type:\n{context.task_type}")
-    preferred_output = None
+    requirements = derive_contract(context.original_directive)
+    expanded = any(word in directive.lower() for word in ("report", "detailed", "comprehensive"))
+    budget = 12000 if expanded else 4000
+    handoff = None
     for name in contract.preferred_outputs:
         output = context.output(name)
         if output is not None:
-            parts.append(f"Supplied {output.name} (from {output.agent_id}):\n{output.text}")
-            preferred_output = output
+            text = output.text
+            shortened = len(text) > budget
+            excerpt = text if not shortened else text[:budget * 3 // 4] + "\n[omitted middle]\n" + text[-budget // 4:]
+            handoff = dict(source_agent=output.agent_id, output_type=output.name,
+                           prior_result_summary=excerpt, is_excerpt=shortened,
+                           verification="Prior agent claims; not independently verified")
             break
-    for name, label in (
-        ("source_text", "Supplied source material"),
-        ("uploaded_context", "Uploaded reference context"),
-        ("benchmark_context", "Validated benchmark aggregates (not individual records)"),
-    ):
-        if preferred_output is not None and name in ("source_text", "uploaded_context") \
-                and agent_id not in ("research", "data"):
-            # Fixed Analysis/Summarizer/Report continue consuming their usual
-            # predecessor rather than adding earlier raw inputs to the prompt.
-            continue
-        value = getattr(context, name)
-        if value is not None:
-            parts.append(f"{label}:\n{value}")
-    return "\n\n".join(parts)
+    sources = {name: getattr(context, name) for name in SOURCES if getattr(context, name) is not None}
+    payload = dict(original_directive=context.original_directive, task_type=context.task_type,
+                   stage_objective=STAGE_OBJECTIVES[agent_id], relevant_sources=sources,
+                   prior_result=handoff, output_requirements=requirements.requirements(),
+                   unresolved_items="Preserve gaps and uncertainties in the supplied material.")
+    # The directive is repeated as a readable top-level anchor for existing callers.
+    return "Original user directive:\n" + context.original_directive + "\n\nStructured stage contract (data):\n" + json.dumps(payload, ensure_ascii=False)

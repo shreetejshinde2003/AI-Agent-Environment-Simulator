@@ -1,8 +1,8 @@
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import ReactFlow, { Background, Controls, Handle, Position, useNodesInitialized, useReactFlow, useStore } from "reactflow";
 import "reactflow/dist/style.css";
 import "./AgentRelationshipGraph.css";
-import { canvasPath, edgeView, graphFitKey, GRAPH_FIT_OPTIONS, stageView } from "../../utils/graphPresentation";
+import { canvasPath, edgeView, graphFitKey, GRAPH_FIT_OPTIONS, mergeGraphDimensions, stageView } from "../../utils/graphPresentation";
 import { graphTarget } from "../../utils/workspaceSelection";
 function StageNode({data}) {
   return <button type="button" onClick={data.onInspect}
@@ -25,6 +25,13 @@ function GraphViewport({fitKey}) {
   return null;
 }
 export default function AgentRelationshipGraph({task, agents = [], selectedTarget = null, onInspect = () => {}}) {
+  // Controlled React Flow nodes must retain measured dimensions across REST
+  // refreshes. Otherwise a fresh evidence snapshot resets nodes to hidden while
+  // an unchanged DOM size produces no new ResizeObserver notification.
+  const [measurements, setMeasurements] = useState({runId: null, nodes: {}});
+  const onNodesChange = useCallback(changes => {
+    setMeasurements(previous => mergeGraphDimensions(previous, task?.id, changes));
+  }, [task?.id]);
   const {nodes, edges} = useMemo(() => {
     const stageMap = Object.fromEntries((task?.stages ?? []).map(s => [s.agentId, s]));
     const running = task?.status === "in_progress";
@@ -41,7 +48,7 @@ export default function AgentRelationshipGraph({task, agents = [], selectedTarge
           {status: "waiting", text: "Waiting"} :
         {status: orchestration, text: orchestration === "active" ? "Coordinating" : orchestration};
       return {
-      id, type: "stage", position: {x: 120, y: i * 122},
+      id, type: "stage", ...(measurements.runId === task?.id ? measurements.nodes[id] : {}), position: {x: 120, y: i * 122},
       data: {label: id === "goal" ? "User Goal" : id === "result" ? "Final Result" :
         id === "route" ? "Route Decision" :
         agents.find(a => a.id === id)?.name ?? id,
@@ -66,14 +73,15 @@ export default function AgentRelationshipGraph({task, agents = [], selectedTarge
         data: {message: handoff}};
     });
     return {nodes, edges};
-  }, [task, agents, selectedTarget, onInspect]);
+  }, [task, agents, selectedTarget, onInspect, measurements]);
   if (!task) return <p className="empty-note">No run selected. Create or choose a simulation to see its recorded execution path.</p>;
   return <div>
     <p className="muted">Select a node or a recorded handoff to inspect execution details. Web Search is unavailable.</p>
-    <div className="pipeline-graph" role="group" aria-label="Simulation pipeline graph">
-      <ReactFlow nodes={nodes} edges={edges} nodeTypes={NODE_TYPES} fitView
+    <div className="pipeline-graph" style={{height: Math.max(360, canvasPath(task).length * 100 + 60)}} role="group" aria-label="Simulation pipeline graph">
+      <ReactFlow key={task.id} nodes={nodes} edges={edges} nodeTypes={NODE_TYPES} fitView
         fitViewOptions={GRAPH_FIT_OPTIONS} minZoom={0.15} maxZoom={1.3}
         nodesDraggable={false} nodesConnectable={false} nodesFocusable={false} edgesFocusable={false}
+        onNodesChange={onNodesChange}
         onNodeClick={(_, node) => onInspect(graphTarget(node.id))}
         onEdgeClick={(_, edge) => { if (edge.data?.message?.id) onInspect({kind: "handoff", id: edge.data.message.id}); }}>
         <GraphViewport fitKey={graphFitKey(task)}/>

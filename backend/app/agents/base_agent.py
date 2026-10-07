@@ -88,6 +88,15 @@ class BaseAgent:
             tokens_used = 0
             model_used = self.MODEL or DEFAULT_MODEL
 
+        if execution is not None and self.AGENT_ID in {"research", "data", "analysis", "summarizer", "report", "direct"}:
+            from app.agents.output_contract import validate_output
+            terminal = (self.AGENT_ID in {"report", "direct"} or
+                        isinstance(context, ExecutionContext) and (
+                            context.execution_mode.value == "single_agent" or
+                            context.route and context.route.selected_agents[-1] == self.AGENT_ID))
+            if terminal:
+                execution.output_contract = validate_output(text, directive)
+
         stats_tracker.record_call(
             agent_id=self.AGENT_ID,
             response_time_seconds=elapsed,

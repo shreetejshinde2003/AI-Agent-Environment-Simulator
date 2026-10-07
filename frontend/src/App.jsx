@@ -32,6 +32,7 @@ function AppContent({ authUser, onSignOut }) {
     socketStatus,
     isLoading,
     lastRefreshedAt,
+    setExecutionView,
   } = useSimulation();
 
   const Page = PAGES[activePage] ?? LiveSimulation;
@@ -53,18 +54,11 @@ function AppContent({ authUser, onSignOut }) {
       user={user}
       workspace={workspace}
       topbarProps={{
-        goal:
-          activePage === "hiring"
-            ? "Hiring requirements and job descriptions"
-            : activePage === "live"
-            ? null
-            : selectedTask?.directive ??
-              "Create a simulation to get started",
-        onToggleReplay: () =>
-          setActivePage("replay"),
+        goal: ["messages", "logs", "replay"].includes(activePage) ? selectedTask?.directive : null,
+        onToggleReplay: activePage === "live" ? () => {setExecutionView("events");setActivePage("live");} : null,
       }}
     >
-      {activePage !== "live" && activePage !== "hiring" && activePage !== "research" && (
+      {["messages", "logs", "replay"].includes(activePage) && (
         <div className="run-toolbar">
           <RunPicker
             tasks={tasks}
@@ -87,7 +81,7 @@ function AppContent({ authUser, onSignOut }) {
         </div>
       )}
 
-      {error && activePage !== "hiring" && activePage !== "research" && (
+      {error && ["live", "task-summary", "agents"].includes(activePage) && (
         <p
           className="run-error"
           role="alert"

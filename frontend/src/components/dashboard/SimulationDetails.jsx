@@ -2,8 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSimulation } from "../../context/SimulationContext";
 import AgentRelationshipGraph from "./AgentRelationshipGraph";
 import RunPicker from "./RunPicker";
-import ContextualEvents from "./ContextualEvents";
+import OutputViewer from "./OutputViewer";
+import Messages from "../../pages/Messages";
+import Logs from "../../pages/Logs";
 import WorkspaceInspector from "./WorkspaceInspector";
+import TaskDetailsPanel from "./TaskDetailsPanel";
 import { modeLabel, runTitle } from "../../utils/runs";
 import { canvasPath } from "../../utils/graphPresentation";
 import { graphTarget, hasRecordedTopology, resolveInspectorTarget } from "../../utils/workspaceSelection";
@@ -13,7 +16,7 @@ import "./WorkspaceShell.css";
 // UI selection is scoped to a run ID. The graph and inspector read the current
 // server snapshot rather than retaining copies of stages or route metadata.
 export default function SimulationDetails({task}) {
-  const {agents, tasks, selectTask, setActivePage, isLoading, error, socketStatus} = useSimulation();
+  const {agents, tasks, selectTask, setActivePage, isLoading, error, socketStatus, executionView, setExecutionView} = useSimulation();
   const [selection, setSelection] = useState({runId: null, target: null});
   useEffect(() => { setSelection({runId: task?.id ?? null, target: null}); }, [task?.id]);
   const records = useMemo(() => workspaceRecords(task), [task]);
@@ -23,7 +26,7 @@ export default function SimulationDetails({task}) {
       setSelection({runId: task?.id ?? null, target: null});
   }, [task?.id, selection.runId, selection.recordKey, record]);
   const target = resolveInspectorTarget(task, selection, records);
-  const inspect = useCallback(next => setSelection({runId: task?.id ?? null, target: next}), [task?.id]);
+  const inspect = useCallback(next => {setSelection({runId: task?.id ?? null, target: next});setExecutionView(next?.kind === "stage" || next?.kind === "result" ? "output" : "technical");}, [task?.id, setExecutionView]);
   const inspectRecord = useCallback(key => setSelection({runId: task?.id ?? null, recordKey: key}), [task?.id]);
   return <div className="workbench-shell">
     <div className="workbench-grid">
@@ -54,10 +57,31 @@ export default function SimulationDetails({task}) {
             </button></li>)}</ol>
         </div>}
       </section>
-      <WorkspaceInspector task={task} target={target} agents={agents} selectedRecord={record}
-        onShowRun={() => inspect(null)} onInspect={inspect} onInspectRecord={inspectRecord}/>
+
     </div>
-    <ContextualEvents key={task?.id ?? "empty"} task={task} records={records} target={target}
-      selectedKey={record?.key} onSelect={inspectRecord} onShowAll={() => setActivePage("logs")}/>
+    <div className="event-filters" role="group" aria-label="Run detail views">
+      {["overview", "output", "handoffs", "events", "technical"].map(view => <button type="button" key={view}
+        aria-pressed={executionView === view} onClick={() => setExecutionView(view)}>{view === "technical" ? "Technical details" : view[0].toUpperCase()+view.slice(1)}</button>)}
+    </div>
+    <section className="run-reading-pane" aria-label="Selected run details">
+      {executionView === "overview" && (task ? <><h2>Run overview</h2><p>{modeLabel(task.executionMode)} · {task.status.replaceAll("_", " ")}</p>
+        <h3>Original request</h3><p className="output-text">{task.directive}</p><p>{task.stages?.filter(s=>s.status === "completed").length ?? 0} completed stages · {task.messages?.length ?? 0} recorded handoffs</p>
+        <button onClick={()=>{setSelection({runId:task.id,target:{kind:"result"}});setExecutionView("output");}}>Read final answer</button></> : <p>Choose or create a run to see its results.</p>)}
+      {executionView === "output" && <>
+        {target?.kind === "stage" && task?.stages?.find(s=>s.agentId===target.id) ? <>
+          <button onClick={()=>inspect({kind:"result"})}>Read final answer</button>
+          <OutputViewer key={task.id+target.id} text={task.stages.find(s=>s.agentId===target.id).output} intermediate
+            label={`Intermediate agent output · ${agents.find(a=>a.id===target.id)?.name ?? target.id}`} />
+          <details><summary>Stage technical evidence</summary><WorkspaceInspector task={task} target={target} agents={agents}
+            onShowRun={()=>inspect(null)} onInspect={inspect} onInspectRecord={inspectRecord}/></details>
+        </> : <OutputViewer key={task?.id ?? "empty"} text={task?.output} directive={task?.directive}
+          contract={task?.stages?.find(s=>s.output===task.output&&s.outputContract)?.outputContract}/>}
+        {task && <details><summary>Exports and recorded run metadata</summary><TaskDetailsPanel task={task} view="metadata"/></details>}
+      </>}
+      {executionView === "handoffs" && <Messages contextual/>}
+      {executionView === "events" && <Logs contextual onInspectRecord={key=>{inspectRecord(key);setExecutionView("technical");}}/>}
+      {executionView === "technical" && <WorkspaceInspector task={task} target={target} agents={agents} selectedRecord={record}
+        onShowRun={()=>inspect(null)} onInspect={inspect} onInspectRecord={inspectRecord}/>}
+    </section>
   </div>;
 }

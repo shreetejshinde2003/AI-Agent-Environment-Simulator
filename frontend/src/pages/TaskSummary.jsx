@@ -37,12 +37,13 @@ export default function TaskSummary() {
     {visibleOperation?.message && <p role="status">{visibleOperation.message}</p>}
     {!tasks.length ? <p className="empty-note" role="status">{isLoading ? "Loading saved simulations…" :
       error ? "Unable to load saved simulations." : "No simulation data yet."}</p> :
-      <div className="table-scroll"><table><thead><tr><th>Simulation / goal</th><th>Mode</th><th>Status</th><th>Created</th><th>Duration</th>{canManageRecycleBin(activeWorkspace) && <th>Actions</th>}</tr></thead>
+      <div className="table-scroll"><table><thead><tr><th>Simulation / goal</th><th>Mode</th><th>Status</th><th>Created</th><th>Duration</th><th>Final output</th>{canManageRecycleBin(activeWorkspace) && <th>Actions</th>}</tr></thead>
         <tbody>{newestRuns(tasks).map(t => <tr key={t.id} className={t.id === selectedTask?.id ? "selected-row" : ""}>
           <td><button className="text-button" onClick={() => openRun(t.id)}>{runTitle(t)}</button></td>
           <td>{modeLabel(t.executionMode)}</td>
           <td>{t.status.replaceAll("_", " ")}</td><td>{new Date(t.createdAt ?? t.startedAt).toLocaleString()}</td>
           <td>{t.elapsedSeconds == null ? "—" : t.elapsedSeconds.toFixed(2) + "s"}</td>
+          <td>{t.output != null ? "Available" : "Not recorded"}</td>
           {canManageRecycleBin(activeWorkspace) && <td><button className="text-button"
             disabled={visibleOperation?.busy || !["completed", "failed"].includes(t.status)}
             onClick={() => setPending({workspaceId: activeWorkspaceId, run: t})}>Move to bin</button></td>}</tr>)}</tbody>
@@ -50,6 +51,6 @@ export default function TaskSummary() {
     {pending?.workspaceId === activeWorkspaceId && <ConfirmRecycleAction title={runTitle(pending.run)}
       busy={visibleOperation?.busy} error={visibleOperation?.error}
       onClose={() => setPending(null)} onConfirm={() => deleteRun(pending.run)}/>}
-    {hasLoaded && <><StatsCardRow stats={stats}/><MetricsCharts metrics={metrics}/></>}
+    {hasLoaded && <details><summary>Workspace analytics and historical metrics</summary><StatsCardRow stats={stats}/><MetricsCharts metrics={metrics}/></details>}
   </div>;
 }

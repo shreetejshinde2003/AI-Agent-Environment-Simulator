@@ -345,3 +345,20 @@ def test_relational_evidence_drift_blocks_purge(context, table):
     operation(repo, task, user)
     with pytest.raises(RecycleBinError, match="Execution evidence"):
         operation(repo, task, user, action="purge", confirmed=True)
+
+
+def test_list_exposes_authoritative_eligibility_and_fails_closed_on_relational_drift(context):
+    repo, task, user = seeded(context)
+    task.status, task.output, task.execution_mode = TaskStatus.FAILED, None, TaskExecutionMode.SINGLE_AGENT
+    task.duration_seconds = 0
+    repo.save_for_tenant(task, workspace_id=task.workspace_id, user_id=user)
+    operation(repo, task, user)
+    item = repo.list_recycled_simulations(workspace_id=task.workspace_id,user_id=user)[0]
+    assert item['permanentDeletionEligible'] is True and item['protectionReason'] is None
+    with repo.engine.begin() as connection:
+        connection.execute(insert(dbm.run_events).values(id='EV-drift-list',simulation_id=task.id,
+            type='simulation_started',timestamp=datetime.now(timezone.utc).isoformat(),
+            agent_id=None,text='retained'))
+    item = repo.list_recycled_simulations(workspace_id=task.workspace_id,user_id=user)[0]
+    assert item['permanentDeletionEligible'] is False
+    assert item['protectionReason']=='execution_evidence_retained'

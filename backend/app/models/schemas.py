@@ -164,6 +164,7 @@ class StageExecution(CamelModel):
     output: str | None = None
     error: str | None = None
     input_error: InputContractFailure | None = None
+    output_contract: dict | None = None
 
 
 class RunEvent(CamelModel):

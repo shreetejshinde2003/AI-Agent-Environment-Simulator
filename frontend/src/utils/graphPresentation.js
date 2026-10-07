@@ -30,3 +30,13 @@ export function edgeView(task, from, next, stageMap, message) {
   // The saved handoff is an instantaneous record, not an in-flight transfer.
   return {recorded: !!actual, animated: false, label: message?.outputKey ?? ""};
 }
+
+// Dimensions are UI measurements, scoped to a run; evidence snapshots never
+// become graph layout state. Keep measured sizes when server telemetry refreshes.
+export function mergeGraphDimensions(previous, runId, changes) {
+  const measured = changes.filter(change => change.type === "dimensions" && change.dimensions);
+  if (!measured.length) return previous;
+  const nodes = previous.runId === runId ? {...previous.nodes} : {};
+  for (const change of measured) nodes[change.id] = change.dimensions;
+  return {runId, nodes};
+}

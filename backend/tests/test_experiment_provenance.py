@@ -140,8 +140,8 @@ def test_run_provenance_records_protocol_without_raw_input_duplication():
     )
 
     assert provenance.experiment_protocol_version == "experiment-v1"
-    assert provenance.prompt_protocol_version == "prompts-v1"
-    assert provenance.contracts_version == "contracts-v1"
+    assert provenance.prompt_protocol_version == "prompts-v2-intent"
+    assert provenance.contracts_version == "contracts-v2-output"
     assert provenance.provider == "groq"
     assert provenance.configured_model == "openai/gpt-oss-120b"
     assert provenance.max_output_tokens == 1024
