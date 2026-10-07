@@ -52,7 +52,16 @@ def register(kind, create_model, update_model):
         return operation(repository.save_hiring, kind, content, record_id=record_id,
                          expected_revision=payload.expected_revision, **scope(request, x_workspace_id))
 
+    def linked_descriptions(record_id: str, revision: int, request: Request,
+                            x_workspace_id: str | None = Header(default=None)):
+        return operation(repository.linked_job_descriptions, kind, record_id, revision,
+                         **scope(request, x_workspace_id))
+
     path = "/" + kind.replace("_", "-")
+    if kind in {"requirements", "role_knowledge"}:
+        router.add_api_route(path + "/{record_id}/revisions/{revision}/job-descriptions",
+                             linked_descriptions, methods=["GET"], response_model=list[HRRecord],
+                             name=kind + "_linked_descriptions")
     for suffix, endpoint, methods, response in (("", listing, ["GET"], list[HRRecord]),
             ("", create, ["POST"], HRRecord), ("/{record_id}", detail, ["GET"], HRRecord),
             ("/{record_id}", update_record, ["PUT"], HRRecord),

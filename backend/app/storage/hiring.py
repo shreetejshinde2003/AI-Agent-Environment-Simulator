@@ -96,6 +96,21 @@ class HiringRepository:
                 .order_by(history.c.revision)).scalars().all()
             return [self._hiring_record(connection, kind, record_id, workspace_id, v) for v in versions]
 
+    def linked_job_descriptions(self, kind, record_id, revision, *, workspace_id, user_id):
+        """Traverse exact immutable source references, including historical JD revisions."""
+        with tenant_transaction(self.engine, workspace_id=workspace_id, user_id=user_id) as connection:
+            self._hiring_scope(connection, workspace_id, user_id, HRHumanPermission.HIRING_REQUEST_VIEW)
+            self._hiring_record(connection, kind, record_id, workspace_id, revision)
+            _, history = dbm.HR_TABLES["job_descriptions"]
+            source = "requirement" if kind == "requirements" else "knowledge"
+            rows = connection.execute(select(history.c.record_id, history.c.revision).where(
+                history.c.workspace_id == workspace_id,
+                history.c[source + "_id"] == record_id,
+                history.c[source + "_revision"] == revision).order_by(
+                history.c.record_id, history.c.revision)).all()
+            return [self._hiring_record(connection, "job_descriptions", rid, workspace_id, version)
+                    for rid, version in rows]
+
     def save_hiring(self, kind, content, *, workspace_id, user_id, record_id=None, expected_revision=None):
         content = MODELS[kind].model_validate(content.model_dump(mode="json"))
         head, history = dbm.HR_TABLES[kind]
