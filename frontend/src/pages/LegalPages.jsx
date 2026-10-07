@@ -1,6 +1,6 @@
 import "./LegalPages.css";
 
-const LAST_UPDATED = "2 October 2026";
+const LAST_UPDATED = "7 October 2026";
 
 function LegalLayout({ title, children }) {
   return (
@@ -61,6 +61,13 @@ export function PrivacyPolicy() {
         session record. Session credentials are stored server-side as a
         one-way digest rather than as the original browser session token.
       </p>
+      <p>
+        The application also stores workspace memberships, separate HR roles,
+        simulation and research execution evidence, custom agent revisions,
+        hiring requirements, organization knowledge, job description revisions,
+        and attributed human review decisions. Organization records are shared
+        with authorized active members according to their permissions.
+      </p>
 
       <h2>Google credentials and services</h2>
       <p>
@@ -91,12 +98,25 @@ export function PrivacyPolicy() {
         Authentication and AI workflow execution are separate parts of the
         system.
       </p>
+      <p>
+        Running AI assistance sends the selected saved HR source revisions to
+        Groq. Simulation and research runs send their directives and prepared
+        reference context to the configured Groq model. Do not include secrets
+        or confidential personal information in demonstration inputs. AI
+        proposals do not automatically update or approve human-authored records.
+      </p>
 
       <h2>Data retention and account access</h2>
       <p>
         Local user and session records may be retained for application
         operation, testing, security, and academic demonstration purposes.
         Sessions can be revoked by signing out.
+      </p>
+      <p>
+        Signing out does not delete saved application records. The recycle bin
+        can hide and restore simulation runs; permanent deletion is restricted
+        to eligible records without retained execution evidence. Automatic
+        retention and account erasure are not implemented.
       </p>
 
       <h2>Security</h2>
@@ -154,9 +174,11 @@ export function TermsOfService() {
 
       <h2>Human review</h2>
       <p>
-        Where the application provides workflow assistance, including future
-        HR-oriented functionality, AI output is intended to support human
-        review rather than replace authorized human decision-making.
+        HR assistance produces proposals for authorized humans to inspect.
+        Recruiters author and submit saved job descriptions, Reviewers assess
+        them, and Approvers make explicit decisions about the submitted revision.
+        Approval does not transfer to later revisions. Publication and autonomous
+        hiring decisions are not implemented.
       </p>
 
       <h2>Availability</h2>

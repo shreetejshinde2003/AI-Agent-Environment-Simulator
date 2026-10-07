@@ -103,7 +103,7 @@ def cleanup(ctx):
     temp.cleanup()
 
 
-def test_simulation_routes_require_authentication():
+def test_simulation_routes_require_authentication(isolated_startup_repository):
     with TestClient(app) as client:
         assert client.get("/api/v1/simulations").status_code == 401
         assert client.get("/api/v1/tasks").status_code == 401

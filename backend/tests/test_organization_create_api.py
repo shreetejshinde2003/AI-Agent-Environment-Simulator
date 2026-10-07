@@ -117,7 +117,7 @@ def cleanup_client(
     temp.cleanup()
 
 
-def test_create_organization_requires_authentication():
+def test_create_organization_requires_authentication(isolated_startup_repository):
     with TestClient(app) as client:
         response = client.post(
             "/api/v1/workspaces/organizations",

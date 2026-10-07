@@ -7,7 +7,7 @@ from collections import Counter
 from pathlib import Path
 
 from app.core.config import settings
-from app.experiments.provenance import sha256_text
+from app.experiments.provenance import sha256_text, build_input_fingerprint
 from app.models.schemas import BenchmarkCase, ResearchConfiguration
 
 CATALOG_PATH = Path(__file__).resolve().parents[3] / "database/benchmarks/research-v1.json"
@@ -35,7 +35,10 @@ def current_configuration():
     from app.api.routes.tasks import _IMPLEMENTED_AGENTS
     from app.agents.llm_client import DEFAULT_MODEL, DEFAULT_MAX_TOKENS
     root = Path(__file__).resolve().parents[1]
-    files = sorted((root / "agents").glob("*.py")) + [root / "api/routes/tasks.py", root / "models/schemas.py", root / "storage/database.py", Path(__file__)]
+    files = (sorted((root / "agents").glob("*.py"))
+             + sorted((root / "experiments").glob("*.py"))
+             + [root / "api/routes/tasks.py", root / "api/routes/experiments.py",
+                root / "models/schemas.py", root / "storage/database.py"])
     return ResearchConfiguration(
         agent_models=tuple((aid, agent.MODEL or DEFAULT_MODEL) for aid, agent in sorted(_IMPLEMENTED_AGENTS.items())),
         max_output_tokens=DEFAULT_MAX_TOKENS,
@@ -146,6 +149,21 @@ def comparison(tasks):
             integrity.append(f"Benchmark snapshot checksum mismatch for {task.id}")
         if task.directive != task.research.benchmark.execution_directive:
             integrity.append(f"Directive differs from benchmark snapshot for {task.id}")
+        # Agreement between hashes is insufficient if every hash is missing or
+        # identically corrupt. Recompute from the retained benchmark source.
+        expected_input = build_input_fingerprint(
+            directive=task.research.benchmark.execution_directive,
+            requested_task_type=task.research.benchmark.task_type,
+            dataset_id=None, dataset_checksum=None, benchmark_context=None, uploads=(),
+        )
+        provenance = task.provenance
+        if (provenance is None
+                or provenance.input_fingerprint != expected_input
+                or provenance.directive_sha256 != sha256_text(task.directive)
+                or provenance.requested_task_type != task.research.benchmark.task_type
+                or task.uploads or task.dataset_id is not None
+                or task.dataset_checksum is not None or task.benchmark_context is not None):
+            integrity.append(f"Input provenance missing or inconsistent for {task.id}")
         configured_models = dict(task.research.configuration.agent_models)
         if any(stage.model is not None and stage.model != configured_models.get(stage.agent_id) for stage in task.stages):
             integrity.append(f"Observed stage model differs from configuration for {task.id}")

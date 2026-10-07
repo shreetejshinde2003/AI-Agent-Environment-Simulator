@@ -106,7 +106,7 @@ def cleanup_client(client, temp, old_path, old_engine, old_engine_url):
     temp.cleanup()
 
 
-def test_workspace_list_requires_authentication():
+def test_workspace_list_requires_authentication(isolated_startup_repository):
     with TestClient(app) as client:
         response = client.get("/api/v1/workspaces")
     assert response.status_code == 401

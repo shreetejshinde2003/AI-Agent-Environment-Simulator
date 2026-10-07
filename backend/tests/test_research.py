@@ -256,3 +256,34 @@ def test_revoked_workspace_stops_worker_before_provider(local,monkeypatch):
     with pytest.raises(AuthorizationError):asyncio.run(bg())
     assert llm_client._client.chat.completions.create.await_count==0
     assert repo.get_for_tenant(admitted['runs'][0]['taskId'],workspace_id=org['id'],user_id='USR-a').status==TaskStatus.QUEUED
+
+
+@pytest.mark.parametrize('damage', ['missing', 'all_fingerprints', 'directive_hash'])
+def test_corrupt_input_provenance_blocks_comparison(local, damage):
+    repo, client = local
+    create(client)
+    runs = repo.list()
+    for task in runs:
+        if damage == 'missing':
+            task.provenance = None
+        else:
+            field = 'input_fingerprint' if damage == 'all_fingerprints' else 'directive_sha256'
+            task.provenance = task.provenance.model_copy(update={field: 'f' * 64})
+    result = comparison(runs)
+    assert not result['comparable']
+    assert any('provenance' in issue.lower() for issue in result['integrityIssues'])
+
+
+@pytest.mark.parametrize('module', ['api/routes/experiments.py', 'experiments/provenance.py', 'experiments/evaluation.py'])
+def test_research_configuration_detects_protocol_implementation_drift(monkeypatch, module):
+    from app.experiments.research import current_configuration
+    original = current_configuration()
+    read_text = Path.read_text
+    target = Path(__file__).resolve().parents[1] / 'app' / module
+
+    def changed(path, *args, **kwargs):
+        content = read_text(path, *args, **kwargs)
+        return content + '\n# Controlled implementation drift\n' if path == target else content
+
+    monkeypatch.setattr(Path, 'read_text', changed)
+    assert current_configuration().implementation_sha256 != original.implementation_sha256

@@ -326,7 +326,9 @@ class Repository(CustomAgentRepository, HiringRepository, HRReviewRepository):
             names = {row[0] for row in raw.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         if version > SCHEMA_VERSION:
             raise RuntimeError("Database schema is newer than this application")
-        if version < SCHEMA_VERSION and any(name.endswith("_v1_archive") for name in names):
+        # Completed V1 migrations deliberately retain archives. They must not
+        # block additive upgrades from later operational schema versions.
+        if version <= 1 and any(name.endswith("_v1_archive") for name in names):
             raise RuntimeError("Interrupted V1 migration; restore the .v1 backup before retrying")
         if version == 1:
             self._migrate_v1()

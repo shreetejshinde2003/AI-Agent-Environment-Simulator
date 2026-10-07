@@ -15,7 +15,7 @@ export function SimulationProvider({ children }) {
   }, [selectedTaskId]);
   const selectedTask = data.tasks.find(t => t.id === selectedTaskId) ?? null;
   function openCreatedRun(run) {
-    data.acceptRun(run);
+    if (!data.acceptRun(run)) return;
     selectTask(run.id);
     setActivePage("live");
     data.refresh();

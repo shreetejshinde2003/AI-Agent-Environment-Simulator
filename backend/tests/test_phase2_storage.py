@@ -120,6 +120,44 @@ def test_postgresql_configuration_without_server():
     repo.engine.dispose()  # no connection attempted
 
 
+@pytest.mark.parametrize("previous_version", [2, 9, 12])
+def test_completed_legacy_migration_can_upgrade_with_retained_archives(tmp_path, previous_version):
+    """An archive is evidence of a completed migration after schema version 1."""
+    test_v1_snapshot_migration_preserves_data(tmp_path)
+    path = tmp_path / "legacy.db"
+    with sqlite3.connect(path) as connection:
+        archives = connection.execute("SELECT payload FROM simulations_v1_archive").fetchall()
+        connection.execute("UPDATE schema_version SET version=?", (previous_version,))
+        connection.execute(f"PRAGMA user_version={previous_version}")
+    repo = Repository(f"sqlite:///{path}")
+    try:
+        repo.initialize()
+        repo.initialize()
+        assert repo.get("T-1").output == "real report"
+        assert repo.get_upload("U-1").prepared_context == "brief"
+        with sqlite3.connect(path) as connection:
+            assert connection.execute("SELECT payload FROM simulations_v1_archive").fetchall() == archives
+            assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
+            assert connection.execute("SELECT version FROM schema_version").fetchone()[0] == SCHEMA_VERSION
+        assert len(list(tmp_path.glob("legacy.db.v1.*.db"))) == 1
+    finally:
+        repo.engine.dispose()
+
+
+def test_interrupted_legacy_migration_with_archives_still_fails_closed(tmp_path):
+    path = tmp_path / "interrupted.db"
+    with sqlite3.connect(path) as connection:
+        connection.executescript("CREATE TABLE simulations_v1_archive (id TEXT); PRAGMA user_version=1;")
+    repo = Repository(f"sqlite:///{path}")
+    try:
+        with pytest.raises(RuntimeError, match="Interrupted V1 migration"):
+            repo.initialize()
+        with sqlite3.connect(path) as connection:
+            assert connection.execute("PRAGMA user_version").fetchone()[0] == 1
+    finally:
+        repo.engine.dispose()
+
+
 @requires_local_benchmarks
 def test_registry_six_datasets_and_safe_context(repo):
     records = register_all(repo)

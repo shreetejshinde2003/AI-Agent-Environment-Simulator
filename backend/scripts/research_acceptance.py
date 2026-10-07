@@ -6,6 +6,7 @@ admission. Exports synthetic Task/StageExecution evidence for all seven cases,
 three modes and two repetitions. Does not modify application .env or database.
 """
 import json
+import argparse
 import sys
 import tempfile
 from pathlib import Path
@@ -22,6 +23,10 @@ from test_research import wire, add_session
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--output', type=Path, default=ROOT/'docs/acceptance/phase9-fixture-report.json',
+                        help='Export destination; use a new file to preserve historical evidence.')
+    args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix='fm-research-acceptance-') as directory, MonkeyPatch.context() as monkeypatch:
         repo=Repository('sqlite:///'+str(Path(directory)/'evidence.db'))
         repo.initialize();repo.save_user(make_user('USR-research-fixture'));repo.ensure_personal_workspace('USR-research-fixture')
@@ -34,7 +39,8 @@ def main():
             report=client.get('/api/v1/experiments/research/'+eid+'/report').json()
             assert report['observedEvidence']['status']=='complete' and len(report['runEvidence'])==42
             assert all(r['metrics']['status']=='completed' for r in report['runEvidence'])
-            destination=ROOT/'docs/acceptance/phase9-fixture-report.json'
+            destination=args.output.resolve()
+            destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_text(json.dumps(report,indent=2)+'\n')
             print(f'42 persisted fixture trials exported to {destination}; no live provider calls.')
         repo.engine.dispose()

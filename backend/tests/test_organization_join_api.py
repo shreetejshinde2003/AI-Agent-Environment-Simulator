@@ -163,7 +163,7 @@ def client_for(
     return client
 
 
-def test_join_requires_authentication():
+def test_join_requires_authentication(isolated_startup_repository):
     with TestClient(app) as client:
         response = client.post(
             "/api/v1/workspaces/organizations/join",
