@@ -1,0 +1,26 @@
+ALTER ROLE
+ALTER ROLE
+REVOKE
+REVOKE
+DROP SCHEMA
+DROP ROLE
+           rolname            | rolcanlogin | rolsuper | rolbypassrls | password_erased
+------------------------------+-------------+----------+--------------+-----------------
+ fm_phase9_acceptance         | f           | f        | f            | t
+ fm_phase9_checkpoint_runtime | f           | f        | f            | t
+(2 rows)
+
+ remaining_test_sessions
+-------------------------
+                       0
+(1 row)
+
+ remaining_role_owned_schemas
+------------------------------
+                            0
+(1 row)
+
+ remaining_checkpoint_schema
+-----------------------------
+                           0
+(1 row)

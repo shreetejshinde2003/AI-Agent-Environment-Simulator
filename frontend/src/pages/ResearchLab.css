@@ -1,0 +1,18 @@
+.research-lab { display: grid; gap: 18px; max-width: 1300px; min-width: 0; }
+.research-lab section, .research-config { border: 1px solid var(--border-subtle); border-radius: 12px; padding: 18px; min-width: 0; background: var(--bg-panel); }
+.research-lab form, .research-lab fieldset { display: grid; gap: 12px; }
+.research-lab label { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+.research-lab input, .research-lab select, .research-lab textarea { max-width: 100%; min-width: 0; padding: 8px; background: var(--bg-app); color: var(--text-primary); border: 1px solid var(--border-subtle); border-radius: 6px; }
+.research-lab button { padding: 8px 12px; margin: 5px; border-radius: 6px; color: var(--text-primary); background: var(--bg-panel-raised); border: 1px solid var(--border-subtle); cursor: pointer; }
+.research-lab button:disabled { opacity: .5; cursor: default; }
+.research-lab pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 450px; overflow: auto; }
+.research-table-scroll { overflow-x: auto; }
+.research-lab table { width: 100%; border-collapse: collapse; }
+.research-lab td, .research-lab th { padding: 10px; border-bottom: 1px solid var(--border-subtle); text-align: left; vertical-align: top; }
+.research-lab td { white-space: nowrap; }
+.research-lab caption { text-align: left; margin: 12px 0; }
+.research-lab small { color: var(--text-secondary); }
+.research-case { align-items: flex-start !important; }
+.research-score-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap: 8px; }
+.research-run { margin-top: 18px; overflow-wrap: anywhere; }
+.research-lab textarea[readonly] { width: 100%; font-family: monospace; white-space: pre; }

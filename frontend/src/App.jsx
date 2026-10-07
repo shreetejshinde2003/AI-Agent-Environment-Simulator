@@ -5,6 +5,7 @@ import WorkspaceProvider from "./context/WorkspaceProvider";
 import { useWorkspace } from "./hooks/useWorkspace";
 import LiveSimulation from "./pages/LiveSimulation";
 import TaskSummary from "./pages/TaskSummary";
+import ResearchLab from "./pages/ResearchLab";
 import Hiring from "./pages/Hiring";
 import Agents from "./pages/Agents";
 import Messages from "./pages/Messages";
@@ -17,7 +18,7 @@ import { PrivacyPolicy, TermsOfService } from "./pages/LegalPages";
 import Login from "./pages/Login";
 import { useAuth } from "./hooks/useAuth";
 import "./components/dashboard/SimulationWorkspace.css";
-const PAGES = {live: LiveSimulation, "task-summary": TaskSummary, agents: Agents, hiring: Hiring,
+const PAGES = {research: ResearchLab, live: LiveSimulation, "task-summary": TaskSummary, agents: Agents, hiring: Hiring,
   messages: Messages, logs: Logs, replay: Replay, organizations: Organizations, settings: Settings, "recycle-bin": RecycleBin};
 function AppContent({ authUser, onSignOut }) {
   const workspace = useWorkspace();
@@ -63,7 +64,7 @@ function AppContent({ authUser, onSignOut }) {
           setActivePage("replay"),
       }}
     >
-      {activePage !== "live" && activePage !== "hiring" && (
+      {activePage !== "live" && activePage !== "hiring" && activePage !== "research" && (
         <div className="run-toolbar">
           <RunPicker
             tasks={tasks}
@@ -86,7 +87,7 @@ function AppContent({ authUser, onSignOut }) {
         </div>
       )}
 
-      {error && activePage !== "hiring" && (
+      {error && activePage !== "hiring" && activePage !== "research" && (
         <p
           className="run-error"
           role="alert"

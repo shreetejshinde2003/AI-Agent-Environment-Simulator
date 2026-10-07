@@ -22,6 +22,14 @@ async function request(path, options = {}) {
   return response.json();
 }
 export const apiClient = {
+  getResearchBenchmarks: (workspaceId, signal) => request("/experiments/benchmarks", {headers:workspaceHeaders(workspaceId), signal}),
+  getResearchExperiments: (workspaceId, signal) => request("/experiments/research", {headers:workspaceHeaders(workspaceId), signal}),
+  getResearchExperiment: (id, workspaceId, signal) => request("/experiments/research/"+encodeURIComponent(id), {headers:workspaceHeaders(workspaceId), signal}),
+  getResearchRun: (id, workspaceId, signal) => request("/tasks/"+encodeURIComponent(id), {headers:workspaceHeaders(workspaceId), signal}),
+  createResearchExperiment: (payload, workspaceId) => request("/experiments/research", {method:"POST",body:JSON.stringify(payload),headers:workspaceHeaders(workspaceId)}).catch(error=>{throw creationError(error);}),
+  rerunResearchExperiment: (id, workspaceId) => request("/experiments/research/"+encodeURIComponent(id)+"/rerun", {method:"POST",headers:workspaceHeaders(workspaceId)}).catch(error=>{throw creationError(error);}),
+  reviewResearchRun: (id, taskId, payload, workspaceId) => request("/experiments/research/"+encodeURIComponent(id)+"/runs/"+encodeURIComponent(taskId)+"/human-review",{method:"POST",body:JSON.stringify(payload),headers:workspaceHeaders(workspaceId)}),
+  exportResearchExperiment: (id, workspaceId, signal) => request("/experiments/research/"+encodeURIComponent(id)+"/report",{headers:workspaceHeaders(workspaceId),signal}),
   getHRReviewCapabilities: (workspaceId, signal) => request("/hiring/reviews/capabilities", {headers: workspaceHeaders(workspaceId), signal}),
   getHRReviews: (workspaceId, signal) => request("/hiring/reviews", {headers: workspaceHeaders(workspaceId), signal}),
   getHRReview: (id, workspaceId) => request("/hiring/reviews/" + encodeURIComponent(id), {headers: workspaceHeaders(workspaceId)}),

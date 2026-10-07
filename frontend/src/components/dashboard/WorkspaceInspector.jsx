@@ -43,6 +43,9 @@ function ResearchEvidence({task}) {
   return <section aria-labelledby="inspector-research-heading">
     <h4 id="inspector-research-heading">Research provenance</h4>
 
+    {task.research && <p>{task.research.configuration.evidenceKind === "deterministic_fixture"
+      ? "Deterministic fixture evidence — no live provider output or model conclusions."
+      : "Provider execution evidence"} · {task.research.benchmark.id} version {task.research.benchmark.version} · trial {task.research.trialNumber}</p>}
     <Metadata items={[
       ["Experiment protocol", <code key="experiment-protocol">{provenance.experimentProtocol}</code>],
       ["Input fingerprint", provenance.inputFingerprint

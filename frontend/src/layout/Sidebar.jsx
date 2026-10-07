@@ -5,6 +5,7 @@ import "./Sidebar.css";
 
 const NAV_ITEMS = [
   { id: "live", label: "Live Simulation", icon: Activity },
+  { id: "research", label: "Research Lab", icon: ClipboardList },
   { id: "task-summary", label: "Simulation History", icon: ClipboardList },
   { id: "agents", label: "Agents", icon: Users },
   { id: "messages", label: "Messages", icon: MessageSquare },
