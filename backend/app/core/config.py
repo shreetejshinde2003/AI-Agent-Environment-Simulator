@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     # never put production credentials in this source file.
     DATABASE_URL: str = "sqlite:///./simulator.db"
     # Deliberately gated until PostgreSQL persistence/security acceptance passes.
+    RESEARCH_JUDGE_ENABLED: bool = False
+    RESEARCH_LIVE_ENABLED: bool = False
+    RESEARCH_FIXTURE_SHA256: str | None = None
+    RESEARCH_EVIDENCE_KIND: str = "provider_live"
     LANGGRAPH_RUNTIME_ENABLED: bool = False
     CHECKPOINT_DATABASE_URL: str = ""
     CHECKPOINT_SCHEMA: str = "langgraph_checkpoints"

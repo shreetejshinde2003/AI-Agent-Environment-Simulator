@@ -311,6 +311,8 @@ class QualityJudgment(CamelModel):
     evaluation_protocol_version: Literal["evaluation-v1"] = "evaluation-v1"
     rubric_version: Literal["quality-rubric-v1"] = "quality-rubric-v1"
 
+    prompt_version: Literal["quality-judge-v1"] = "quality-judge-v1"
+    limitations: tuple[str, ...] = ("Model-assisted assessment is non-authoritative and may be incorrect or biased", "No calibrated uncertainty estimate is available")
     evaluator_provider: str
     evaluator_model: str
 
@@ -388,6 +390,124 @@ def display_title(directive: str, title: str | None = None) -> str:
     return text if len(text) <= 80 else text[:77].rstrip() + "…"
 
 
+class BenchmarkCheck(CamelModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    id: str = Field(min_length=1, max_length=80)
+    description: str = Field(min_length=1, max_length=300)
+    kind: Literal["contains", "exact", "json_fields", "excludes"]
+    values: tuple[str, ...] = Field(min_length=1, max_length=20)
+
+
+class BenchmarkCase(CamelModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    id: str = Field(pattern=r"^B-[a-z0-9-]+$")
+    version: Literal["1"] = "1"
+    title: str = Field(min_length=1, max_length=120)
+    rationale: str = Field(min_length=1, max_length=600)
+    directive: str = Field(min_length=1, max_length=10000)
+    source: str | None = Field(default=None, max_length=10000)
+    task_type: Literal["research_synthesis", "transformation", "analysis", "summarization", "reporting", "mixed", "structured_data_analysis"]
+    modes: tuple[Literal["single", "fixed", "adaptive"], ...] = ("single", "fixed", "adaptive")
+    checks: tuple[BenchmarkCheck, ...] = Field(min_length=1, max_length=20)
+
+    @model_validator(mode="after")
+    def validate_case(self):
+        if not self.directive.strip() or len({c.id for c in self.checks}) != len(self.checks):
+            raise ValueError("Benchmark requires meaningful directive and unique checks")
+        if not self.modes or len(set(self.modes)) != len(self.modes):
+            raise ValueError("Benchmark modes must be nonempty and unique")
+        for check in self.checks:
+            if any(not v.strip() for v in check.values):
+                raise ValueError("Check values must be meaningful")
+            if check.kind == "json_fields":
+                import json
+                for entry in check.values:
+                    key, value = entry.split("=", 1)
+                    number = json.loads(value)
+                    if not key or type(number) not in (int, float):
+                        raise ValueError("JSON field checks require numeric expected values")
+        return self
+
+    @property
+    def execution_directive(self):
+        return self.directive + ("\n\nSource:\n" + self.source if self.source else "")
+
+
+class ResearchConfiguration(CamelModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    provider: Literal["groq"] = "groq"
+    agent_models: tuple[tuple[str, str], ...]
+    max_output_tokens: int = Field(gt=0)
+    implementation_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    runtime: Literal["sequential", "langgraph"]
+    evidence_kind: Literal["provider_live", "deterministic_fixture"]
+    dependencies: tuple[tuple[str, str], ...] = ()
+    fixture_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    sampling: Literal["provider-default; seed unavailable"] = "provider-default; seed unavailable"
+    retry_policy: Literal["existing SDK defaults; provider retries unobserved"] = "existing SDK defaults; provider retries unobserved"
+
+
+class ResearchExperimentInput(CamelModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    purpose: str = Field(default="Compare execution modes on safe synthetic tasks", min_length=1, max_length=600)
+    benchmark_ids: tuple[str, ...] = Field(min_length=1, max_length=7)
+    benchmark_version: Literal["1"] = "1"
+    modes: tuple[Literal["single", "fixed", "adaptive"], ...] = ("single", "fixed", "adaptive")
+    repetitions: int = Field(default=1, ge=1, le=5, strict=True)
+
+    @model_validator(mode="after")
+    def bounded_unique(self):
+        if not self.purpose.strip() or not self.modes or len(self.modes) > 3:
+            raise ValueError("Purpose and at least one mode are required")
+        if len(set(self.benchmark_ids)) != len(self.benchmark_ids) or len(set(self.modes)) != len(self.modes):
+            raise ValueError("Cases and modes must be unique")
+        if len(self.benchmark_ids) * len(self.modes) * self.repetitions > 45:
+            raise ValueError("At most 45 runs per experiment")
+        return self
+
+
+class ResearchTrial(CamelModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    protocol_version: Literal["research-v1"] = "research-v1"
+    rubric_version: Literal["human-v1"] = "human-v1"
+    experiment: ResearchExperimentInput
+    configuration: ResearchConfiguration
+    benchmark: BenchmarkCase
+    benchmark_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    trial_number: int = Field(ge=1, le=5)
+    run_ids: tuple[str, ...]
+    parent_experiment_id: str | None = None
+
+
+class HumanRubricInput(CamelModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    expected_output_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    expected_review_count: int = Field(ge=0, strict=True)
+    correctness: int = Field(ge=1, le=5, strict=True)
+    relevance: int = Field(ge=1, le=5, strict=True)
+    completeness: int = Field(ge=1, le=5, strict=True)
+    clarity: int = Field(ge=1, le=5, strict=True)
+    groundedness: int = Field(ge=1, le=5, strict=True)
+    concision: int = Field(ge=1, le=5, strict=True)
+    source_consistency: int = Field(ge=1, le=5, strict=True)
+    notes: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("notes")
+    @classmethod
+    def meaningful_notes(cls, value):
+        if not value.strip():
+            raise ValueError("Review rationale is required")
+        return value.strip()
+
+
+class HumanRubricReview(CamelModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    rubric_version: Literal["human-v1"] = "human-v1"
+    reviewer_id: str
+    reviewed_at: datetime
+    assessment: HumanRubricInput
+
+
 class Task(CamelModel):
     id: str                        # e.g. "T-1024"
     directive: str                 # instruction given to the agent
@@ -431,9 +551,22 @@ class Task(CamelModel):
     route_plan: RoutePlan | None = None
     provenance: RunProvenance | None = None
     experiment_id: str | None = None
+    research: ResearchTrial | None = None
+    human_reviews: tuple[HumanRubricReview, ...] = ()
     custom_agent_revision: int | None = Field(default=None, ge=1)
     custom_agent_config_hash: str | None = None
     hr_execution: "HRAgentEvidence | None" = None
+
+    @model_validator(mode="after")
+    def research_boundary(self):
+        if self.research:
+            metadata = self.research
+            if (not self.experiment_id or not self.workspace_id or self.id not in metadata.run_ids
+                    or self.execution_mode.value not in metadata.experiment.modes
+                    or metadata.benchmark.id not in metadata.experiment.benchmark_ids
+                    or metadata.trial_number > metadata.experiment.repetitions or self.provenance is None):
+                raise ValueError("Research metadata must match authoritative Task identity")
+        return self
 
     @model_validator(mode="after")
     def hr_execution_boundary(self):

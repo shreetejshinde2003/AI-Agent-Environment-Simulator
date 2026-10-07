@@ -1,0 +1,206 @@
+[
+  {
+    "id": "B-direct",
+    "version": "1",
+    "title": "Direct answer",
+    "rationale": "Is one direct call sufficient for a bounded definition?",
+    "directive": "Explain the meaning of RTO in the supplied glossary. Answer with only the expansion.",
+    "source": "Glossary: RTO = recovery time objective.",
+    "taskType": "research_synthesis",
+    "modes": [
+      "single",
+      "fixed",
+      "adaptive"
+    ],
+    "checks": [
+      {
+        "id": "check-1",
+        "description": "Exact glossary expansion",
+        "kind": "exact",
+        "values": [
+          "recovery time objective"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "B-synthesis",
+    "version": "1",
+    "title": "Information synthesis",
+    "rationale": "Tests combining independent source facts.",
+    "directive": "Synthesize both project notes. Include the owner and launch month for each team.",
+    "source": "Note A: Cedar is owned by Mira and launches in May. Note B: Maple is owned by Ravi and launches in June.",
+    "taskType": "research_synthesis",
+    "modes": [
+      "single",
+      "fixed",
+      "adaptive"
+    ],
+    "checks": [
+      {
+        "id": "check-1",
+        "description": "All six source facts",
+        "kind": "contains",
+        "values": [
+          "Cedar",
+          "Mira",
+          "May",
+          "Maple",
+          "Ravi",
+          "June"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "B-data",
+    "version": "1",
+    "title": "Data reasoning",
+    "rationale": "Tests simple auditable arithmetic and strict structured output.",
+    "directive": "Analyze total and average requests. Return a JSON object with total and average numeric fields only.",
+    "source": "Requests by day: Monday 10, Tuesday 20, Wednesday 30.",
+    "taskType": "structured_data_analysis",
+    "modes": [
+      "single",
+      "fixed",
+      "adaptive"
+    ],
+    "checks": [
+      {
+        "id": "check-1",
+        "description": "Correct numeric JSON fields",
+        "kind": "json_fields",
+        "values": [
+          "total=60",
+          "average=20"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "B-analytical",
+    "version": "1",
+    "title": "Multi-step analysis",
+    "rationale": "Tests chained arithmetic and a source-bound recommendation.",
+    "directive": "Compare the two plans. Calculate annual cost for each and recommend the cheaper plan at 100 requests per month. Include annual costs and savings.",
+    "source": "Plan A: monthly fee 20 plus 1 per request. Plan B: monthly fee 50 plus 0.5 per request. Assume 12 months.",
+    "taskType": "analysis",
+    "modes": [
+      "single",
+      "fixed",
+      "adaptive"
+    ],
+    "checks": [
+      {
+        "id": "check-1",
+        "description": "Annual costs, savings and recommendation",
+        "kind": "contains",
+        "values": [
+          "1440",
+          "1200",
+          "240",
+          "Plan B"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "B-summary",
+    "version": "1",
+    "title": "Summarization",
+    "rationale": "Tests retention of critical facts during compression.",
+    "directive": "Summarize the update in at most three sentences. Preserve the date, risk, and mitigation.",
+    "source": "Launch is 15 May. Main risk is supplier delay. Mitigation is a backup supplier. No budget change is proposed.",
+    "taskType": "summarization",
+    "modes": [
+      "single",
+      "fixed",
+      "adaptive"
+    ],
+    "checks": [
+      {
+        "id": "check-1",
+        "description": "Critical update facts",
+        "kind": "contains",
+        "values": [
+          "15 May",
+          "supplier delay",
+          "backup supplier"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "B-report",
+    "version": "1",
+    "title": "Report generation",
+    "rationale": "Tests output organization and source-grounded completeness.",
+    "directive": "Write a report with headings Findings, Risks, and Recommendation using only the supplied facts.",
+    "source": "Pilot processed 40 tickets. Six remained open. Risk: limited staffing. Recommendation: extend pilot by one week.",
+    "taskType": "reporting",
+    "modes": [
+      "single",
+      "fixed",
+      "adaptive"
+    ],
+    "checks": [
+      {
+        "id": "check-1",
+        "description": "Required report sections",
+        "kind": "contains",
+        "values": [
+          "Findings",
+          "Risks",
+          "Recommendation"
+        ]
+      },
+      {
+        "id": "check-2",
+        "description": "Report facts",
+        "kind": "contains",
+        "values": [
+          "40",
+          "six",
+          "staffing",
+          "one week"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "B-mixed",
+    "version": "1",
+    "title": "Mixed transformation and summary",
+    "rationale": "Tests route selection for multiple requested capabilities.",
+    "directive": "Extract the action owners, analyze the dependency, and summarize the sequence. Include Owners, Dependency, and Sequence headings.",
+    "source": "Ada prepares the dataset. Ben validates it after Ada finishes. Cy publishes after Ben validates.",
+    "taskType": "mixed",
+    "modes": [
+      "single",
+      "fixed",
+      "adaptive"
+    ],
+    "checks": [
+      {
+        "id": "check-1",
+        "description": "Required sections",
+        "kind": "contains",
+        "values": [
+          "Owners",
+          "Dependency",
+          "Sequence"
+        ]
+      },
+      {
+        "id": "check-2",
+        "description": "Every action owner",
+        "kind": "contains",
+        "values": [
+          "Ada",
+          "Ben",
+          "Cy"
+        ]
+      }
+    ]
+  }
+]
