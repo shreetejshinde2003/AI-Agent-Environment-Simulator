@@ -1,61 +1,101 @@
-import {useEffect, useState, useRef} from "react";
+import {useEffect, useState, useRef, useCallback} from "react";
 import {useWorkspace} from "../hooks/useWorkspace";
 import {apiClient} from "../services/apiClient";
 import Button from "../components/common/Button";
 import Card from "../components/common/Card";
 import {hiringKinds, hiringLabels, hiringForm, hiringPayload, hiringStatuses, listFields} from "../utils/hiring";
 import "./Hiring.css";
+import HRWorkflow from "../components/hiring/HRWorkflow";
+import {loadHiringWorkspace} from "../utils/hrWorkflow";
 import HRReviews from "../components/hiring/HRReviews";
 import HRAssistance from "../components/hiring/HRAssistance";
 
 function HiringWorkspace({workspaceId}) {
+  const [section, setSection] = useState("workflow");
+  const [focus, setFocus] = useState(null);
+  const [snapshot, setSnapshot] = useState(null);
+  const [evidenceReload, setEvidenceReload] = useState(0);
   const detailRequest = useRef(0);
   const [kind, setKind] = useState("requirements");
   const [records, setRecords] = useState({});
   const [capabilities, setCapabilities] = useState(null);
   const [selected, setSelected] = useState(null);
   const [form, setForm] = useState(null);
+  const [linkedDrafts, setLinkedDrafts] = useState(null);
   const [history, setHistory] = useState([]);
   const [error, setError] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [opening, setOpening] = useState(false);
   const [saving, setSaving] = useState(false);
   const [reload, setReload] = useState(0);
   useEffect(() => {
     const invalidateDetails = () => {detailRequest.current++;};
-    invalidateDetails();
+    invalidateDetails(); setOpening(false);
     let alive = true;
     const controller = new AbortController();
-    setLoading(true); setError(""); setForm(null); setSelected(null); setHistory([]);
-    setRecords({}); setCapabilities(null);
+    if (!evidenceReload) {setLoading(true); setForm(null); setSelected(null); setHistory([]); setRecords({}); setCapabilities(null); setSnapshot(null);}
+    setError(""); setRefreshing(true);
     (async () => {
-      const permissions = await apiClient.getHiringCapabilities(workspaceId);
+      const data = await loadHiringWorkspace(apiClient, workspaceId, controller.signal);
       if (!alive) return;
-      setCapabilities(permissions);
-      if (!permissions.view) return;
-      const groups = await Promise.all(hiringKinds.map(item => apiClient.getHiringRecords(item.key, workspaceId, controller.signal)));
-      if (alive) setRecords(Object.fromEntries(hiringKinds.map((item, i) => [item.key, groups[i]])));
-    })().catch(e => {if (alive) setError(e.message);}).finally(() => {if (alive) setLoading(false);});
+      setCapabilities(data.capabilities); setRecords(data.records); setSnapshot(data);
+    })().catch(e => {if (alive) {setError(e.message); setSnapshot(null); setRecords({}); setCapabilities(null);}}).finally(() => {if (alive) {setLoading(false); setRefreshing(false);}});
     return () => {invalidateDetails(); alive = false; controller.abort();};
-  }, [workspaceId, reload]);
+  }, [workspaceId, reload, evidenceReload]);
+  const refreshEvidence = useCallback(() => setEvidenceReload(v => v + 1), []);
+  useEffect(() => {
+    if (!selected || kind === "job-descriptions" || !snapshot?.capabilities.view) {setLinkedDrafts(null); return;}
+    let alive = true;
+    const controller = new AbortController();
+    setLinkedDrafts(null);
+    apiClient.getLinkedJobDescriptions(kind, selected.id, selected.revision, workspaceId, controller.signal)
+      .then(rows => {if (alive) setLinkedDrafts(rows);})
+      .catch(e => {if (alive) {setError(e.message); if ([401,403,404].includes(e.status)) refreshEvidence();}});
+    return () => {alive = false; controller.abort();};
+  }, [kind, selected, workspaceId, snapshot, refreshEvidence]);
   const definition = hiringKinds.find(item => item.key === kind);
-  const canEdit = capabilities?.[kind.replaceAll("-", "_")] && selected?.content.status !== "archived";
-  const switchKind = value => {detailRequest.current++; setKind(value); setSelected(null); setForm(null); setHistory([]); setError("");};
-  const openRecord = async record => {
+  const headRevision = Math.max(records[kind]?.find(item => item.id === selected?.id)?.revision ?? 0, ...history.map(item => item.revision));
+  const canEdit = capabilities?.[kind.replaceAll("-", "_")] && selected?.content.status !== "archived" && !refreshing && (!selected || selected.revision >= headRevision);
+  const switchKind = value => {setOpening(false);detailRequest.current++; setKind(value); setSelected(null); setForm(null); setHistory([]); setLinkedDrafts(null); setError("");};
+  const openRecord = async (record, targetKind = kind, revision = record?.revision) => {
+    if (!record) {setError("Record is unavailable. Reload the workspace."); return;}
+    setSection("records"); setKind(targetKind);
     const requestId = ++detailRequest.current;
-    setSelected(record); setForm(hiringForm(kind, record.content)); setHistory([]); setError("");
+    setOpening(true); setSelected(null); setForm(null); setHistory([]); setLinkedDrafts(null); setError("");
     try {
-      const revisions = await apiClient.getHiringRevisions(kind, record.id, workspaceId);
-      if (requestId === detailRequest.current) setHistory(revisions);
-    } catch (e) {if (requestId === detailRequest.current) setError(e.message);}
+      const revisions = await apiClient.getHiringRevisions(targetKind, record.id, workspaceId);
+      if (requestId === detailRequest.current) {
+        const exact = revisions.find(item => item.revision === revision);
+        if (!exact) throw new Error("Source revision is unavailable.");
+        setSelected(exact); setForm(hiringForm(targetKind, exact.content)); setHistory(revisions);
+      }
+    } catch (e) {if (requestId === detailRequest.current) {setError(e.message); if ([401,403,404].includes(e.status)) refreshEvidence();}}
+    finally {if (requestId === detailRequest.current) setOpening(false);}
   };
   const save = async event => {
     event.preventDefault(); setSaving(true); setError("");
+    const requestId = ++detailRequest.current;
     try {
       const payload = hiringPayload(kind, form, selected?.revision);
-      await apiClient.saveHiringRecord(kind, selected?.id, payload, workspaceId);
-      setReload(value => value + 1);
-    } catch (e) {setError(e.message);}
+      const saved = await apiClient.saveHiringRecord(kind, selected?.id, payload, workspaceId);
+      if (requestId !== detailRequest.current) return;
+      setRecords(previous => ({...previous,[kind]:[saved,...(previous[kind] ?? []).filter(item => item.id !== saved.id)]}));
+      setSnapshot(previous => previous ? {...previous,records:{...previous.records,[kind]:[saved,...(previous.records[kind] ?? []).filter(item => item.id !== saved.id)]}} : previous);
+      setSelected(saved); setForm(hiringForm(kind, saved.content)); setHistory([]);
+      setEvidenceReload(value => value + 1);
+    } catch (e) {setError(e.message); if ([401,403,404].includes(e.status)) refreshEvidence();}
     finally {setSaving(false);}
+  };
+  const navigate = target => {
+    if (saving) return;
+    if (target.section === "record") {
+      const targetKind = target.kind ?? "job-descriptions";
+      openRecord(records[targetKind]?.find(item => item.id === target.id), targetKind, target.revision);
+    } else if (target.section === "create-draft") {
+      detailRequest.current++; setOpening(false); setSection("records"); setKind("job-descriptions"); setSelected(null); setHistory([]);
+      setForm({...hiringForm("job-descriptions"), requirement:`${target.id}@${target.revision}`});
+    } else {setSection(target.section); setFocus({...target, token:Date.now()});}
   };
   const sourceSelect = (field, sourceKind, label, required) => {
     const available = records[sourceKind] ?? [];
@@ -74,30 +114,34 @@ function HiringWorkspace({workspaceId}) {
     </select></label>;
   };
   return <div className="hiring-workspace">
-    <p className="muted">Organization hiring requirements, private role knowledge and human-authored job description drafts.</p>
+    <p className="muted">Requirement → role knowledge → human draft / AI proposals → revision → review → approval.</p>
     {loading && <p role="status">Loading hiring records…</p>}
-    {error && <p role="alert" className="run-error">{error} <Button type="button" disabled={saving} onClick={() => setReload(v => v + 1)}>Reload</Button></p>}
+    {error && <p role="alert" className="run-error">{error} <Button type="button" disabled={saving} onClick={() => {setEvidenceReload(0); setReload(v => v + 1);}}>Reload</Button></p>}
     {!loading && capabilities && !capabilities.view && <p role="status">An active HR Recruiter, Reviewer or Approver role is required. Manage assignments in Organizations.</p>}
     {!loading && capabilities?.view && <>
-      <HRAssistance workspaceId={workspaceId} records={records}/>
-      <HRReviews workspaceId={workspaceId} records={records} onRevise={id => {
-        const record = records["job-descriptions"].find(item => item.id === id);
-        detailRequest.current++; setKind("job-descriptions"); setSelected(record);
-        setForm(hiringForm("job-descriptions", record.content)); setHistory([]); setError("");
-      }}/>
+      <Button disabled={refreshing || saving} onClick={refreshEvidence}>Refresh hiring workspace</Button>
+      {refreshing && <p role="status">Refreshing saved workflow…</p>}
+      <nav aria-label="HR workflow navigation" className="hiring-tabs">{[["workflow", "Hiring workflow"], ["records", "Source records and drafts"], ["assistance", "AI assistance"], ["reviews", "Human review and approval"]].map(([key,label]) =>
+        <Button key={key} aria-pressed={section === key} disabled={saving} onClick={() => setSection(key)}>{label}</Button>)}</nav>
+      {snapshot && <div hidden={section !== "workflow"}><HRWorkflow snapshot={snapshot} onNavigate={navigate}/></div>}
+      <div hidden={section !== "assistance"}><HRAssistance workspaceId={workspaceId} records={records} snapshot={snapshot} onNavigate={navigate} focus={focus?.section === "assistance" ? focus : null} onChanged={refreshEvidence}/></div>
+      <div hidden={section !== "reviews"}><HRReviews workspaceId={workspaceId} records={records} snapshot={snapshot} focus={focus?.section === "reviews" ? focus : null} onChanged={refreshEvidence} onRevise={id => openRecord(records["job-descriptions"]?.find(item => item.id === id), "job-descriptions")}/></div>
+      <div hidden={section !== "records"}>
       <nav aria-label="Hiring sections" className="hiring-tabs">{hiringKinds.map(item => <Button type="button" key={item.key}
         aria-pressed={item.key === kind} disabled={saving} onClick={() => switchKind(item.key)}>{item.label}</Button>)}</nav>
       <div className="hiring-columns"><Card title={definition.label}>
-        <Button type="button" disabled={!capabilities[kind.replaceAll("-", "_")] || saving} onClick={() => {detailRequest.current++; setSelected(null); setForm(hiringForm(kind)); setHistory([]); setError("");}}>Create {kind === "job-descriptions" ? "draft" : "record"}</Button>
+        <Button type="button" disabled={!capabilities[kind.replaceAll("-", "_")] || saving} onClick={() => {detailRequest.current++; setOpening(false); setSelected(null); setForm(hiringForm(kind)); setHistory([]); setLinkedDrafts(null); setError("");}}>Create {kind === "job-descriptions" ? "draft" : "record"}</Button>
         {!capabilities[kind.replaceAll("-", "_")] && <p className="muted">Read-only access. HR Recruiter permission is required to edit.</p>}
         {!records[kind]?.length && <p>No records yet.</p>}
         <ul className="hiring-records">{records[kind]?.map(record => <li key={record.id}><Button type="button" disabled={saving} onClick={() => openRecord(record)}>
           {record.content.title}<small>{record.content.status} · revision {record.revision}</small></Button></li>)}</ul>
       </Card><Card title={selected ? "Record details" : "New record"}>
-        {!form && <p>Select a record or create one.</p>}
+        {!form && <p role="status">{opening ? "Loading selected revision…" : "Select a record or create one."}</p>}
+        {selected && <HRWorkflow snapshot={snapshot} record={selected} kind={kind} linkedDrafts={linkedDrafts} onNavigate={navigate}/>}
+        {selected && selected.revision < headRevision && selected.content.status !== "archived" && <p role="status">Historical revision · read-only. Select the current record to edit.</p>}
         {selected?.content.status === "archived" && <p className="muted">Archived record · read-only. Its revision history remains available.</p>}
         {form && <form onSubmit={save} className="hiring-form">
-          {selected && <p className="muted">{selected.id}<br/>Created by {selected.createdByUserId} · {new Date(selected.createdAt).toLocaleString()}<br/>Updated by {selected.updatedByUserId} · {new Date(selected.updatedAt).toLocaleString()}</p>}
+          {selected && <p className="muted">Revision {selected.revision} · {selected.id}<br/>Created by {selected.createdByUserId} · {new Date(selected.createdAt).toLocaleString()}<br/>Updated by {selected.updatedByUserId} · {new Date(selected.updatedAt).toLocaleString()}</p>}
           {definition.fields.map(field => <label key={field}>{hiringLabels[field]}{listFields.has(field) && <small>One item per line</small>}
             {field === "openings" ? <input type="number" min="1" max="10000" step="1" required value={form[field]} disabled={!canEdit || saving} onChange={e => setForm({...form, [field]: e.target.value})}/> :
               <textarea rows={listFields.has(field) || ["purpose", "summary"].includes(field) ? 3 : 1}
@@ -110,8 +154,8 @@ function HiringWorkspace({workspaceId}) {
           </select></label>
           <Button variant="primary" type="submit" disabled={!canEdit || saving}>{saving ? "Saving…" : "Save"}</Button>
         </form>}
-        {!!history.length && <details><summary>Revision history ({history.length})</summary>{history.map(record => <article key={record.revision}><h3>Revision {record.revision} · {record.content.status}</h3><p>{record.updatedByUserId} · {new Date(record.updatedAt).toLocaleString()}</p><dl>{Object.entries(record.content).map(([key, value]) => <div key={key}><dt>{hiringLabels[key] ?? key}</dt><dd>{Array.isArray(value) ? value.join("; ") : value && typeof value === "object" ? `${value.id} · revision ${value.revision}` : String(value ?? "None")}</dd></div>)}</dl></article>)}</details>}
-      </Card></div>
+        {!!history.length && <details><summary>Revision history ({history.length})</summary>{history.map(record => <article key={record.revision}><h3>Revision {record.revision} · {record.content.status}</h3><Button disabled={saving} onClick={() => openRecord(record, kind, record.revision)}>Inspect revision {record.revision}</Button><p>{record.updatedByUserId} · {new Date(record.updatedAt).toLocaleString()}</p><dl>{Object.entries(record.content).map(([key, value]) => <div key={key}><dt>{hiringLabels[key] ?? key}</dt><dd>{Array.isArray(value) ? value.join("; ") : value && typeof value === "object" ? `${value.id} · revision ${value.revision}` : String(value ?? "None")}</dd></div>)}</dl></article>)}</details>}
+      </Card></div></div>
     </>}
   </div>;
 }

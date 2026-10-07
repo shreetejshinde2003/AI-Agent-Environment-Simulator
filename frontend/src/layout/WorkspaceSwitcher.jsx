@@ -1,5 +1,7 @@
 import { Building2, UserRound } from "lucide-react";
 
+import {organizationRoleLabel} from "../utils/organizationMembers";
+
 export default function WorkspaceSwitcher({
   workspaces = [],
   activeWorkspace,
@@ -36,7 +38,7 @@ export default function WorkspaceSwitcher({
         {unavailable
           ? error?.message ?? "Unable to load workspace access."
           : activeWorkspace?.kind === "organization"
-            ? `${activeWorkspace.membershipRole === "owner" ? "Owner" : "Member"} · Organization`
+            ? `${organizationRoleLabel(activeWorkspace.membershipRole)} · Organization`
             : activeWorkspace
               ? "Private Personal Workspace"
               : "Resolving workspace…"}

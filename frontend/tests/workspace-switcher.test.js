@@ -62,3 +62,12 @@ test("workspace switcher exposes Personal Workspace and IICT with current member
   assert.match(html, /Owner · Organization/);
   assert.match(html, /aria-label="Active workspace"/);
 });
+
+test("workspace membership label preserves Admin without implying HR authority", () => {
+  const html = renderToStaticMarkup(createElement(WorkspaceSwitcher, {
+    workspaces: workspaceOptions(fixture),
+    activeWorkspace: {...fixture.organizations[0],membershipRole:"admin"},status:"ready",
+  }));
+  assert.match(html,/Admin · Organization/);
+  assert.doesNotMatch(html,/HR Recruiter|HR Reviewer|HR Approver/);
+});

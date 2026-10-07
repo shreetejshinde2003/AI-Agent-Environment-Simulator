@@ -86,3 +86,33 @@
 .hr-assistance-result ul {
   padding-left: 24px;
 }
+
+.hiring-workspace [hidden] {
+  display: none !important;
+}
+.hr-workflow-row {
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--border-subtle);
+  overflow-wrap: anywhere;
+}
+.hiring-workspace details {
+  margin: 12px 0;
+  min-width: 0;
+}
+.hiring-workspace summary {
+  cursor: pointer;
+  padding: 8px 0;
+}
+.hiring-workspace summary:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+.hiring-workspace .hiring-tabs .btn {
+  white-space: normal;
+  text-align: left;
+}
+@media (max-width: 600px) {
+  .hiring-workspace .hiring-tabs {
+    flex-direction: column;
+  }
+}
