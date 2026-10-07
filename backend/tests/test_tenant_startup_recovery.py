@@ -138,7 +138,8 @@ def test_pg_recovery_control_flow_uses_only_catalog_globally_and_locks_each_tena
     try:
         assert repo.recover_interrupted_tasks(tasks._mark_interrupted_failed) == 2
         assert contexts == [(ws, STARTUP_RECOVERY_PRINCIPAL) for ws in sorted([ws_a, ws_b])]
-        assert reads == sorted([ws_a, ws_b])
+        # Recovery scan and the immutable-evidence write guard both lock in tenant scope.
+        assert reads == [ws for ws in sorted([ws_a, ws_b]) for _ in range(2)]
         assert active_context == []
         assert repo.recover_interrupted_tasks(tasks._mark_interrupted_failed) == 0
     finally:

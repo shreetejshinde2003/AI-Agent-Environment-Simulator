@@ -514,10 +514,19 @@ class Repository(CustomAgentRepository, HiringRepository, HRReviewRepository):
         return UploadedContext.model_validate(payload) if payload is not None else None
 
     def _save_task(self, connection, task: Task):
-        existing = connection.execute(select(dbm.simulations.c.deleted_at).where(
-            dbm.simulations.c.id == task.id).with_for_update()).first()
+        existing = connection.execute(select(dbm.simulations.c.deleted_at, dbm.simulations.c.payload).where(
+            dbm.simulations.c.id == task.id,
+            dbm.simulations.c.workspace_id == task.workspace_id).with_for_update()).first()
         if existing is not None and existing.deleted_at is not None:
             raise ValueError("Deleted simulations cannot be modified; restore first.")
+        if existing is not None:
+            old = existing.payload
+            if old.get("research") != (task.research.model_dump(mode="json") if task.research else None):
+                raise ValueError("Research configuration and benchmark snapshots are immutable")
+            previous_reviews = old.get("humanReviews", [])
+            current_reviews = [r.model_dump(mode="json") for r in task.human_reviews]
+            if current_reviews[:len(previous_reviews)] != previous_reviews:
+                raise ValueError("Human research reviews are append-only")
         for upload in task.uploads:
             if task.workspace_id is None:
                 self._save_upload(connection, upload)
@@ -615,12 +624,62 @@ class Repository(CustomAgentRepository, HiringRepository, HRReviewRepository):
             workspace_id=workspace_id,
             user_id=user_id,
         ) as connection:
+            if task.research is not None:
+                from app.security.rbac import Permission
+                self._recycle_authorization(connection, workspace_id=workspace_id, user_id=user_id,
+                                            permission=Permission.SIMULATION_CREATE)
             if task.hr_execution is not None:
                 from app.security.hr_roles import HRHumanPermission
                 permission = (HRHumanPermission.JD_REVIEW if task.assigned_agent_id == "hr_draft_validation"
                               else HRHumanPermission.JD_DRAFT_EDIT)
                 self._hiring_scope(connection, workspace_id, user_id, permission)
             self._save_task(connection, task)
+
+    def save_research_group(self, tasks, *, workspace_id, user_id):
+        from app.security.rbac import Permission
+        if not tasks or any(t.workspace_id != workspace_id or t.research is None for t in tasks):
+            raise ValueError("Invalid research group ownership")
+        with tenant_transaction(self.engine, workspace_id=workspace_id, user_id=user_id) as connection:
+            self._recycle_authorization(connection, workspace_id=workspace_id, user_id=user_id,
+                                        permission=Permission.SIMULATION_CREATE)
+            for task in tasks:
+                self._save_task(connection, task)
+
+    def research_tasks(self, *, workspace_id, user_id, experiment_id=None):
+        from app.security.rbac import Permission
+        with tenant_transaction(self.engine, workspace_id=workspace_id, user_id=user_id) as connection:
+            self._recycle_authorization(connection, workspace_id=workspace_id, user_id=user_id,
+                                        permission=Permission.SIMULATION_VIEW)
+            rows = connection.execute(select(dbm.simulations.c.payload).where(
+                dbm.simulations.c.workspace_id == workspace_id,
+                dbm.simulations.c.deleted_at.is_(None),
+                dbm.simulations.c.task_type.is_distinct_from("hr_agent"),
+            ).order_by(dbm.simulations.c.created_at, dbm.simulations.c.id)).scalars().all()
+            return [Task.model_validate(p) for p in rows if p.get("research") and
+                    (experiment_id is None or p.get("experimentId") == experiment_id)]
+
+    def append_research_review(self, task_id, assessment, *, workspace_id, user_id):
+        from app.security.rbac import Permission
+        from app.models.schemas import HumanRubricReview, TaskStatus
+        from app.experiments.provenance import sha256_text
+        with tenant_transaction(self.engine, workspace_id=workspace_id, user_id=user_id) as connection:
+            self._recycle_authorization(connection, workspace_id=workspace_id, user_id=user_id,
+                                        permission=Permission.SIMULATION_EVALUATE)
+            row = connection.execute(select(dbm.simulations.c.payload).where(
+                dbm.simulations.c.id == task_id, dbm.simulations.c.workspace_id == workspace_id,
+                dbm.simulations.c.deleted_at.is_(None)).with_for_update()).scalar_one_or_none()
+            if row is None or not row.get("research"):
+                raise ValueError("Research run unavailable")
+            task = Task.model_validate(row)
+            if task.status != TaskStatus.COMPLETED or not task.output:
+                raise ValueError("Human review requires completed output")
+            if assessment.expected_review_count != len(task.human_reviews) or assessment.expected_output_sha256 != sha256_text(task.output):
+                raise ValueError("Output or review history changed; reload before scoring")
+            if len(task.human_reviews) >= 50:
+                raise ValueError("Review history limit reached")
+            task.human_reviews += (HumanRubricReview(reviewer_id=user_id, reviewed_at=datetime.now(timezone.utc), assessment=assessment),)
+            self._save_task(connection, task)
+            return task
 
     def get_for_tenant(
         self,

@@ -41,6 +41,7 @@ version are both kept at the bottom of this file as references.
 
 import time
 from dataclasses import dataclass
+from contextvars import ContextVar
 
 from groq import AsyncGroq
 
@@ -59,6 +60,8 @@ FAST_MODEL = settings.GROQ_FAST_MODEL     # <-- USER-DEFINED: cheap/fast agents 
 # affect billing/free-tier token budget on a cloud provider, unlike
 # with local Ollama, so don't raise it casually.
 DEFAULT_MAX_TOKENS = 1024
+
+research_call_configuration = ContextVar("research_call_configuration", default=None)
 
 _client = AsyncGroq(api_key=settings.GROQ_API_KEY)
 
@@ -93,7 +96,9 @@ async def call_llm(
     which mirrors OpenAI's chat-completions shape (prompt_tokens /
     completion_tokens) — real numbers, not guesses.
     """
-    resolved_model = model or DEFAULT_MODEL
+    pinned = research_call_configuration.get()
+    resolved_model = pinned[0] if pinned else model or DEFAULT_MODEL
+    max_tokens = pinned[1] if pinned else max_tokens
     start = time.perf_counter()
 
     messages = []

@@ -36,7 +36,7 @@ from app.storage.database import repository
 from app.security.rbac import Permission
 from app.security.rbac import AuthorizationError
 from app.websocket.manager import manager
-from app.agents.llm_client import DEFAULT_MODEL, DEFAULT_MAX_TOKENS
+from app.agents.llm_client import DEFAULT_MODEL, DEFAULT_MAX_TOKENS, research_call_configuration
 from app.experiments.provenance import build_run_provenance
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
@@ -166,6 +166,9 @@ async def evaluate_task_quality(
                 ),
             },
         )
+
+    if task.research and not settings.RESEARCH_JUDGE_ENABLED:
+        raise HTTPException(403, "Research judge calls require separate explicit approval")
 
     # Idempotency: never spend another evaluator request when a
     # quality judgment is already persisted.
@@ -528,11 +531,17 @@ async def _run_stage(task: Task, stage: StageExecution, context: ExecutionContex
     stage.started_at = now()
     started = time.perf_counter()
     token = current_execution.set(stage)
+    pin = research_call_configuration.set((dict(task.research.configuration.agent_models)[stage.agent_id],
+        task.research.configuration.max_output_tokens) if task.research else None)
     try:
         await emit(task, "agent_started", f"{stage.agent_id} started", stage.agent_id, user_id)
         await record_activity(stage.agent_id, "Started processing", task=task, user_id=user_id)
         if agent is None:
             raise NotImplementedError(f"Agent '{stage.agent_id}' is not implemented")
+        if task.research:
+            from app.experiments.research import current_configuration
+            if not settings.RESEARCH_LIVE_ENABLED or task.research.configuration != current_configuration():
+                raise ValueError("Research execution disabled or configuration changed since admission")
         result = await agent.run(task.directive, context=context)
         if not isinstance(result, str) or not result.strip():
             raise ValueError(f"{stage.agent_id} returned empty output")
@@ -547,6 +556,7 @@ async def _run_stage(task: Task, stage: StageExecution, context: ExecutionContex
             stage.input_error = exc.detail
         raise
     finally:
+        research_call_configuration.reset(pin)
         current_execution.reset(token)
         stage.completed_at = now()
         stage.duration_seconds = previous_duration + time.perf_counter() - started
