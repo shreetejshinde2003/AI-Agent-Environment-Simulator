@@ -7,18 +7,38 @@ selects a private Personal Workspace or an accessible Organization.
 ## Local setup and validation
 
 ```sh
-npm install
-npm run dev
+npm ci
+cp .env.example .env
+npm run dev -- --port 5173 --strictPort
 npm test
 npm run lint
 npm run build
 ```
 
-Start the API separately as described in `../backend/README.md`. Vite defaults
-to port 5173. `VITE_API_BASE_URL` selects the REST API origin;
-`VITE_WS_URL` optionally overrides its `/ws/live` WebSocket URL. Requests include
-opaque session cookies and workspace APIs carry `X-Workspace-Id`. Configure the
-backend's trusted `CORS_ORIGINS` for the actual browser origin.
+Use Node 22.12+ on the 22.x line, or a version satisfying the locked tools'
+`^20.19.0 || >=22.12.0` requirement (prior acceptance used Node 25.5.0).
+Run these commands from `frontend/`. Copy the template only when `.env` is absent.
+Open **http://localhost:5173**. `--strictPort` prevents an unnoticed port/origin change.
+
+Frontend tests, lint, build, login and legal-page rendering need no production
+credentials. Protected workspace pages require real sign-in with an authorized
+Google development client; GitHub access does not grant OAuth credentials and demo
+mode does not bypass authentication. Follow the [root onboarding guide](../README.md#local-development)
+for local SQLite/backend installation and exact localhost callback registration.
+
+Vite has no API proxy. Development REST, auth and workspace requests go directly to
+`VITE_API_BASE_URL` (default `http://localhost:8000`) with session cookies;
+`VITE_WS_URL` optionally overrides `/ws/live`. Workspace requests carry
+`X-Workspace-Id`. Keep hostnames consistent and configure backend `CORS_ORIGINS`
+and `FRONTEND_URL` for the browser origin. Never put secrets in `VITE_*` variables.
+Restart Vite after environment changes. Use the development server for local API
+work; preview uses production-origin auth routing without a backend proxy.
+
+If the frontend fails to start, check Node and `npm ci` output. If it loads but API
+requests fail, check `/health`, the Network panel's request origin, backend port,
+trusted CORS origins and cookies. An anonymous `/auth/me` 401 is expected;
+`google_auth_not_configured` 503 means backend OAuth settings are incomplete.
+Ollama is not part of the active runtime and does not fix either error.
 
 ## Implemented pages
 
