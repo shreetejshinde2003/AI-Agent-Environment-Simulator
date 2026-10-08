@@ -28,7 +28,7 @@ export default function AppShell({
   // it's the layout root, so this is where "global" data (like sim
   // stats needed by the Sidebar's info panel) gets pulled in and handed
   // down as plain props. Individual layout pieces stay context-free.
-  const { stats, connectionStatus, isDemoMode } = useSimulation();
+  const { stats, backendStatus, workspaceStatus, socketStatus } = useSimulation();
 
   return (
     <div className="app-shell">
@@ -40,7 +40,7 @@ export default function AppShell({
         stats={stats}
       />
       <div className="app-shell-main">
-        <Topbar {...topbarProps} connectionStatus={connectionStatus} isDemoMode={isDemoMode} />
+        <Topbar {...topbarProps} backendStatus={backendStatus} workspaceStatus={workspaceStatus} socketStatus={socketStatus} />
         <main className="app-shell-content" tabIndex={-1}>{children}</main>
       </div>
     </div>

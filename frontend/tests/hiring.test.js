@@ -43,7 +43,7 @@ before(async () => {
 after(async () => {await server?.close();});
 test("HR API integrates authenticated current workspace requests and revision payloads", async () => {
   const old = globalThis.fetch, requests = [];
-  globalThis.fetch = async (url, options) => {requests.push({url, options}); return {ok: true, json: async () => []};};
+  globalThis.fetch = async (url, options) => {requests.push({url, options}); return {headers: new Headers({"Content-Type": "application/json"}), ok: true, json: async () => []};};
   try {
     await client.getHiringCapabilities("WS-a");
     await client.getHiringRecords("requirements", "WS-a");
@@ -61,7 +61,7 @@ test("HR authorization and revision conflicts surface actionable errors", async 
   const old = globalThis.fetch;
   try {
     for (const [status, code] of [[403, "hr_permission_denied"], [409, "revision_conflict"], [404, "hr_record_unavailable"]]) {
-      globalThis.fetch = async () => ({ok: false, status, json: async () => ({detail: {code, message: "Reload records"}})});
+      globalThis.fetch = async () => ({headers: new Headers({"Content-Type": "application/json"}), ok: false, status, json: async () => ({detail: {code, message: "Reload records"}})});
       await assert.rejects(client.getHiringRecords("requirements", "WS-a"), error => error.status === status && error.code === code);
     }
   } finally {globalThis.fetch = old;}

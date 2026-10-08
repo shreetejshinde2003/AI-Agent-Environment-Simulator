@@ -10,8 +10,8 @@ export default function LiveSimulation() {
       <p className="muted">{workspaceSubtitle(selectedTask?.executionMode)}</p>
       {selectedTask && <p className="workbench-run-meta">{modeLabel(selectedTask.executionMode)} · {selectedTask.status.replaceAll("_", " ")}</p>}
     </div><QuickActions/></div>
-    {connectionStatus === "connecting" && <p className="muted" role="status">Checking backend connection…</p>}
-    {connectionStatus === "disconnected" && <p className="run-error" role="alert">Backend unavailable. New runs are disabled; saved records may be stale.</p>}
+    {connectionStatus === "connecting" && <p className="muted" role="status">Preparing workspace and REST connection…</p>}
+    {connectionStatus === "disconnected" && <p className="run-error" role="alert">Authenticated REST unavailable. New runs are disabled; saved records may be stale.</p>}
     {isLoading && <p className="muted" role="status">Loading saved simulations…</p>}
     {(hasLoaded || selectedTask) && <SimulationDetails task={selectedTask}/>}
   </div>;

@@ -1,15 +1,12 @@
-import { API_BASE_URL } from "./apiClient";
-
-const AUTH_BASE_URL = import.meta.env.DEV
-  ? API_BASE_URL
-  : window.location.origin;
+import { API_BASE_URL } from "./apiConfig";
+import { parseApiResponse } from "./apiResponse";
 
 export const AUTH_LOGIN_URL =
-  AUTH_BASE_URL + "/api/v1/auth/google/login";
+  API_BASE_URL + "/api/v1/auth/google/login";
 
 export async function getCurrentUser() {
   const response = await fetch(
-    AUTH_BASE_URL + "/api/v1/auth/me",
+    API_BASE_URL + "/api/v1/auth/me",
     {
       method: "GET",
       credentials: "include",
@@ -20,17 +17,13 @@ export async function getCurrentUser() {
     },
   );
 
-  if (response.status === 401) {
-    return null;
+  let payload;
+  try {
+    payload = await parseApiResponse(response, "/api/v1/auth/me");
+  } catch (error) {
+    if (response.status === 401 && error.code !== "unexpected_api_response") return null;
+    throw error;
   }
-
-  if (!response.ok) {
-    throw new Error(
-      `Authentication check failed (${response.status})`,
-    );
-  }
-
-  const payload = await response.json();
 
   return payload?.authenticated
     ? payload.user
@@ -39,7 +32,7 @@ export async function getCurrentUser() {
 
 export async function logout() {
   const response = await fetch(
-    AUTH_BASE_URL + "/api/v1/auth/logout",
+    API_BASE_URL + "/api/v1/auth/logout",
     {
       method: "POST",
       credentials: "include",
@@ -50,9 +43,7 @@ export async function logout() {
     },
   );
 
-  if (!response.ok && response.status !== 204) {
-    throw new Error(
-      `Sign out failed (${response.status})`,
-    );
+  if (response.status !== 204) {
+    await parseApiResponse(response, "/api/v1/auth/logout");
   }
 }

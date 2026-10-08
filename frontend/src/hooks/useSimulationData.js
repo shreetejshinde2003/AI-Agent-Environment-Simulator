@@ -7,7 +7,7 @@ import { useWorkspace } from "./useWorkspace";
 const EMPTY = {agents: [], tasks: [], metrics: {summary: {}, agents: [], history: []}};
 export function useSimulationData() {
   const health = useBackendConnection();
-  const { activeWorkspaceId } = useWorkspace();
+  const { activeWorkspaceId, status: workspaceStatus } = useWorkspace();
   const [data, setData] = useState(EMPTY);
   const [error, setError] = useState(null);
   const [hasLoaded, setHasLoaded] = useState(false);
@@ -77,6 +77,8 @@ export function useSimulationData() {
   const loaded = current && hasLoaded;
   return {...visible, stats: visible.metrics.summary, refresh, acceptRun, error: visibleError, socketStatus,
     hasLoaded: loaded, lastRefreshedAt: current ? lastRefreshedAt : null,
-    connectionStatus: visibleError ? "disconnected" : health, isDemoMode: false,
-    isLoading: !loaded && !visibleError};
+    backendStatus: health, workspaceStatus,
+    connectionStatus: visibleError || workspaceStatus === "error" || health === "disconnected" ? "disconnected" :
+      !activeWorkspaceId || !loaded ? "connecting" : health, isDemoMode: false,
+    isLoading: !loaded && !visibleError && workspaceStatus !== "error"};
 }

@@ -1,26 +1,13 @@
 import Badge from "./Badge";
 
-/**
- * ConnectionBadge — replaces every hardcoded "Live" pulse badge that
- * used to sit on dashboard cards regardless of whether anything was
- * actually connected. Now it reflects the REAL connectionStatus from
- * useSimulationData()/useBackendConnection().
- *
- * Props:
- *  - connectionStatus: "connecting" | "connected" | "disconnected"
- *  - isDemoMode: boolean — if true, always shows "Demo Mode" so sample
- *    data is never mistaken for a live feed
- *  - compact: boolean — true = short labels for card headers ("Live" /
- *    "Offline"), false = full labels for the Topbar ("Connected" /
- *    "Disconnected")
- */
+// REST availability only; live transport and workspace status have separate labels.
 export default function ConnectionBadge({ connectionStatus, isDemoMode, compact = false }) {
   if (isDemoMode) {
     return <Badge tone="warning">Demo Mode</Badge>;
   }
 
   if (connectionStatus === "connected") {
-    return <Badge tone="success">{compact ? "Live" : "Connected"}</Badge>;
+    return <Badge tone="success">{compact ? "REST" : "REST available"}</Badge>;
   }
 
   if (connectionStatus === "connecting") {

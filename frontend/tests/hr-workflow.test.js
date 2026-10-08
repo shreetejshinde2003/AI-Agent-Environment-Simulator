@@ -87,7 +87,7 @@ test("source inspection renders historical JD usage while allowing actions only 
 test("historical source lookup sends exact revision authenticated workspace and cancellation",async()=>{
  const {apiClient}=await server.ssrLoadModule("/src/services/apiClient.js");
  const old=globalThis.fetch,calls=[],controller=new AbortController();
- globalThis.fetch=async(url,options)=>{calls.push({url,options});return {ok:true,json:async()=>[]};};
+ globalThis.fetch=async(url,options)=>{calls.push({url,options});return {headers: new Headers({"Content-Type": "application/json"}), ok: true,json:async()=>[]};};
  try {
   await apiClient.getLinkedJobDescriptions("role-knowledge","KN-one",3,"WS-current",controller.signal);
   assert.ok(calls[0].url.endsWith("/hiring/role-knowledge/KN-one/revisions/3/job-descriptions"));

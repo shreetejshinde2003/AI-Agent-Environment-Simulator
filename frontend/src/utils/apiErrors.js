@@ -9,6 +9,6 @@ export function apiError(detail, status) {
 export function creationError(error) {
   // A timeout/network error or server failure cannot establish whether creation
   // was acknowledged. Preserve the draft; never automatically resubmit it.
-  error.outcomeUnknown = error.status == null || error.status >= 500;
+  error.outcomeUnknown = error.code === "unexpected_api_response" || error.status == null || error.status >= 500;
   return error;
 }

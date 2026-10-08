@@ -1,9 +1,7 @@
-import {apiError, creationError} from "../utils/apiErrors";
-// One environment-aware origin for REST, health and WebSocket traffic.
-export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ||
-  (import.meta.env.DEV ? "http://localhost:8000" : window.location.origin)).replace(/\/$/, "");
-export const WS_URL = import.meta.env.VITE_WS_URL ||
-  API_BASE_URL.replace(/^http/, "ws") + "/ws/live";
+import {creationError} from "../utils/apiErrors";
+import { API_BASE_URL } from "./apiConfig";
+import { parseApiResponse, requireResponseType } from "./apiResponse";
+export { API_BASE_URL, WS_URL } from "./apiConfig";
 function workspaceHeaders(workspaceId) {
   return workspaceId ? {"X-Workspace-Id": workspaceId} : {};
 }
@@ -14,12 +12,7 @@ async function request(path, options = {}) {
     headers: { "Content-Type": "application/json", ...options.headers },
     signal: options.signal ?? AbortSignal.timeout(15000),
   });
-  if (!response.ok) {
-    let detail;
-    try { detail = (await response.json()).detail; } catch { /* generic safe error */ }
-    throw apiError(detail, response.status);
-  }
-  return response.json();
+  return parseApiResponse(response, "/api/v1" + path);
 }
 export const apiClient = {
   getResearchBenchmarks: (workspaceId, signal) => request("/experiments/benchmarks", {headers:workspaceHeaders(workspaceId), signal}),
@@ -78,7 +71,9 @@ export const apiClient = {
   async exportRun(id, format, workspaceId) {
     const response = await fetch(API_BASE_URL + "/api/v1/simulations/" + encodeURIComponent(id) +
       "/export?format=" + format, {credentials: "include", headers: workspaceHeaders(workspaceId), signal: AbortSignal.timeout(15000)});
-    if (!response.ok) throw new Error("Export unavailable (" + response.status + ")");
+    const requestPath = "/api/v1/simulations/" + encodeURIComponent(id) + "/export";
+    if (!response.ok) await parseApiResponse(response, requestPath);
+    requireResponseType(response, requestPath, {json: "application/json", txt: "text/plain", csv: "text/csv"}[format]);
     const url = URL.createObjectURL(await response.blob());
     const link = document.createElement("a");
     link.href = url; link.download = id + "." + format;

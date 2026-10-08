@@ -47,7 +47,7 @@ before(async () => {
 after(async () => {await server?.close();});
 test("review list detail history submission and decision use session and current workspace", async () => {
   const old=globalThis.fetch, calls=[];
-  globalThis.fetch=async (url,options) => {calls.push({url,options});return {ok:true,json:async()=>({})};};
+  globalThis.fetch=async (url,options) => {calls.push({url,options});return {headers: new Headers({"Content-Type": "application/json"}), ok: true,json:async()=>({})};};
   try {
     await client.getHRReviewCapabilities("WS-a");await client.getHRReviews("WS-a");await client.getHRReview("HRR-a","WS-b");
     await client.getHRReviewHistory("HRR-a","WS-b");await client.submitHRReview(reviewSubmission(draft),"WS-a");
@@ -65,7 +65,7 @@ test("conflicts and revoked authority remain visible API errors", async () => {
   const old=globalThis.fetch;
   try {
     for (const status of [409,403,404,401]) {
-      globalThis.fetch=async()=>({ok:false,status,json:async()=>({detail:{code:"review_conflict",message:"Reload before deciding"}})});
+      globalThis.fetch=async()=>({headers: new Headers({"Content-Type": "application/json"}), ok: false,status,json:async()=>({detail:{code:"review_conflict",message:"Reload before deciding"}})});
       await assert.rejects(client.decideHRReview("HRR-a",{},true,"WS-a"), e=>e.status===status);
     }
   } finally {globalThis.fetch=old;}

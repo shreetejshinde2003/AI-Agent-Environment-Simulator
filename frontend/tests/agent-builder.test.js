@@ -37,7 +37,7 @@ after(async () => {await server?.close();});
 test("builder API client sends authenticated workspace-scoped definitions revisions and runs", async () => {
   const original = globalThis.fetch;
   const requests = [];
-  globalThis.fetch = async (url, options) => {requests.push({url, options}); return {ok: true, json: async () => ({id: "fixture"})};};
+  globalThis.fetch = async (url, options) => {requests.push({url, options}); return {headers: new Headers({"Content-Type": "application/json"}), ok: true, json: async () => ({id: "fixture"})};};
   try {
     await client.getCustomAgents("WS-fixture");
     await client.getAgentBuilderOptions("WS-fixture");
@@ -54,7 +54,7 @@ test("builder API client sends authenticated workspace-scoped definitions revisi
 test("builder surfaces API conflicts and uncertain run acknowledgement without fabricating output", async () => {
   const original = globalThis.fetch;
   try {
-    globalThis.fetch = async () => ({ok: false, status: 409, json: async () => ({detail: {code: "revision_conflict", message: "Reload before running"}})});
+    globalThis.fetch = async () => ({headers: new Headers({"Content-Type": "application/json"}), ok: false, status: 409, json: async () => ({detail: {code: "revision_conflict", message: "Reload before running"}})});
     await assert.rejects(client.runCustomAgent("CA-fixture", {text: "input", expectedRevision: 1}, "WS-fixture"), error => error.status === 409 && error.code === "revision_conflict" && !error.outcomeUnknown);
     globalThis.fetch = async () => {throw new Error("Connection lost");};
     await assert.rejects(client.runCustomAgent("CA-fixture", {text: "input", expectedRevision: 1}, "WS-fixture"), error => error.outcomeUnknown === true);

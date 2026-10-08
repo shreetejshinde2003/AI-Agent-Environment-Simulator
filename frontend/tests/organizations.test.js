@@ -78,6 +78,7 @@ test("workspace client includes credentials and uses only scoped workspace endpo
   globalThis.fetch = async (url, options) => {
     calls.push({url: String(url), options});
     return {
+      headers: new Headers({"Content-Type": "application/json"}),
       ok: true,
       status: 200,
       async json() { return {personalWorkspace: {id: "W-1"}, organizations: []}; },

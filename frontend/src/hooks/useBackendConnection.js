@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { API_BASE_URL } from "../services/apiClient";
+import { API_BASE_URL } from "../services/apiConfig";
+import { parseApiResponse } from "../services/apiResponse";
 export function useBackendConnection() {
   const [status, setStatus] = useState("connecting");
   useEffect(() => {
@@ -7,7 +8,8 @@ export function useBackendConnection() {
     async function check() {
       try {
         const response = await fetch(API_BASE_URL + "/health", {signal: AbortSignal.timeout(8000)});
-        if (alive) setStatus(response.ok ? "connected" : "disconnected");
+        const payload = await parseApiResponse(response, "/health");
+        if (alive) setStatus(response.ok && payload?.status === "ok" ? "connected" : "disconnected");
       } catch { if (alive) setStatus("disconnected"); }
     }
     check();

@@ -11,7 +11,7 @@ const source = (await readFile(new URL('../src/hooks/useSimulationData.js', impo
 const tick = () => new Promise(resolve => setImmediate(resolve));
 function world() {
   const slots = [], effects = [], requests = [];
-  let cursor = 0, workspaceId = 'A', hook;
+  let cursor = 0, workspaceId = 'A', workspaceStatus = 'ready', hook;
   const same = (a, b) => a && b && a.length === b.length && a.every((v, i) => Object.is(v, b[i]));
   const api = name => id => new Promise((resolve, reject) => requests.push({name, id, resolve, reject}));
   const context = {
@@ -33,7 +33,7 @@ function world() {
       });
     },
     apiClient: {getAgents: api('agents'), getTasks: api('tasks'), getMetrics: api('metrics')},
-    useWorkspace: () => ({activeWorkspaceId: workspaceId}),
+    useWorkspace: () => ({activeWorkspaceId: workspaceId, status: workspaceStatus}),
     useBackendConnection: () => 'connected', useLiveSocket: () => 'connected',
     mergeRuns, mergeActiveRuns, setInterval: () => 1, clearInterval() {},
   };
@@ -46,7 +46,7 @@ function world() {
   const resolve = (id, title) => requests.filter(r => r.id === id && !r.done).forEach(r => {
     r.done = true; r.resolve(r.name === 'tasks' ? [{id: title, workspaceId: id}] : r.name === 'agents' ? [] : {summary: {}});
   });
-  return {render, resolve, requests};
+  return {render, resolve, requests, setWorkspaceStatus: value => {workspaceStatus = value;}};
 }
 
 test('workspace change immediately hides prior simulation evidence before effects run', async () => {
@@ -83,4 +83,21 @@ test('late creation acknowledgement cannot inject a run into another workspace',
   const current = h.render();
   current.acceptRun({id: 'new-B', workspaceId: 'B'});
   assert.equal(h.render().tasks[0].id, 'new-B');
+});
+
+
+test('health success alone does not enable creation before authenticated data loads', () => {
+  const h = world();
+  assert.equal(h.render().connectionStatus, 'connecting');
+  const noWorkspace = h.render(null);
+  assert.equal(noWorkspace.connectionStatus, 'connecting');
+  assert.equal(noWorkspace.backendStatus, 'connected');
+});
+
+test('workspace bootstrap failure cannot display operational REST or endless loading', () => {
+  const h = world(); h.setWorkspaceStatus('error');
+  const state = h.render(null);
+  assert.equal(state.connectionStatus, 'disconnected');
+  assert.equal(state.workspaceStatus, 'error');
+  assert.equal(state.isLoading, false);
 });

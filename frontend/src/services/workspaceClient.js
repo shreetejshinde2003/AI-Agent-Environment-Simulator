@@ -1,13 +1,9 @@
-import { API_BASE_URL } from "./apiClient";
-import { apiError } from "../utils/apiErrors";
-
-const WORKSPACE_BASE_URL = import.meta.env.DEV
-  ? API_BASE_URL
-  : window.location.origin;
+import { API_BASE_URL } from "./apiConfig";
+import { parseApiResponse } from "./apiResponse";
 
 async function workspaceRequest(path = "", options = {}) {
   const response = await fetch(
-    WORKSPACE_BASE_URL + "/api/v1/workspaces" + path,
+    API_BASE_URL + "/api/v1/workspaces" + path,
     {
       ...options,
       credentials: "include",
@@ -20,17 +16,7 @@ async function workspaceRequest(path = "", options = {}) {
     },
   );
 
-  if (!response.ok) {
-    let detail;
-    try {
-      detail = (await response.json()).detail;
-    } catch {
-      // Preserve a generic message when the backend did not return JSON.
-    }
-    throw apiError(detail, response.status);
-  }
-
-  return response.json();
+  return parseApiResponse(response, "/api/v1/workspaces" + path);
 }
 
 export const workspaceClient = {

@@ -102,12 +102,12 @@ ownership, retained evidence and policies before applying changes to a live serv
 
 | Gate | Observed state / required verification | Acceptance scope |
 | --- | --- | --- |
-| Frontend proxy/session topology | `authClient` and `workspaceClient` use the frontend origin in production; checked-in `frontend/vercel.json` proxies only `/api/v1/auth/*`. Workspace requests can reach the SPA fallback. Choose/review a complete proxy/API/cookie topology, then verify authenticated workspace/HR/research requests in the deployed browser. Configuration change requires separate authorization. | Release blocker; local direct-origin tests do not resolve it. |
+| Frontend proxy/session topology | Local correction generalizes `/api/v1/*` to Railway and makes all production REST same-origin; `/health` has its own rewrite and SPA fallback excludes API paths. Cookie attributes are unchanged. Verify fresh OAuth callback/session, workspace/HR/research and run admission through deployed rewrites. | Local production-build fixture passed; deployment and real OAuth remain pending and require approval. |
 | OAuth/domain/branding | Verify actual client/audience/redirect/front-end/trusted origins, HTTPS cookie attributes and browser cross-site behavior, consent-screen support/privacy/branding and account restrictions in the intended deployment. | Local tests mock Google; real fresh sign-in remains unverified. |
 | PostgreSQL migration/runtime role | Back up and rehearse actual deployed schema/data migrations; verify NOSUPERUSER/NOBYPASSRLS, effective memberships, 22 ENABLE/FORCE policies, least privilege and tenant-context rollback. Current initializer requires schema/migration privileges; its separation from long-lived service privileges needs an operator-reviewed plan. | Local isolated acceptance only. |
 | Checkpoint roles and activation | Provision separate permanent migration owner and non-bypass runtime login, install/review exact policies, verify no CREATE/migration/application privileges and current serializer compatibility. Keep `LANGGRAPH_RUNTIME_ENABLED=false` until deployed checks pass. | No production graph activation. |
 | Worker/restart/recovery | Run one API worker; verify startup interruption handling, restart, explicit graph resume where enabled, advisory-lock exclusion and final evidence parity in that environment. Coordinated multi-worker startup and a durable queue are absent. | Real local process crash/recovery passes; deployment behavior unverified. |
-| WebSocket/reconnect | Verify trusted origin, secure endpoint, proxy support, session/logout/membership revocation, idle denial and REST resynchronization under actual deployed transport. | Local authenticated browser and automated tests only. |
+| WebSocket/reconnect | Direct Railway WSS cannot receive the host-only session cookie established through Vercel. Existing backend requires that cookie, trusted origin and workspace authorization. Approve a compatible transport/domain design before claiming production live events. | No new token protocol or WebSocket proxy. REST polling passes locally with live events offline; production WebSocket auth remains blocked by topology. |
 | Groq provider acceptance | Separately approve a small bounded live run set for model availability, failure handling, usage return and HR JSON validity. Repeated comparative research additionally needs a predeclared design and independent human assessment. | No paid/live request made; not needed for LOCAL acceptance. |
 | Research runtime/judge gates | Keep `RESEARCH_LIVE_ENABLED` and `RESEARCH_JUDGE_ENABLED` at their reviewed defaults until explicitly approved. Retain original fixture kind and implementation/benchmark snapshots. | Fixture machinery passes; live quality/speed/cost/significance unknown. |
 | Reproducible packaging | `groq` and `httpx` requirements remain unpinned. Capture and approve a resolved production dependency set, smoke-test it and retain source/config versions. Current installed package inventory is in final evidence. | No dependency replacement or reinstall. |
@@ -119,3 +119,77 @@ No live provider test is necessary for final local acceptance. A later request m
 identify provider, bounded request count, purpose and token/cost exposure before it
 runs. Google OIDC verification and Groq AI verification are distinct gates.
 The final verdict can be locally complete while these production gates remain.
+
+## Local routing correction — deployment review
+
+Local change only, 2026-10-08, on `main` from
+`16173864f0c32533b8e6b87e5e151c9adee1a791`. Nothing pushed or deployed.
+All production JSON browser REST clients use relative `/api/v1/...` with
+credentials included; local development continues to use a configured backend
+or localhost:8000. Public health uses same-origin `/health` forwarding. Rewrites
+use the existing public Railway destination, followed by a SPA rule excluding API
+paths, using [Vercel's documented external rewrite syntax](https://vercel.com/docs/routing/rewrites).
+The local evaluator validates the checked-in patterns; it is not the Vercel platform.
+
+Production steps that require separate approval:
+
+1. Push this local commit and deploy the frontend with `frontend/vercel.json` at
+   the configured Vercel project root. Verify generalized rewrite ordering, no
+   inappropriate authenticated-response caching, unknown API JSON/404 behavior,
+   frontend deep links and public health forwarding in the deployed environment.
+2. Review Vercel build variables: **no `VITE_*` variable is required for production
+   REST**. `VITE_API_BASE_URL` is ignored for production REST and is only useful
+   in development or as the existing WebSocket-origin fallback. `VITE_WS_URL`
+   remains the explicit production live-event endpoint setting; removing
+   `VITE_API_BASE_URL` requires retaining/reviewing `VITE_WS_URL`. A WSS URL alone
+   does not solve authentication. No new rewrite variable or secret was added.
+3. Review Railway `GOOGLE_REDIRECT_URI`, `FRONTEND_URL`, and the Google OAuth
+   authorized redirect registration. The callback must go through the frontend
+   `/api/v1/auth/google/callback` origin to establish the same host-only session
+   as REST. Review any existing registration before making separately approved
+   changes. No OAuth credentials or settings changed locally.
+4. Keep/review the frontend origin in Railway `CORS_ORIGINS`. Same-origin browser
+   REST no longer depends on browser cross-origin CORS, but the backend also uses
+   this allowlist for mutation/CSRF and WebSocket trusted-origin checks.
+5. Validate fresh sign-in → `/auth/me` → workspace discovery/selection → history
+   → run admission → logout through Vercel with existing secure/HttpOnly/SameSite
+   semantics. REST cookie topology is coherent in the code contract, contingent
+   on callback routing and deployed Set-Cookie forwarding. No production database
+   change is needed for this frontend correction.
+6. Separately approve/design a WebSocket transport that can use existing cookie
+   authentication; direct Railway WSS is incompatible with a Vercel host-only
+   cookie. Do not claim production live events until deployed session, revocation,
+   workspace and reconnect checks pass. No Vercel WebSocket proxy or new token
+   semantics were assumed. Paid/live-provider checks still need separate approval.
+
+Final validation: frontend **184 passed, 0 failed/skipped**; focused routing tests
+**24 passed**; affected backend **35 passed, 0 failed/skipped, 2 dependency warnings**.
+Lint passed (2 existing Fast Refresh warnings); build passed (one >500 kB chunk
+warning); whitespace validation passed. No Python implementation changes or
+PostgreSQL acceptance reruns. Backend scope: `test_google_auth_api.py`,
+`test_browser_session_security.py`, `test_websocket_workspace_isolation.py`,
+`test_simulation_workspace_api.py`. Initial mistyped test filenames collected no
+tests; the corrected invocation produced the reported 35 passing tests.
+
+Browser evidence and detailed observed journey are in [Project state](PROJECT_STATE.md#local-production-rest-routing-correction--2026-10-08).
+Provider output is synthetic; auth APIs, admission and persistence are real local
+fixture operations. No production service/account/database/provider was touched.
+
+Reproduce locally from the repository root:
+
+```sh
+.venv/bin/python backend/tests/ux_output_browser_fixture.py
+# In a second terminal:
+cd frontend
+npm run build
+node tests/fixtures/productionProxy.js
+```
+
+Visit `http://127.0.0.1:5179/_local_browser_fixture/recruiter`, select the seeded
+organization, inspect history and admit a Single run with
+`What is 6 times 7? Give only the final number.`. The SDK mock returns `42`.
+The proxy binds only localhost:5179 and forwards only to localhost:8019, replacing
+the checked-in public rewrite destination for acceptance. It serves the production
+build and intentionally does not proxy WebSockets. To reproduce controlled HTML
+failure, restart the proxy with `FM_FIXTURE_WORKSPACE_HTML=1`, then reload the
+browser. Stop both processes afterward; the fixture removes its temporary database.

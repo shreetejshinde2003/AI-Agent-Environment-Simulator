@@ -39,7 +39,7 @@ before(async () => {
 after(async () => {await server?.close();});
 test("agent discovery admission polling and history use authenticated workspace APIs", async () => {
   const old=globalThis.fetch, calls=[];
-  globalThis.fetch=async (url,options) => {calls.push({url,options});return {ok:true,json:async () => ({status:"queued"})};};
+  globalThis.fetch=async (url,options) => {calls.push({url,options});return {headers: new Headers({"Content-Type": "application/json"}), ok: true,json:async () => ({status:"queued"})};};
   try {
     await client.getHRAgents("WS-a"); await client.runHRAgent({agentId:"hr_jd_draft",requirement:{id:"HR-a",revision:1}},"WS-a");
     await client.getHRRun("HRRUN-one","WS-b"); await client.getHRRuns("WS-b");
@@ -52,7 +52,7 @@ test("agent discovery admission polling and history use authenticated workspace 
 });
 test("revocation and provider errors are exposed without fabricated results", async () => {
   const old=globalThis.fetch;
-  globalThis.fetch=async () => ({ok:false,status:403,json:async () => ({detail:{code:"hr_permission_denied",message:"Active HR role required"}})});
+  globalThis.fetch=async () => ({headers: new Headers({"Content-Type": "application/json"}), ok: false,status:403,json:async () => ({detail:{code:"hr_permission_denied",message:"Active HR role required"}})});
   try {await assert.rejects(client.getHRRun("HRRUN-one","WS-a"),e=>e.status===403 && e.code==="hr_permission_denied");}
   finally {globalThis.fetch=old;}
 });
