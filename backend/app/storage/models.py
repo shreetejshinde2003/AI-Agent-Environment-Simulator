@@ -1,4 +1,4 @@
-"""Version 12 operational tables; benchmark records never enter this schema."""
+"""Version 14 operational tables; benchmark records never enter this schema."""
 
 from sqlalchemy import (JSON, Boolean, CheckConstraint, Column, Float, ForeignKey,
                         Index, Integer, MetaData, String, Table, Text, UniqueConstraint, ForeignKeyConstraint)
@@ -78,6 +78,8 @@ workspaces = Table(
         ForeignKey("users.id", ondelete="RESTRICT"),
         nullable=False,
     ),
+
+    Column("invite_history", json_type, nullable=True),
 
     # Organization join codes will be generated in Phase 4.2.5/4.2.6.
     # Only a digest belongs in persistent storage, never the shareable code.

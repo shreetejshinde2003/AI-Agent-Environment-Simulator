@@ -66,7 +66,7 @@ def test_fresh_v10_database_contains_workspaces(tmp_path):
                 "PRAGMA user_version"
             ).fetchone()[0]
             == SCHEMA_VERSION
-            == 13
+            == 14
         )
 
 
@@ -237,7 +237,7 @@ def test_schema_v3_migrates_additively_to_v10(tmp_path):
             select(dbm.schema_version.c.version)
         ).scalar_one()
 
-    assert version == SCHEMA_VERSION == 13
+    assert version == SCHEMA_VERSION == 14
 
     with sqlite3.connect(path) as connection:
         assert (
@@ -245,7 +245,7 @@ def test_schema_v3_migrates_additively_to_v10(tmp_path):
                 "PRAGMA user_version"
             ).fetchone()[0]
             == SCHEMA_VERSION
-            == 13
+            == 14
         )
 
 

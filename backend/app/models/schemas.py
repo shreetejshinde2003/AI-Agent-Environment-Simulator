@@ -533,6 +533,7 @@ class Task(CamelModel):
     owner_id: str | None = None  # Legacy metadata; not an authorization boundary.
     workspace_id: str | None = None
     created_at: datetime | None = None
+    durable_checkpoint: bool = False
     execution_started_at: datetime | None = None
     completed_at: datetime | None = None
     elapsed_seconds: float | None = None

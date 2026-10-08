@@ -240,19 +240,21 @@ def test_missing_context_anonymous_no_approval_routes(context, monkeypatch):
     provider.assert_not_called()
 
 
-def test_hr_recycle_no_role_cannot_discover_and_evidence_retained(context, monkeypatch):
+def test_hr_recycle_no_role_cannot_discover_and_owner_can_explicitly_purge(context, monkeypatch):
     client, user, _, org, *_ = context
     body, _, _ = payload(client)
     monkeypatch.setattr(llm_client, 'call_llm', AsyncMock(return_value=response()))
     task = run(client, body)
     assert client.delete('/api/v1/simulations/'+task['id']).status_code == 200
-    assert client.request('DELETE', '/api/v1/recycle-bin/simulations/'+task['id'], json={'confirmPermanentDeletion':True}).status_code == 409
+    assert client.request('DELETE', '/api/v1/recycle-bin/simulations/'+task['id'], json={'confirmPermanentDeletion':False}).status_code == 422
     repository.deactivate_organization_human_role(workspace_id=org['id'], target_user_id=user['id'], human_role='hr_recruiter', actor_user_id=user['id'])
     assert client.get('/api/v1/recycle-bin').json() == []
     assert client.post('/api/v1/recycle-bin/simulations/'+task['id']+'/restore').status_code == 404
     repository.assign_organization_human_role(workspace_id=org['id'], target_user_id=user['id'], human_role='hr_recruiter', actor_user_id=user['id'])
     assert client.post('/api/v1/recycle-bin/simulations/'+task['id']+'/restore').status_code == 200
     assert client.get('/api/v1/hiring/agents/runs/'+task['id']).json()['stages'] == task['stages']
+    assert client.delete('/api/v1/simulations/'+task['id']).status_code == 200
+    assert client.request('DELETE', '/api/v1/recycle-bin/simulations/'+task['id'], json={'confirmPermanentDeletion':True}).status_code == 200
 
 
 def test_generic_request_cannot_claim_hr_execution_identity(context, monkeypatch):

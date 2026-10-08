@@ -716,6 +716,9 @@ async def _run_task_inner(
     started = time.perf_counter()
     previous_elapsed = (task.elapsed_seconds or 0) if resume else 0
 
+    from app.agents.checkpointing import AuthorizedPostgresSaver
+    if isinstance(checkpointer, AuthorizedPostgresSaver):
+        task.durable_checkpoint = True
     task.execution_started_at = now()
     task.status = TaskStatus.IN_PROGRESS
     task.error = None

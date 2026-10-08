@@ -294,7 +294,7 @@ def test_invalid_code_does_not_disclose_organization():
         cleanup_environment(state)
 
 
-def test_rejoining_is_idempotent():
+def test_consumed_invite_cannot_be_reused():
     state = setup_environment()
 
     client = client_for(
@@ -322,7 +322,7 @@ def test_rejoining_is_idempotent():
         )
 
         assert first.status_code == 200
-        assert second.status_code == 200
+        assert second.status_code == 404
 
         with repository.engine.connect() as connection:
             rows = connection.execute(

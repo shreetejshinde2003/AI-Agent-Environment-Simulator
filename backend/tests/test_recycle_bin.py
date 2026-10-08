@@ -128,14 +128,12 @@ def test_conflicts_and_missing_items_are_deterministic(context):
 
 
 @pytest.mark.parametrize("evidenced", [True, False])
-def test_completed_run_permanent_delete_blocked_even_without_stage_rows(context, evidenced):
+def test_owner_purges_completed_run_and_all_evidence(context, evidenced):
     repo, task, user = seeded(context, evidenced)
     before = snapshot(repo, task)
     operation(repo, task, user)
-    with pytest.raises(RecycleBinError) as failure:
-        operation(repo, task, user, action="purge", confirmed=True)
-    assert failure.value.detail["code"] == "execution_evidence_retained"
-    assert snapshot(repo, task) == before
+    assert operation(repo, task, user, action="purge", confirmed=True)["permanentlyDeleted"]
+    assert not any(snapshot(repo, task).values())
 
 
 def test_explicit_purge_of_never_executed_failed_legacy_run_preserves_shared_upload(context):
@@ -166,7 +164,7 @@ def test_explicit_purge_of_never_executed_failed_legacy_run_preserves_shared_upl
 
 
 @pytest.mark.parametrize("evidence", ["stage", "output", "started", "event", "graph", "relational_drift"])
-def test_failed_run_evidence_protection(context, evidence):
+def test_failed_run_evidence_is_explicitly_purgeable(context, evidence):
     repo, task, user = seeded(context)
     task.status, task.output, task.execution_mode = TaskStatus.FAILED, None, TaskExecutionMode.SINGLE_AGENT
     task.duration_seconds = 0
@@ -191,8 +189,8 @@ def test_failed_run_evidence_protection(context, evidence):
     if evidence != "relational_drift":
         repo.save_for_tenant(task, workspace_id=task.workspace_id, user_id=user)
     operation(repo, task, user)
-    with pytest.raises(RecycleBinError, match="Execution evidence"):
-        operation(repo, task, user, action="purge", confirmed=True)
+    operation(repo, task, user, action="purge", confirmed=True)
+    assert not any(snapshot(repo, task).values())
 
 
 def test_api_delete_list_restore_conflict_and_confirmation_contract(context):
@@ -204,9 +202,9 @@ def test_api_delete_list_restore_conflict_and_confirmation_contract(context):
     url = f"/api/v1/recycle-bin/simulations/{task.id}"
     assert client.request("DELETE", url, json={}).status_code == 422
     assert client.request("DELETE", url, json={"confirmPermanentDeletion": "true"}).status_code == 422
-    assert client.request("DELETE", url, json={"confirmPermanentDeletion": True}).status_code == 409
-    assert client.post(url + "/restore").status_code == 200
-    assert client.get(f"/api/v1/tasks/{task.id}").status_code == 200
+    assert client.request("DELETE", url, json={"confirmPermanentDeletion": True}).status_code == 200
+    assert client.post(url + "/restore").status_code == 404
+    assert client.get(f"/api/v1/tasks/{task.id}").status_code == 404
 
 
 @pytest.mark.parametrize("role", ["owner", "admin", "member"])
@@ -259,8 +257,8 @@ def test_v9_sqlite_migration_is_additive_repeatable_and_preserves_payload(contex
     assert repo.get(task.id).model_dump(mode="json") == payload
     assert snapshot(repo, task) == before
     with repo.engine.connect() as connection:
-        assert connection.exec_driver_sql("PRAGMA user_version").scalar_one() == SCHEMA_VERSION == 13
-        assert connection.execute(select(dbm.schema_version.c.version)).scalar_one() == 13
+        assert connection.exec_driver_sql("PRAGMA user_version").scalar_one() == SCHEMA_VERSION == 14
+        assert connection.execute(select(dbm.schema_version.c.version)).scalar_one() == 14
 
 
 def test_recycle_routes_require_authentication(context):
@@ -331,7 +329,7 @@ def test_concurrent_lifecycle_change_has_one_winner_and_one_conflict(context, ac
 
 
 @pytest.mark.parametrize("table", ["metrics", "task"])
-def test_relational_evidence_drift_blocks_purge(context, table):
+def test_purge_removes_relational_evidence_drift(context, table):
     repo, task, user = seeded(context)
     task.status, task.output, task.execution_mode = TaskStatus.FAILED, None, TaskExecutionMode.SINGLE_AGENT
     task.duration_seconds = 0
@@ -343,11 +341,11 @@ def test_relational_evidence_drift_blocks_purge(context, table):
         else:
             connection.execute(update(dbm.tasks).where(dbm.tasks.c.simulation_id == task.id).values(output="Retained execution"))
     operation(repo, task, user)
-    with pytest.raises(RecycleBinError, match="Execution evidence"):
-        operation(repo, task, user, action="purge", confirmed=True)
+    operation(repo, task, user, action="purge", confirmed=True)
+    assert not any(snapshot(repo, task).values())
 
 
-def test_list_exposes_authoritative_eligibility_and_fails_closed_on_relational_drift(context):
+def test_list_exposes_owner_purge_eligibility_with_execution_evidence(context):
     repo, task, user = seeded(context)
     task.status, task.output, task.execution_mode = TaskStatus.FAILED, None, TaskExecutionMode.SINGLE_AGENT
     task.duration_seconds = 0
@@ -360,5 +358,18 @@ def test_list_exposes_authoritative_eligibility_and_fails_closed_on_relational_d
             type='simulation_started',timestamp=datetime.now(timezone.utc).isoformat(),
             agent_id=None,text='retained'))
     item = repo.list_recycled_simulations(workspace_id=task.workspace_id,user_id=user)[0]
-    assert item['permanentDeletionEligible'] is False
-    assert item['protectionReason']=='execution_evidence_retained'
+    assert item['permanentDeletionEligible'] is True
+    assert item['protectionReason'] is None
+
+
+def test_durable_checkpoint_marker_fails_closed_when_runtime_credentials_removed(context, monkeypatch):
+    from app.core.config import settings
+    repo, task, user = seeded(context, evidenced=True)
+    task.durable_checkpoint = True
+    repo.save_for_tenant(task, workspace_id=task.workspace_id, user_id=user)
+    operation(repo, task, user)
+    monkeypatch.setattr(settings, "CHECKPOINT_DATABASE_URL", "")
+    monkeypatch.setattr(settings, "LANGGRAPH_RUNTIME_ENABLED", False)
+    with pytest.raises(RecycleBinError, match="checkpoint cleanup"):
+        operation(repo, task, user, action="purge", confirmed=True)
+    assert any(snapshot(repo, task).values())

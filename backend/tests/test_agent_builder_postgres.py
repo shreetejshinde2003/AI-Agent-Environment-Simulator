@@ -127,10 +127,9 @@ def test_live_custom_execution_persists_stage_and_recycle_evidence(pg_repo, monk
     with tenant_transaction(pg_repo.engine, **identity) as connection:
         assert connection.execute(select(dbm.agent_executions).where(dbm.agent_executions.c.simulation_id == task.id)).all()
     pg_repo.recycle_simulation(task.id, **identity)
-    with pytest.raises(Exception, match="Execution evidence"):
-        pg_repo.recycle_simulation(task.id, action="purge", confirmed=True, **identity)
-    pg_repo.recycle_simulation(task.id, action="restore", **identity)
-    assert pg_repo.get_for_tenant(task.id, **identity).model_dump(mode="json") == result.model_dump(mode="json")
+    pg_repo.recycle_simulation(task.id, action="purge", confirmed=True, **identity)
+    assert pg_repo.get_for_tenant(task.id, **identity) is None
+    assert pg_repo.get_custom_agent(agent.id, **identity, revision=1).revision == 1
 
 
 def test_live_unicode_name_casefold_expansion_is_supported(pg_repo):

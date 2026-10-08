@@ -86,6 +86,7 @@ def _setup():
         name="IICT",
     )
     repository.join_organization(user_id="USR-admin-a", join_code=code_a)
+    code_a = repository.manage_organization_invites(workspace_id=org_a["id"], user_id="USR-owner-a", action="generate")["joinCode"]
     repository.join_organization(user_id="USR-member-a", join_code=code_a)
     repository.change_organization_membership_role(
         workspace_id=org_a["id"],
@@ -99,6 +100,7 @@ def _setup():
         name="External Org",
     )
     repository.join_organization(user_id="USR-member-b", join_code=code_b)
+    code_b = repository.manage_organization_invites(workspace_id=org_b["id"], user_id="USR-owner-b", action="generate")["joinCode"]
     repository.join_organization(user_id="USR-member-a", join_code=code_b)
 
     clients = {user_id: _session_client(user_id) for user_id in user_ids}

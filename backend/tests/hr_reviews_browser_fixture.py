@@ -28,7 +28,9 @@ for user in ('recruiter', 'reviewer', 'approver'):
     repository.save_user(user_record('USR-'+user))
     repository.ensure_personal_workspace('USR-'+user)
 org, code = repository.create_organization(creator_user_id='USR-recruiter', name='Phase 7 browser acceptance')
-for user in ('reviewer', 'approver'): repository.join_organization(user_id='USR-'+user, join_code=code)
+for user in ('reviewer', 'approver'):
+    code = repository.manage_organization_invites(workspace_id=org['id'], user_id='USR-recruiter', action='generate')['joinCode']
+    repository.join_organization(user_id='USR-'+user, join_code=code)
 for user in ('recruiter', 'reviewer', 'approver'):
     repository.assign_organization_human_role(workspace_id=org['id'], target_user_id='USR-'+user,
         human_role='hr_'+user, actor_user_id='USR-recruiter')

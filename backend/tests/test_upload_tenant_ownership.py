@@ -78,7 +78,7 @@ def test_v9_upload_schema_has_explicit_nullable_ownership(tmp_path):
         for column in inspect(repo.engine).get_columns("uploads")
     }
 
-    assert SCHEMA_VERSION == 13
+    assert SCHEMA_VERSION == 14
     assert columns["workspace_id"]["nullable"] is True
     assert columns["created_by_user_id"]["nullable"] is True
 

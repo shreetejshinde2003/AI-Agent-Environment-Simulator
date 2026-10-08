@@ -34,7 +34,9 @@ users=('recruiter','reviewer','approver','combined','iamadmin','member')
 for user in users:
     repository.save_user(user_record('USR-'+user));repository.ensure_personal_workspace('USR-'+user)
 org,code=repository.create_organization(creator_user_id='USR-recruiter',name='Phase 8 hiring acceptance')
-for user in users[1:]: repository.join_organization(user_id='USR-'+user,join_code=code)
+for user in users[1:]:
+    code = repository.manage_organization_invites(workspace_id=org['id'], user_id='USR-recruiter', action='generate')['joinCode']
+    repository.join_organization(user_id='USR-'+user,join_code=code)
 repository.change_organization_membership_role(workspace_id=org['id'],target_user_id='USR-iamadmin',actor_user_id='USR-recruiter',new_role='admin')
 for user in users:
     roles=('hr_recruiter','hr_reviewer','hr_approver') if user=='combined' else ('hr_'+user,) if user in users[:3] else ()

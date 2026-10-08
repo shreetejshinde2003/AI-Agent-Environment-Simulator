@@ -55,9 +55,11 @@ def test_live_inactive_membership_hidden_and_secret_rejoin_preserves_role(pg_rep
         assert connection.execute(select(dbm.workspaces).where(dbm.workspaces.c.id == org["id"])).all() == []
     assert pg_repo.list_organization_memberships_for_user("USR-a", active_only=False) == []
     assert pg_repo.get_organization_membership(org["id"], "USR-a") is None
+    code = pg_repo.manage_organization_invites(workspace_id=org["id"], user_id="USR-b", action="generate")["joinCode"]
     _, membership = pg_repo.join_organization(user_id="USR-a", join_code=code)
     assert membership["membership_role"] == "admin" and membership["active"]
     # Existing owner must not be downgraded by repeated join.
+    code = pg_repo.manage_organization_invites(workspace_id=org["id"], user_id="USR-b", action="generate")["joinCode"]
     assert pg_repo.join_organization(user_id="USR-b", join_code=code)[1]["membership_role"] == "owner"
 
 

@@ -53,6 +53,7 @@ def setup_case():
         name="IICT",
     )
     repository.join_organization(user_id=admin["id"], join_code=join_code)
+    join_code = repository.manage_organization_invites(workspace_id=workspace["id"], user_id=owner["id"], action="generate")["joinCode"]
     repository.join_organization(user_id=member["id"], join_code=join_code)
     repository.change_organization_membership_role(
         workspace_id=workspace["id"],

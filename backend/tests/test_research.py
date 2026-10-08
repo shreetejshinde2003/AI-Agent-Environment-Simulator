@@ -61,6 +61,21 @@ def create(client, **kwargs):
     return result.json()['experimentId']
 
 
+def test_owner_purge_marks_research_incomplete_without_rewriting_remaining_evidence(local):
+    repo, client = local
+    eid = create(client)
+    scope = dict(workspace_id=repo.get_personal_workspace('USR-a')['id'], user_id='USR-a')
+    runs = repo.research_tasks(**scope, experiment_id=eid)
+    original = {run.id: run.model_dump(mode='json') for run in runs[1:]}
+    repo.recycle_simulation(runs[0].id, **scope)
+    repo.recycle_simulation(runs[0].id, **scope, action='purge', confirmed=True)
+    remaining = repo.research_tasks(**scope, experiment_id=eid)
+    assert {run.id: run.model_dump(mode='json') for run in remaining} == original
+    summary = client.get('/api/v1/experiments/research/' + eid).json()
+    assert summary['status'] != 'complete' and not summary['comparable']
+    assert 'Some run evidence is missing or deleted' in summary['integrityIssues']
+
+
 def review_payload(run, count=0):
     return dict(expectedOutputSha256=run['outputSha256'], expectedReviewCount=count,
                 correctness=4,relevance=4,completeness=4,clarity=4,groundedness=4,concision=4,sourceConsistency=4,notes='Source checked by test reviewer')

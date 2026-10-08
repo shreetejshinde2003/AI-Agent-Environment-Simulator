@@ -136,12 +136,13 @@ def test_execution_uses_persisted_config_provider_and_authoritative_evidence(con
     with repository.engine.connect() as connection:
         for table in (dbm.tasks, dbm.agent_executions, dbm.run_events, dbm.activity_events):
             assert connection.execute(select(table).where(table.c.simulation_id == task["id"])).all()
-    # Existing recycle bin keeps custom execution evidence too.
+    # Owner-confirmed purge removes custom execution evidence; revisions remain.
     assert client.delete('/api/v1/simulations/' + task["id"]).status_code == 200
-    assert client.request('DELETE', '/api/v1/recycle-bin/simulations/' + task["id"], json={"confirmPermanentDeletion": True}).status_code == 409
-    assert client.post('/api/v1/recycle-bin/simulations/' + task["id"] + '/restore').status_code == 200
-    assert client.get('/api/v1/tasks/' + task["id"]).json() == task
-    assert client.post('/api/v1/tasks/' + task["id"] + '/resume').status_code == 409
+    assert client.request('DELETE', '/api/v1/recycle-bin/simulations/' + task["id"], json={"confirmPermanentDeletion": True}).status_code == 200
+    assert client.post('/api/v1/recycle-bin/simulations/' + task["id"] + '/restore').status_code == 404
+    assert client.get('/api/v1/tasks/' + task["id"]).status_code == 404
+    assert repository.get_custom_agent(agent['id'], workspace_id=context[2]['id'], user_id=context[1]['id'], revision=1).revision == 1
+    assert client.post('/api/v1/tasks/' + task["id"] + '/resume').status_code == 404
 
 
 @pytest.mark.parametrize("failure", ["provider", "timeout", "empty", "oversize"])
@@ -178,7 +179,7 @@ def test_v10_additive_migration_and_integrity(context):
     repository.initialize()
     repository.initialize()
     with repository.engine.connect() as connection:
-        assert connection.execute(select(dbm.schema_version.c.version)).scalar_one() == SCHEMA_VERSION == 13
+        assert connection.execute(select(dbm.schema_version.c.version)).scalar_one() == SCHEMA_VERSION == 14
         assert connection.exec_driver_sql('PRAGMA foreign_key_check').all() == []
     assert context[0].get(f'/api/v1/agent-builder/{agent["id"]}').json() == agent
     with repository.engine.begin() as connection:
@@ -311,3 +312,12 @@ def test_unicode_name_casefold_expansion_is_supported(context):
     assert response.status_code == 201
     assert response.json()["config"]["name"] == payload["name"]
     assert context[0].post('/api/v1/agent-builder', json=payload).status_code == 409
+
+
+@pytest.mark.parametrize('agent_id', ['orchestrator', 'research', 'data', 'analysis', 'summarizer', 'report', 'direct', 'web_search'])
+def test_builtin_agent_cannot_be_archived_through_custom_api(context, agent_id):
+    client = context[0]
+    assert client.put('/api/v1/agent-builder/' + agent_id,
+        json={**config(), 'active': False, 'expectedRevision': 1}).status_code == 404
+    assert client.delete('/api/v1/agents/' + agent_id).status_code == 405
+    assert client.get('/api/v1/agents/' + agent_id).status_code == 200

@@ -133,6 +133,6 @@ def test_v12_additive_migration_preserves_hr_sources(context):
     repository.initialize(); repository.initialize()
     assert repository.get_hiring('job_descriptions', jd['id'], **identity(context)).model_dump(mode='json', by_alias=True) == jd
     with repository.engine.connect() as conn:
-        assert conn.execute(select(dbm.schema_version.c.version)).scalar_one() == SCHEMA_VERSION == 13
-        assert conn.exec_driver_sql('PRAGMA user_version').scalar_one() == 13
+        assert conn.execute(select(dbm.schema_version.c.version)).scalar_one() == SCHEMA_VERSION == 14
+        assert conn.exec_driver_sql('PRAGMA user_version').scalar_one() == 14
     assert submit(context, jd).status == 'pending_review'

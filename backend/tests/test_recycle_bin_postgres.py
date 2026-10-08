@@ -74,16 +74,15 @@ def test_live_v9_additive_migration_preserves_payload_and_evidence(pg_repo):
     assert pg_repo.get_for_tenant(task.id, **scoped(task)).model_dump(mode="json") == task.model_dump(mode="json")
     assert evidence(pg_repo, task) == before
     with pg_repo.engine.connect() as connection:
-        assert connection.execute(select(dbm.schema_version.c.version)).scalar_one() == 13
+        assert connection.execute(select(dbm.schema_version.c.version)).scalar_one() == 14
 
 
-def test_live_completed_run_cannot_be_purged(pg_repo):
+def test_live_owner_purge_removes_completed_evidence(pg_repo):
     task = seed(pg_repo, "T-protected", "USR-a")
     before = evidence(pg_repo, task)
     pg_repo.recycle_simulation(task.id, **scoped(task))
-    with pytest.raises(RecycleBinError, match="Execution evidence"):
-        pg_repo.recycle_simulation(task.id, action="purge", confirmed=True, **scoped(task))
-    assert evidence(pg_repo, task) == before
+    pg_repo.recycle_simulation(task.id, action="purge", confirmed=True, **scoped(task))
+    assert not any(evidence(pg_repo, task).values())
 
 
 def test_live_explicit_purge_cascades_only_unevidenced_run(pg_repo):
@@ -147,7 +146,7 @@ def test_live_checkpoint_and_route_contract_survive_recycle_restore(runtime_worl
                     await saver.aget_tuple(config)
                 with pytest.raises(AuthorizationError):
                     await saver.adelete_thread(config["configurable"]["thread_id"])
-                with pytest.raises(RecycleBinError, match="Execution evidence"):
+                with pytest.raises(RecycleBinError, match="checkpoint cleanup"):
                     repo.recycle_simulation(task.id, action="purge", confirmed=True, **scope)
                 repo.recycle_simulation(task.id, action="restore", **scope)
                 restored = await saver.aget_tuple(config)

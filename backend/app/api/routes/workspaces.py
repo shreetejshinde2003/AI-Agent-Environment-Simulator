@@ -606,3 +606,29 @@ async def deactivate_organization_human_role(
         human_role=assignment["human_role"],
         active=False,
     )
+
+
+def invitation_operation(request, workspace_id, **options):
+    require_request_permission(request, workspace_id, Permission.ORGANIZATION_MEMBERS_VIEW)
+    try:
+        return repository.manage_organization_invites(workspace_id=workspace_id,
+            user_id=request_user_id(request), **options)
+    except AuthorizationError as exc:
+        raise HTTPException(403, detail={"code": "permission_denied", "message": "Invitation management unavailable."}) from exc
+    except ValueError as exc:
+        raise HTTPException(409, detail={"code": "invite_conflict", "message": str(exc)}) from exc
+
+
+@router.get("/organizations/{workspace_id}/invites")
+async def list_invites(workspace_id: str, request: Request):
+    return {"invites": invitation_operation(request, workspace_id)}
+
+
+@router.post("/organizations/{workspace_id}/invites", status_code=201)
+async def generate_invite(workspace_id: str, request: Request):
+    return invitation_operation(request, workspace_id, action="generate")
+
+
+@router.delete("/organizations/{workspace_id}/invites/{invite_id}")
+async def revoke_invite(workspace_id: str, invite_id: str, request: Request):
+    return invitation_operation(request, workspace_id, action="revoke", invite_id=invite_id)

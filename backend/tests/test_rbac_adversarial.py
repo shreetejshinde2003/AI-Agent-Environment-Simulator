@@ -106,6 +106,7 @@ def _setup():
         name="IICT",
     )
     repository.join_organization(user_id="USR-admin-a", join_code=code_a)
+    code_a = repository.manage_organization_invites(workspace_id=org_a["id"], user_id="USR-owner-a", action="generate")["joinCode"]
     repository.join_organization(user_id="USR-member-a", join_code=code_a)
     repository.change_organization_membership_role(
         workspace_id=org_a["id"],

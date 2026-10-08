@@ -10,7 +10,8 @@ Version 8 adds organization-scoped HR-domain human role assignments.
 Version 9 adds upload ownership; version 10 adds simulation recycle-bin metadata.
 Version 11 adds tenant-owned custom agents and immutable configuration revisions.
 Version 12 adds hiring records and pinned revisions; version 13 adds immutable
-human review submissions and transition history.
+human review submissions and transition history. Version 14 adds managed one-time
+invitation history without storing plaintext secrets.
 """
 
 from __future__ import annotations
@@ -23,7 +24,7 @@ from pathlib import Path
 from typing import Callable
 
 from sqlalchemy import create_engine, delete, event, inspect, insert, select, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, DBAPIError
 
 from app.core.config import settings
 from app.models.schemas import Task, UploadedContext
@@ -40,7 +41,7 @@ from app.security.workspaces import (
     join_code_digest,
 )
 
-SCHEMA_VERSION = 13
+SCHEMA_VERSION = 14
 
 
 def normalize_url(url: str | None) -> str:
@@ -241,6 +242,13 @@ class Repository(CustomAgentRepository, HiringRepository, HRReviewRepository):
             "ON simulations (workspace_id, deleted_at)"
         )
 
+    @staticmethod
+    def _ensure_invite_history(connection):
+        columns = {c["name"] for c in inspect(connection).get_columns("workspaces")}
+        if "invite_history" not in columns:
+            kind = "JSONB" if connection.dialect.name == "postgresql" else "JSON"
+            connection.exec_driver_sql(f"ALTER TABLE workspaces ADD COLUMN invite_history {kind}")
+
     def initialize(self):
         engine = self.engine
         if engine.dialect.name == "sqlite":
@@ -253,6 +261,7 @@ class Repository(CustomAgentRepository, HiringRepository, HRReviewRepository):
                 require_rls_runtime_role(connection)
 
                 dbm.metadata.create_all(connection)
+                self._ensure_invite_history(connection)
 
                 versions = connection.execute(
                     select(dbm.schema_version.c.version)
@@ -266,8 +275,8 @@ class Repository(CustomAgentRepository, HiringRepository, HRReviewRepository):
                         )
                     )
 
-                elif versions in ([2], [3], [4], [5], [6], [7], [8], [9], [10], [11], [12]):
-                    # V13 remains additive. create_all above safely creates
+                elif versions in ([2], [3], [4], [5], [6], [7], [8], [9], [10], [11], [12], [13]):
+                    # V14 remains additive. create_all above safely creates
                     # newer tables; migrations add simulation ownership and,
                     # for V5/V6 membership tables, widen the role constraint.
                     previous_version = versions[0]
@@ -341,6 +350,7 @@ class Repository(CustomAgentRepository, HiringRepository, HRReviewRepository):
 
         with self.engine.begin() as connection:
             dbm.metadata.create_all(connection)
+            self._ensure_invite_history(connection)
             self._install_sqlite_agent_revision_guards(connection)
             self._install_sqlite_hr_revision_guards(connection)
 
@@ -356,7 +366,7 @@ class Repository(CustomAgentRepository, HiringRepository, HRReviewRepository):
                     )
                 )
 
-            elif versions in ([2], [3], [4], [5], [6], [7], [8], [9], [10], [11], [12]):
+            elif versions in ([2], [3], [4], [5], [6], [7], [8], [9], [10], [11], [12], [13]):
                 previous_version = versions[0]
 
                 self._ensure_simulation_workspace_column(connection)
@@ -403,6 +413,7 @@ class Repository(CustomAgentRepository, HiringRepository, HRReviewRepository):
             for table in ("simulations", "uploads", "agent_roster"):
                 connection.exec_driver_sql(f"ALTER TABLE {table} RENAME TO {table}_v1_archive")
             dbm.metadata.create_all(connection)
+            self._ensure_invite_history(connection)
             self._install_sqlite_agent_revision_guards(connection)
             self._install_sqlite_hr_revision_guards(connection)
             connection.execute(insert(dbm.schema_version).values(
@@ -648,7 +659,7 @@ class Repository(CustomAgentRepository, HiringRepository, HRReviewRepository):
                 self._save_task(connection, task)
 
     def research_tasks(self, *, workspace_id, user_id, experiment_id=None):
-        from app.security.rbac import Permission
+        from app.security.rbac import Permission, AuthorizationError
         with tenant_transaction(self.engine, workspace_id=workspace_id, user_id=user_id) as connection:
             self._recycle_authorization(connection, workspace_id=workspace_id, user_id=user_id,
                                         permission=Permission.SIMULATION_VIEW)
@@ -849,31 +860,8 @@ class Repository(CustomAgentRepository, HiringRepository, HRReviewRepository):
                     deletedByUserId=row["deleted_by_user_id"],
                     restoredAt=row["restored_at"], restoredByUserId=row["restored_by_user_id"])
 
-    def _has_protected_execution(self, connection, row):
-        simulation_id = row["id"]
-        task = self._task_from_row(row)
-        has_evidence = (task.status.value == "completed" or row["started_at"] or
-            task.execution_started_at or task.elapsed_seconds is not None or
-            task.duration_seconds > 0 or task.evaluation_scores or
-            task.output or task.stages or task.messages or
-            task.activities or task.events or task.evaluation or
-            row["execution_mode"] in {"single", "fixed", "adaptive"})
-        # Check both contracts and relational evidence; fail closed on drift.
-        evidence_tables = (dbm.agent_executions, dbm.agent_messages,
-                           dbm.activity_events, dbm.run_events)
-        has_evidence = has_evidence or any(connection.execute(select(table.c.simulation_id).where(
-            table.c.simulation_id == simulation_id).limit(1)).first() for table in evidence_tables)
-        metrics = connection.execute(select(dbm.simulation_metrics).where(
-            dbm.simulation_metrics.c.simulation_id == simulation_id)).mappings().first()
-        persisted_task = connection.execute(select(dbm.tasks.c.output).where(
-            dbm.tasks.c.simulation_id == simulation_id)).scalar_one_or_none()
-        has_evidence = has_evidence or persisted_task or (metrics and (
-            metrics["elapsed_seconds"] is not None or metrics["total_tokens"] is not None or
-            metrics["measured_stages"] > 0))
-        return bool(has_evidence)
-
     def list_recycled_simulations(self, *, workspace_id, user_id):
-        from app.security.rbac import Permission
+        from app.security.rbac import Permission, AuthorizationError
         with tenant_transaction(self.engine, workspace_id=workspace_id, user_id=user_id) as connection:
             self._recycle_authorization(connection, workspace_id=workspace_id,
                                         user_id=user_id, permission=Permission.RECYCLE_BIN_MANAGE)
@@ -885,18 +873,22 @@ class Repository(CustomAgentRepository, HiringRepository, HRReviewRepository):
             for row in rows:
                 if not self._hr_evidence_visible(connection, row, workspace_id, user_id):
                     continue
-                protected = self._has_protected_execution(connection, row)
-                items.append({**self._recycle_item(row), "permanentDeletionEligible": not protected,
-                              "protectionReason": "execution_evidence_retained" if protected else None})
+                try:
+                    self._recycle_authorization(connection, workspace_id=workspace_id, user_id=user_id,
+                                                permission=Permission.RECYCLE_BIN_PURGE)
+                    eligible = True
+                except AuthorizationError:
+                    eligible = False
+                items.append({**self._recycle_item(row), "permanentDeletionEligible": eligible,
+                              "protectionReason": None})
             return items
 
     def recycle_simulation(self, simulation_id, *, workspace_id, user_id,
                            action="delete", confirmed=False):
-        """Atomic lifecycle changes; child evidence and shared uploads stay intact.
+        """Soft-delete/restore retains evidence; confirmed owner purge deletes it atomically.
 
-        Only terminal runs can enter the bin. Physical deletion is deliberately
-        restricted to failed, never-executed legacy runs without evidence or any
-        potential graph checkpoint. No checkpoint credentials are used here.
+        Shared uploads and immutable agent/HR source revisions are not run-owned.
+        Checkpoint cleanup uses an operator-installed, narrowly authorized bridge.
         """
         from app.security.rbac import Permission
         if action not in {"delete", "restore", "purge"}:
@@ -929,10 +921,11 @@ class Repository(CustomAgentRepository, HiringRepository, HRReviewRepository):
             if action == "purge":
                 if confirmed is not True:
                     raise RecycleBinError(422, "confirmation_required", "Explicit permanent-deletion confirmation is required.")
-                has_evidence = self._has_protected_execution(connection, row)
-                if has_evidence:
-                    raise RecycleBinError(409, "execution_evidence_retained",
-                                          "Execution evidence must be retained; restore this simulation instead.")
+                self._purge_checkpoints(connection, row)
+                # Delete children while their parent is still visible to FORCE RLS.
+                for table in (dbm.simulation_uploads, dbm.simulation_metrics, dbm.run_events,
+                              dbm.activity_events, dbm.agent_messages, dbm.agent_executions, dbm.tasks):
+                    connection.execute(delete(table).where(table.c.simulation_id == simulation_id))
                 result = connection.execute(delete(dbm.simulations).where(*condition))
                 item = dict(id=simulation_id, permanentlyDeleted=True)
             else:
@@ -943,6 +936,42 @@ class Repository(CustomAgentRepository, HiringRepository, HRReviewRepository):
             if result.rowcount != 1:
                 raise RecycleBinError(409, "lifecycle_conflict", "Simulation changed; refresh and retry.")
             return item
+
+    @staticmethod
+    def _purge_checkpoints(connection, row):
+        from app.core.config import settings
+        from sqlalchemy import text
+        needs_cleanup = bool(row["payload"].get("durableCheckpoint") or
+                             settings.CHECKPOINT_DATABASE_URL or settings.LANGGRAPH_RUNTIME_ENABLED)
+        # Use an installed bridge even after the runtime/provider is switched off.
+        if connection.dialect.name == "postgresql":
+            if settings.CHECKPOINT_DATABASE_URL:
+                from sqlalchemy.engine import make_url
+                try:
+                    checkpoint_url = make_url(normalize_url(settings.CHECKPOINT_DATABASE_URL))
+                    application_url = connection.engine.url
+                    def database_identity(url):
+                        host = url.host or "localhost"
+                        if host in ("localhost", "127.0.0.1", "::1"):
+                            host = "localhost"
+                        return host, url.port or 5432, url.database
+                    same_database = database_identity(checkpoint_url) == database_identity(application_url)
+                except Exception:
+                    same_database = False
+                if not same_database:
+                    raise RecycleBinError(409, "checkpoint_cleanup_unavailable",
+                                          "Atomic checkpoint cleanup requires the application and checkpoints in the same database.")
+            available = connection.execute(text("SELECT to_regprocedure('fm_purge_task_checkpoints(text)')")).scalar()
+            if available is not None:
+                try:
+                    connection.execute(text("SELECT fm_purge_task_checkpoints(:simulation)"), {"simulation": row["id"]})
+                except DBAPIError as exc:
+                    raise RecycleBinError(409, "checkpoint_cleanup_unavailable",
+                                          "Checkpoint cleanup is unavailable or a worker is still active. Retry after checking the run.") from exc
+                return
+        if needs_cleanup:
+            raise RecycleBinError(409, "checkpoint_cleanup_unavailable",
+                                  "Atomic checkpoint cleanup has not been provisioned for this database.")
 
     def _hr_evidence_visible(self, connection, row, workspace_id, user_id):
         if row["payload"].get("taskType") != "hr_agent":
@@ -1384,6 +1413,8 @@ class Repository(CustomAgentRepository, HiringRepository, HRReviewRepository):
                 "personal_owner_user_id": None,
                 "created_by_user_id": creator_user_id,
                 "join_code_digest": digest,
+                "invite_history": [dict(id="INV-" + uuid.uuid4().hex, status="active",
+                    createdAt=now, createdByUserId=creator_user_id, usedByUserId=None, usedAt=None)],
                 "active": True,
                 "created_at": now,
                 "updated_at": now,
@@ -1465,6 +1496,8 @@ class Repository(CustomAgentRepository, HiringRepository, HRReviewRepository):
         )
 
         with invitation_transaction(self.engine, user_id=user_id, digest=digest) as connection:
+            if connection.dialect.name == "sqlite":
+                connection.exec_driver_sql("BEGIN IMMEDIATE")
             workspace_row = connection.execute(
                 select(
                     dbm.workspaces
@@ -1474,7 +1507,7 @@ class Repository(CustomAgentRepository, HiringRepository, HRReviewRepository):
                     dbm.workspaces.c.active.is_(True),
                     dbm.workspaces.c.join_code_digest
                     == digest,
-                )
+                ).with_for_update()
             ).mappings().first()
 
             if workspace_row is None:
@@ -1485,6 +1518,9 @@ class Repository(CustomAgentRepository, HiringRepository, HRReviewRepository):
             workspace = dict(
                 workspace_row
             )
+            history = workspace.get("invite_history")
+            if history and sum(item.get("status") == "active" for item in history) != 1:
+                raise LookupError("Invalid organization join code.")
             apply_invitation_membership_context(
                 connection, user_id=user_id, workspace_id=workspace["id"], digest=digest,
             )
@@ -1536,6 +1572,7 @@ class Repository(CustomAgentRepository, HiringRepository, HRReviewRepository):
                     "added_by_user_id"
                 ] = user_id
 
+                self._consume_invite(connection, workspace, user_id, now)
                 return workspace, membership
 
             membership = {
@@ -1555,7 +1592,61 @@ class Repository(CustomAgentRepository, HiringRepository, HRReviewRepository):
                 )
             )
 
+            self._consume_invite(connection, workspace, user_id, now)
             return workspace, membership
+
+    @staticmethod
+    def _consume_invite(connection, workspace, user_id, now):
+        apply_tenant_session_context(connection, workspace_id=workspace["id"], user_id=user_id)
+        history = list(workspace.get("invite_history") or [])
+        if not history:
+            history = [dict(id="legacy", status="active", createdAt=workspace["created_at"],
+                createdByUserId=workspace["created_by_user_id"], usedAt=None, usedByUserId=None)]
+        history = [dict(item, status="consumed", usedByUserId=user_id, usedAt=now)
+                   if item["status"] == "active" else item for item in history]
+        connection.execute(update(dbm.workspaces).where(dbm.workspaces.c.id == workspace["id"]).values(
+            join_code_digest=None, invite_history=history, updated_at=now))
+
+    def manage_organization_invites(self, *, workspace_id, user_id, action="list", invite_id=None):
+        from app.security.rbac import Permission
+        with tenant_transaction(self.engine, workspace_id=workspace_id, user_id=user_id) as connection:
+            if connection.dialect.name == "sqlite":
+                connection.exec_driver_sql("BEGIN IMMEDIATE")
+            self._recycle_authorization(connection, workspace_id=workspace_id, user_id=user_id,
+                                        permission=Permission.ORGANIZATION_MEMBERS_VIEW)
+            workspace = connection.execute(select(dbm.workspaces).where(
+                dbm.workspaces.c.id == workspace_id, dbm.workspaces.c.kind == "organization",
+                dbm.workspaces.c.active.is_(True)).with_for_update()).mappings().first()
+            if workspace is None:
+                raise ValueError("Organization unavailable.")
+            history = list(workspace["invite_history"] or [])
+            # Existing reusable hashes become a managed legacy one-time invitation.
+            if workspace["join_code_digest"] and not history:
+                history.append(dict(id="legacy", status="active", createdAt=workspace["created_at"],
+                    createdByUserId=workspace["created_by_user_id"], usedAt=None, usedByUserId=None))
+            if action == "list":
+                return history
+            now = timestamp(datetime.now(timezone.utc))
+            code = None
+            digest = workspace["join_code_digest"]
+            if action == "generate":
+                history = [dict(i, status="revoked", revokedAt=now, revokedByUserId=user_id)
+                           if i["status"] == "active" else i for i in history]
+                code = generate_join_code()
+                digest = join_code_digest(code)
+                history.append(dict(id="INV-" + uuid.uuid4().hex, status="active", createdAt=now,
+                    createdByUserId=user_id, usedAt=None, usedByUserId=None))
+            elif action == "revoke":
+                if not any(i["id"] == invite_id and i["status"] == "active" for i in history):
+                    raise ValueError("Only active unused invitations can be revoked.")
+                history = [dict(i, status="revoked", revokedAt=now, revokedByUserId=user_id)
+                           if i["id"] == invite_id else i for i in history]
+                digest = None
+            else:
+                raise ValueError("Unknown invitation action.")
+            connection.execute(update(dbm.workspaces).where(dbm.workspaces.c.id == workspace_id).values(
+                invite_history=history, join_code_digest=digest, updated_at=now))
+            return dict(invites=history, joinCode=code)
 
     def save_organization_membership(
         self,
@@ -1769,10 +1860,12 @@ class Repository(CustomAgentRepository, HiringRepository, HRReviewRepository):
         from app.security.rbac import resolve_workspace_authorization
         resolve_workspace_authorization(self, user_id=actor_user_id, workspace_id=workspace_id)
         with tenant_transaction(self.engine, workspace_id=workspace_id, user_id=actor_user_id) as connection:
+            if connection.dialect.name == "sqlite":
+                connection.exec_driver_sql("BEGIN IMMEDIATE")
             workspace = connection.execute(
                 select(dbm.workspaces).where(
                     dbm.workspaces.c.id == workspace_id
-                )
+                ).with_for_update()
             ).mappings().first()
 
             if (
@@ -1844,7 +1937,10 @@ class Repository(CustomAgentRepository, HiringRepository, HRReviewRepository):
                 and requested_role is not WorkspaceRole.OWNER
             ):
                 owner_count = connection.execute(
-                    select(dbm.organization_memberships.c.user_id).where(
+                    select(dbm.organization_memberships.c.user_id).join(
+                        dbm.users, dbm.users.c.id == dbm.organization_memberships.c.user_id
+                    ).where(
+                        dbm.users.c.active.is_(True),
                         dbm.organization_memberships.c.workspace_id == workspace_id,
                         dbm.organization_memberships.c.membership_role == "owner",
                         dbm.organization_memberships.c.active.is_(True),
@@ -1912,10 +2008,12 @@ class Repository(CustomAgentRepository, HiringRepository, HRReviewRepository):
             workspace_id=workspace_id,
             user_id=actor_user_id,
         ) as connection:
+            if connection.dialect.name == "sqlite":
+                connection.exec_driver_sql("BEGIN IMMEDIATE")
             workspace = connection.execute(
                 select(dbm.workspaces).where(
                     dbm.workspaces.c.id == workspace_id
-                )
+                ).with_for_update()
             ).mappings().first()
 
             if (
@@ -1975,7 +2073,10 @@ class Repository(CustomAgentRepository, HiringRepository, HRReviewRepository):
 
             if target_role is WorkspaceRole.OWNER:
                 owner_count = connection.execute(
-                    select(dbm.organization_memberships.c.user_id).where(
+                    select(dbm.organization_memberships.c.user_id).join(
+                        dbm.users, dbm.users.c.id == dbm.organization_memberships.c.user_id
+                    ).where(
+                        dbm.users.c.active.is_(True),
                         dbm.organization_memberships.c.workspace_id == workspace_id,
                         dbm.organization_memberships.c.membership_role == "owner",
                         dbm.organization_memberships.c.active.is_(True),

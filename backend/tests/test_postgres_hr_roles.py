@@ -28,6 +28,7 @@ def hr_orgs(pg_repo):
     a, code_a = pg_repo.create_organization(creator_user_id="USR-b", name="HR Organization A")
     b, code_b = pg_repo.create_organization(creator_user_id="USR-other", name="HR Organization B")
     for uid in ("USR-a", "USR-admin"):
+        code_a = pg_repo.manage_organization_invites(workspace_id=a["id"], user_id="USR-b", action="generate")["joinCode"]
         pg_repo.join_organization(user_id=uid, join_code=code_a)
     pg_repo.join_organization(user_id="USR-a", join_code=code_b)
     pg_repo.change_organization_membership_role(workspace_id=a["id"], actor_user_id="USR-b", target_user_id="USR-admin", new_role="admin")

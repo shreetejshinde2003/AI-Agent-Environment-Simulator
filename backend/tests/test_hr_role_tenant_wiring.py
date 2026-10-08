@@ -30,6 +30,7 @@ def orgs(tmp_path):
     a, code_a = repo.create_organization(creator_user_id="owner", name="Organization A")
     b, code_b = repo.create_organization(creator_user_id="outsider", name="Organization B")
     for uid in ("admin", "member"):
+        code_a = repo.manage_organization_invites(workspace_id=a["id"], user_id="owner", action="generate")["joinCode"]
         repo.join_organization(user_id=uid, join_code=code_a)
     repo.join_organization(user_id="member", join_code=code_b)
     repo.change_organization_membership_role(workspace_id=a["id"], actor_user_id="owner", target_user_id="admin", new_role="admin")

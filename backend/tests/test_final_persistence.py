@@ -67,4 +67,4 @@ def test_final_reinitialization_retains_coexisting_hr_research_recycle_and_agent
     assert [t.model_dump(mode='json') for t in after] == before
     assert comparison(after)['comparable']
     with repo.engine.connect() as connection:
-        assert connection.execute(select(dbm.schema_version.c.version)).scalar_one() == SCHEMA_VERSION == 13
+        assert connection.execute(select(dbm.schema_version.c.version)).scalar_one() == SCHEMA_VERSION == 14

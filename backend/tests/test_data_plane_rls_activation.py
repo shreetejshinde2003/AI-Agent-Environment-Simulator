@@ -211,6 +211,7 @@ def test_postgresql_initialize_installs_only_after_role_and_schema_preflight(mon
     repo._engine_url = repo.url
     created = []
     monkeypatch.setattr(database.dbm.metadata, "create_all", lambda conn: created.append(conn))
+    monkeypatch.setattr(repo, "_ensure_invite_history", lambda conn: None)
     repo.initialize()
     assert created == [connection]
     assert connection.ddl[0] == "SELECT pg_advisory_xact_lock(721842)"
