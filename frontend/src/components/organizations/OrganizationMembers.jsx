@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import Modal from "../common/Modal";
 import { Shield, UsersRound } from "lucide-react";
 
 import { workspaceClient } from "../../services/workspaceClient";
@@ -13,6 +14,7 @@ import {
   canRemoveOrganizationMember,
   canViewOrganizationMembers,
   organizationRoleLabel,
+  isLastOrganizationOwner,
 } from "../../utils/organizationMembers";
 
 function memberName(member) {
@@ -20,6 +22,7 @@ function memberName(member) {
 }
 
 export default function OrganizationMembers({ workspace, onMembershipChanged }) {
+  const [pendingRemoval, setPendingRemoval] = useState(null);
   const [members, setMembers] = useState([]);
   const [humanRoleAssignments, setHumanRoleAssignments] = useState([]);
   const [status, setStatus] = useState("idle");
@@ -85,8 +88,10 @@ export default function OrganizationMembers({ workspace, onMembershipChanged }) 
     [humanRoleAssignments],
   );
 
+  const lastOwner = member => isLastOrganizationOwner(member, members);
+
   async function changeRole(member, membershipRole) {
-    if (!canChangeRoles || membershipRole === member.membershipRole) return;
+    if (lastOwner(member) || !canChangeRoles || membershipRole === member.membershipRole) return;
 
     setChangingUserId(member.userId);
     setError(null);
@@ -125,12 +130,7 @@ export default function OrganizationMembers({ workspace, onMembershipChanged }) 
       return;
     }
 
-    const confirmed = window.confirm(
-      `Remove ${memberName(member)} from ${workspace.name}?\n\n` +
-        "This immediately revokes organization access and removes their active HR responsibilities.",
-    );
-
-    if (!confirmed) return;
+    if (lastOwner(member)) return;
 
     setRemovingUserId(member.userId);
     setError(null);
@@ -150,6 +150,7 @@ export default function OrganizationMembers({ workspace, onMembershipChanged }) 
         current.filter(item => item.userId !== member.userId),
       );
 
+      setPendingRemoval(null);
       setNotice(`${memberName(member)} was removed from ${workspace.name}.`);
       await onMembershipChanged?.();
     } catch (nextError) {
@@ -255,6 +256,7 @@ export default function OrganizationMembers({ workspace, onMembershipChanged }) 
         </div>
       </div>
 
+      {pendingRemoval && <Modal title="Remove organization member" onClose={() => setPendingRemoval(null)} canDismiss={removingUserId === null}><p>Remove {memberName(pendingRemoval)}? This immediately revokes organization access and all active HR responsibilities. If this is your account, you will lose access too.</p><button disabled={removingUserId !== null} onClick={() => removeMember(pendingRemoval)}>Confirm removal</button>{error && <p role="alert">{error.message}</p>}</Modal>}
       {error && (
         <div className="organization-alert is-error" role="alert">
           {error.message || "Unable to manage organization members."}
@@ -296,7 +298,7 @@ export default function OrganizationMembers({ workspace, onMembershipChanged }) 
 
                 <div className="organization-member-access">
                   <span className="organization-control-label">Access role</span>
-                  {canChangeRoles ? (
+                  {canChangeRoles && !lastOwner(member) ? (
                     <label className="organization-role-control">
                       <select
                         value={member.membershipRole}
@@ -319,7 +321,8 @@ export default function OrganizationMembers({ workspace, onMembershipChanged }) 
                     </span>
                   )}
 
-                  {canRemoveOrganizationMember(
+                  {lastOwner(member) && <p>Transfer ownership before removing or changing this owner.</p>}
+                  {!lastOwner(member) && canRemoveOrganizationMember(
                     workspace.membershipRole,
                     member.membershipRole,
                   ) && (
@@ -331,7 +334,7 @@ export default function OrganizationMembers({ workspace, onMembershipChanged }) 
                         changingUserId !== null ||
                         changingHumanRole !== null
                       }
-                      onClick={() => removeMember(member)}
+                      onClick={() => setPendingRemoval(member)}
                       aria-label={`Remove ${memberName(member)} from organization`}
                     >
                       {removingUserId === member.userId

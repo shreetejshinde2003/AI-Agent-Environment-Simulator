@@ -15,3 +15,6 @@ export const canChangeOrganizationRoles = role => role === "owner";
 export const canRemoveOrganizationMember = (actorRole, targetRole) =>
   actorRole === "owner" ||
   (actorRole === "admin" && targetRole === "member");
+
+export const isLastOrganizationOwner = (member, members) =>
+  member.membershipRole === "owner" && members.filter(item => item.membershipRole === "owner").length <= 1;

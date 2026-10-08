@@ -1,10 +1,12 @@
 import {useEffect, useRef, useState} from "react";
+import Modal from "../common/Modal";
 import {apiClient} from "../../services/apiClient";
 import {canManageAgents, emptyAgentConfig, validateAgentConfig, validateAgentInput} from "../../utils/agentBuilder";
 import "../common/Button.css";
 import "./AgentBuilder.css";
 
 export default function AgentBuilder({workspaceId, workspace, onRunCreated}) {
+  const [archiving, setArchiving] = useState(false);
   const [agents, setAgents] = useState([]);
   const [options, setOptions] = useState(null);
   const [selected, setSelected] = useState(null);
@@ -78,6 +80,17 @@ export default function AgentBuilder({workspaceId, workspace, onRunCreated}) {
     } catch (failure) {if (mounted.current) setError(failure.message);}
     finally {if (mounted.current) setBusy(false);}
   }
+  async function archive() {
+    setBusy(true); setError("");
+    try {
+      const saved = await apiClient.saveCustomAgent(selected.id, {...selected.config, active: false, expectedRevision: selected.revision}, workspaceId);
+      if (!mounted.current) return;
+      setSelected(saved); setDraft({...saved.config}); setArchiving(false);
+      setAgents(current => current.map(agent => agent.id === saved.id ? saved : agent));
+      setNotice("Agent archived. Saved revisions and historical runs remain available.");
+    } catch (failure) {if (mounted.current) setError(failure.message);}
+    finally {if (mounted.current) setBusy(false);}
+  }
   async function execute(event) {
     event.preventDefault();
     const invalid = validateAgentInput(input);
@@ -119,7 +132,7 @@ export default function AgentBuilder({workspaceId, workspace, onRunCreated}) {
       <aside aria-label="Saved custom agents">
         {!agents.length && <p className="muted">No custom agents saved in this workspace.</p>}
         {agents.map(agent => <button className="builder-agent btn btn-default" key={agent.id} onClick={() => choose(agent)} disabled={busy}
-          aria-pressed={selected?.id === agent.id}><strong>{agent.config.name}</strong><span>Revision {agent.revision} · {agent.config.active ? "Active" : "Inactive"}</span></button>)}
+          aria-pressed={selected?.id === agent.id}><strong>{agent.config.name}</strong><span>Revision {agent.revision} · {agent.config.active ? "Active" : "Archived"}</span></button>)}
       </aside>
       <div className="workspace-stack">
         {(!selected && !manage) ? <p className="muted">Select an agent to inspect or run it. Workspace owners and admins manage definitions.</p> : <>
@@ -144,8 +157,10 @@ export default function AgentBuilder({workspaceId, workspace, onRunCreated}) {
           {selected && <>
             <dl className="metadata"><dt>Agent ID</dt><dd>{selected.id}</dd><dt>Saved revision / model</dt><dd>{selected.revision} / {selected.resolvedModel}</dd>
               <dt>Configuration fingerprint</dt><dd className="builder-hash">{selected.configHash}</dd></dl>
+            {manage && selected.config.active && <button className="btn btn-default" onClick={() => setArchiving(true)} disabled={busy}>Archive custom agent</button>}
+            {archiving && <Modal title="Archive custom agent" onClose={() => setArchiving(false)} canDismiss={!busy}><p>This agent will be unavailable for new runs. Historical runs and revisions remain available.</p>{error && <p role="alert">{error}</p>}<button disabled={busy} onClick={archive}>Confirm archive</button></Modal>}
             <button className="btn btn-default" onClick={history} disabled={busy}>Inspect revision history</button>
-            {revisions.map(version => <details key={version.revision}><summary>Revision {version.revision} · {new Date(version.updatedAt).toLocaleString()} · {version.config.active ? "Active" : "Inactive"}</summary>
+            {revisions.map(version => <details key={version.revision}><summary>Revision {version.revision} · {new Date(version.updatedAt).toLocaleString()} · {version.config.active ? "Active" : "Archived"}</summary>
               <p>Saved by {version.updatedByUserId} · {version.resolvedModel}</p><pre>{JSON.stringify(version.config, null, 2)}</pre></details>)}
             <form onSubmit={execute} aria-label="Run saved agent"><h3>Run saved agent</h3><p className="muted">Uses saved revision {selected.revision}. Save edits before running.</p>
               <label>Input text<textarea value={input} onChange={event => setInput(event.target.value)} maxLength={10000} required disabled={busy || live || !selected.config.active} /></label>

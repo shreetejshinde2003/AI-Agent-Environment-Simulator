@@ -5,6 +5,12 @@ not production acceptance or an external penetration-test certification.
 The final [acceptance report](PHASE10_ACCEPTANCE_REPORT.md) supplies exact results.
 No production connection, credential, migration, deployment or flag was changed.
 
+## Current local product correction — 2026-10-08
+
+The post-deployment correction uses schema 14 and explicitly changes executed-run retention to owner-authorized permanent purge. Invitations are now one-time and managed through persistent masked history; custom agents archive through immutable revisions. Member transitions serialize and protect the last active owner. Research definitions ship with the backend; readiness separates REST/workspace availability from live events.
+
+[Current correction acceptance](POST_DEPLOYMENT_PRODUCT_CORRECTIONS.md) supersedes earlier retention/invite behavior and validation totals. The Phase 10 audit below remains historical evidence. No production migration or settings changed. Release must separately review schema 14, backups, the optional same-database checkpoint bridge and its NOLOGIN restricted role, and the unresolved production WebSocket authentication topology. Graph purge fails closed until atomic cleanup is available.
+
 ## Independent audit scope and security evidence
 
 The audit inspected authentication, tenant transactions/RLS inventory, IAM and HR

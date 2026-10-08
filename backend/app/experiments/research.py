@@ -10,7 +10,7 @@ from app.core.config import settings
 from app.experiments.provenance import sha256_text, build_input_fingerprint
 from app.models.schemas import BenchmarkCase, ResearchConfiguration
 
-CATALOG_PATH = Path(__file__).resolve().parents[3] / "database/benchmarks/research-v1.json"
+CATALOG_PATH = Path(__file__).resolve().parents[2] / "database/benchmarks/research-v1.json"
 DIMENSIONS = ("correctness", "relevance", "completeness", "clarity", "groundedness", "concision", "source_consistency")
 HUMAN_RUBRIC = {
     "version": "human-v1",

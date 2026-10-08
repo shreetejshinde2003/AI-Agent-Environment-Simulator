@@ -129,7 +129,7 @@ function ResearchWorkspace({workspaceId}) {
   const currentRun=summary?.runs.find(r=>r.taskId===runId);
   return <main className="research-lab"><h1>Research Lab</h1><p>Reproducible comparisons of Single, Fixed and Adaptive execution. Quality checks and human assessments remain separate from execution metrics.</p>
     {loading && <p role="status">Loading workspace research…</p>}{error && <p role="alert">{error}</p>}
-    {registry && <details className="research-new"><summary>Configure a new experiment</summary><form onSubmit={start} className="research-config">
+    {registry && <section className="research-new"><h2>Start a comparison</h2><p>Single uses one Direct agent; Fixed runs the specialist pipeline; Adaptive selects specialists for the case. Choose synthetic benchmark cases below.</p><form onSubmit={start} className="research-config">
       <h2>Benchmark suite · version {registry.version}</h2>
       <label>Experiment purpose<input required maxLength={600} value={purpose} disabled={busy} onChange={e=>setPurpose(e.target.value)}/></label>
       <fieldset disabled={busy}><legend>Benchmark cases</legend>{registry.cases.map(c=><label key={c.id} className="research-case"><input type="checkbox" checked={cases.includes(c.id)} onChange={e=>setCases(e.target.checked?[...cases,c.id]:cases.filter(id=>id!==c.id))}/><span><strong>{c.title}</strong> · {c.id}<br/>{c.rationale}<details><summary>Directive, source and criteria</summary><pre>{JSON.stringify(c,null,2)}</pre></details></span></label>)}</fieldset>
@@ -139,9 +139,9 @@ function ResearchWorkspace({workspaceId}) {
       {!registry.executionEnabled && <p>Live research is disabled. Provider-live evaluation requires explicit approval and server configuration.</p>}
       {registry.executionEnabled && <p>{registry.configuration.evidenceKind === "deterministic_fixture" ? "Local fixture provider configured. These runs validate the evaluation machinery." : "Starting an experiment invokes the configured live provider."}</p>}
       <button disabled={busy||!registry.executionEnabled||!cases.length||!modes.length||cases.length*modes.length*repetitions>45}>Start evaluation runs</button>
-    </form></details>}
+    </form></section>}
     {registry && <p role="status">{registry.configuration.evidenceKind === "deterministic_fixture" ? "Deterministic fixture environment — no live model conclusions." : "Provider environment"} · benchmark suite {registry.version}</p>}
-    <section><h2>Persisted experiments</h2>{!loading&&!experiments.length&&<p>No experiments in this workspace. No metrics or conclusions are available.</p>}
+    <section><h2>Persisted experiments</h2>{!loading&&!experiments.length&&<p>No experiments yet. Select benchmark cases above to set up your first comparison. Results will appear here after an approved evaluation.</p>}
       <label>Experiment<select value={selected} onChange={e=>setSelected(e.target.value)} disabled={busy}><option value="">Select experiment</option>{experiments.map(e=><option key={e.experimentId} value={e.experimentId}>{e.purpose} · {e.experimentId} · {e.recordedRuns}/{e.expectedRuns} runs</option>)}</select></label>
       <button type="button" disabled={busy||!selected} onClick={()=>act(async()=>apiClient.getResearchExperiment(selected,workspaceId,lifetime.current.signal))}>Reload results</button>
       <button type="button" disabled={busy||!summary||!registry?.executionEnabled} onClick={()=>act(()=>apiClient.rerunResearchExperiment(selected,workspaceId))}>Rerun same configuration</button>

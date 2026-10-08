@@ -1,13 +1,21 @@
 # Project state
 
-- **Current release candidate:** Phase 10 baseline plus pre-release UX/output consolidation; no Phase 11. Operational schema 13.
+- **Current release candidate:** Phase 10 baseline plus pre-release UX/output consolidation; no Phase 11. Operational schema 14 after the local product correction below.
 - **Validation:** frontend 158 passed, 0 failed/skipped; lint/build pass. Backend full regression 752 passed, 84 restricted PostgreSQL/checkpoint cases skipped; final focused contract/storage regression 98 passed. Compileall and diff checks pass. Browser: four requests in each of Single/Fixed/Adaptive passed with mocked providers; eight main destinations and contextual/accessibility workflows checked.
-- **UX/output consolidation:** eight navigation destinations; full-width final reading; contextual handoffs/events/history stepping; immutable original request and bounded subordinate handoffs; versioned prompts and explicit format-problem evidence; authoritative protected-run actions. Complete raw evidence retained.
+- **UX/output consolidation:** eight navigation destinations; full-width final reading; contextual handoffs/events/history stepping; immutable original request and bounded subordinate handoffs; versioned prompts and explicit format-problem evidence; authoritative run actions. Soft delete retains raw evidence; explicit owner purge now removes it under the policy below.
 - **Deployment:** local only. Nothing pushed/deployed; Railway untouched; production graph runtime remains disabled.
 - **Live research:** not run. Fixture acceptance proves plumbing and presentation, not live model fidelity, superiority or statistical conclusions. Historical benchmark outputs/reports remain unchanged.
 - **Academic report:** project/demo guides updated. Final academic report/PPT and independent human evaluation remain separate work.
-- **Unresolved gates:** fresh restricted PostgreSQL/checkpoint acceptance, live-provider format/semantic fidelity and controlled research approval, production tenancy/proxy/OAuth/restart acceptance, academic deliverables.
+- **Unresolved gates:** production checkpoint cleanup provisioning and WebSocket topology, live-provider format/semantic fidelity and controlled research approval, production tenancy/proxy/OAuth/restart acceptance, academic deliverables.
 - **Next action:** review this local release candidate and plan explicitly authorized release-candidate checks. See [acceptance evidence](UX_OUTPUT_CONSOLIDATION_ACCEPTANCE.md).
+
+## Local post-deployment product correction — 2026-10-08
+
+The current local candidate completes owner-confirmed execution-evidence purge, custom-agent archive, managed one-time invitations, state-aware member controls, readable readiness diagnostics and a usable Research Lab entry. Schema 14 adds invitation history. The seven synthetic benchmark definitions now ship inside the backend package. Nothing was pushed or deployed. Earlier reports below describe their historical validation snapshots; the changed retention/invitation policies supersede those earlier product assumptions.
+
+Final local acceptance: 776 backend regression tests passed (99 environment-gated skips in that run), 62 distinct focused PostgreSQL/checkpoint cases passed separately, and 191 frontend tests passed. Browser workflows and temporary-resource cleanup passed. Lint/build/compileall/dependency/diff checks pass; remaining warnings and release gates are documented.
+
+See [current behavior and acceptance](POST_DEPLOYMENT_PRODUCT_CORRECTIONS.md) for exact validation, fixture limitations, checkpoint cleanup prerequisites and remaining production gates.
 
 ## Local production REST routing correction — 2026-10-08
 

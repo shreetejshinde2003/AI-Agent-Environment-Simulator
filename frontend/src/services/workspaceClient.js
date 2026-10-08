@@ -20,6 +20,9 @@ async function workspaceRequest(path = "", options = {}) {
 }
 
 export const workspaceClient = {
+  listInvites: id => workspaceRequest(`/organizations/${encodeURIComponent(id)}/invites`),
+  generateInvite: id => workspaceRequest(`/organizations/${encodeURIComponent(id)}/invites`, {method: "POST"}),
+  revokeInvite: (id, invite) => workspaceRequest(`/organizations/${encodeURIComponent(id)}/invites/${encodeURIComponent(invite)}`, {method: "DELETE"}),
   list: () => workspaceRequest(),
   createOrganization: name =>
     workspaceRequest("/organizations", {

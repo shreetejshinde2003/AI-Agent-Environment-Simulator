@@ -9,7 +9,7 @@ export default function Agents() {
     <p className="muted">Five specialist agents and one Direct baseline agent are executable. The coordinator makes no model call. Status is across the shared workspace; metrics come from saved stage attempts.</p>
     <AgentBuilder key={activeWorkspaceId} workspaceId={activeWorkspaceId} workspace={activeWorkspace}
       onRunCreated={run => {acceptRun(run); selectTask(run.id); refresh();}} />
-    <h2>System agent directory</h2>
+    <h2>System agent directory</h2><p className="muted">Built-in agents are protected and cannot be archived or deleted.</p>
     <div className="run-grid equal">{agents.map(agent => {
       const stats = metrics.agents.find(a => a.agentId === agent.id);
       return <Card key={agent.id} title={agent.name}>

@@ -7,6 +7,7 @@ import {
   UserRound,
 } from "lucide-react";
 
+import OrganizationInvites from "../components/organizations/OrganizationInvites";
 import OrganizationMembers from "../components/organizations/OrganizationMembers";
 import { workspaceClient } from "../services/workspaceClient";
 import { useWorkspace } from "../hooks/useWorkspace";
@@ -139,10 +140,10 @@ export default function Organizations() {
               Share this join code only with people you intend to invite. The
               application does not provide a public organization directory.
             </p>
-            <code>{createdOrganization.joinCode}</code>
+
             <p className="organization-created-note">
-              Save the code now. The stored organization record does not expose
-              the original plaintext code later.
+              Copy the one-time invite from Organization invitations below. You can generate
+              a replacement there whenever you need one.
             </p>
           </div>
         </section>
@@ -181,6 +182,7 @@ export default function Organizations() {
         )}
       </section>
 
+      <OrganizationInvites key={activeWorkspace?.id} workspace={activeWorkspace} initialCode={createdOrganization?.id === activeWorkspace?.id ? createdOrganization.joinCode : ""} onChanged={() => setCreatedOrganization(null)}/>
       <OrganizationMembers
         workspace={activeWorkspace}
         onMembershipChanged={() => refreshWorkspaces(activeWorkspace?.id)}

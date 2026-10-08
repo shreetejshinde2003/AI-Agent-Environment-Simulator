@@ -161,3 +161,28 @@
     padding: var(--space-2);
   }
 }
+
+.readiness-details {
+  position: relative;
+}
+.readiness-details > summary {
+  cursor: pointer;
+}
+.readiness-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + var(--space-2));
+  width: min(320px, 80vw);
+  padding: var(--space-4);
+  background: var(--bg-panel-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+.readiness-panel p {
+  margin: 0 0 var(--space-3);
+}
+.readiness-panel .badge {
+  display: flex;
+  margin-top: var(--space-2);
+}

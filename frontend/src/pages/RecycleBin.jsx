@@ -51,14 +51,14 @@ export default function RecycleBin() {
     <div className="page-heading"><h1>Recycle Bin</h1>
       {allowed && <button className="text-button" disabled={busy || visible.loading} onClick={load}>Refresh</button>}
     </div>
-    <p>Deleted simulations keep their tasks, uploads, and execution evidence. Restore returns the entire run to history. Permanent deletion requires an owner and is blocked for runs with execution evidence.</p>
+    <p>Deleted simulations keep their tasks, uploads, and execution evidence. Restore returns the entire run to history. Owners can permanently delete a run and its execution evidence after explicit confirmation. This cannot be undone.</p>
     {!allowed ? <p role="status">Only workspace owners and organization admins can manage the recycle bin.</p> : <>
       {visible.error && <p role="alert">{visible.error}</p>}
       {visible.loading ? <p role="status">Loading deleted simulations…</p> :
         !visible.items?.length ? <p role="status">The recycle bin is empty.</p> :
           <div className="table-scroll"><table><thead><tr><th>Simulation</th><th>Deleted</th><th>Deleted by</th><th>Last restored</th><th>Actions</th></tr></thead>
             <tbody>{visible.items.map(item => <tr key={item.id}>
-              <td>{item.title}{item.permanentDeletionEligible !== true && <p role="status">Protected — execution evidence retained</p>}<details><summary>Record details</summary><small>{item.id}</small></details></td>
+              <td>{item.title}{item.permanentDeletionEligible !== true && <p role="status">Permanent deletion unavailable for your access role</p>}<details><summary>Record details</summary><small>{item.id}</small></details></td>
               <td>{new Date(item.deletedAt).toLocaleString()}</td><td>{item.deletedByUserId}</td>
               <td>{item.restoredAt ? `${new Date(item.restoredAt).toLocaleString()} · ${item.restoredByUserId}` : "—"}</td>
               <td><button className="text-button" disabled={busy} onClick={() => act(item)}>Restore</button>{" "}

@@ -1,0 +1,28 @@
+Local product correction validation, 2026-10-08
+Starting HEAD: 8b08e0f6e9ef79798c3829c073d8b36fccae0617
+Branch: main
+Full backend: 776 passed, 99 skipped, 2 warnings, 75.77s
+Focused research/recycle: 83 passed, 2 warnings, 25.23s
+Focused graph/output: 96 passed, 2 warnings, 9.85s
+PostgreSQL changed domains: 58 passed, 3 skipped, 2 warnings, 72.92s
+Final PostgreSQL bridge: 4 passed, 1 warning, 7.12s (3 repeats plus new guard)
+Final hybrid checkpoint persistence: 3 passed, 0 skipped, 2 warnings, 2.36s
+Exact final checkpoint selector: backend/tests/test_recycle_bin_postgres.py::test_live_checkpoint_and_route_contract_survive_recycle_restore (single/fixed/adaptive)
+Distinct focused PostgreSQL/checkpoint cases passed: 62
+Frontend: 191 passed, 0 failed, 0 skipped
+Final focused UI: 7 passed
+Browser warning: existing React Flow node/edge type identity warning
+Lint: pass, 2 existing Fast Refresh warnings
+Build: pass, existing >500kB chunk warning
+Compileall: pass
+Pip check: no broken requirements; inaccessible cache warning
+Git diff --check: pass
+Browser: soft delete/restore/typed permanent purge of T-product-purge; system/custom archive lifecycle; one-time generate/copy/use/reuse/revoke/replacement; role-aware member/HR removal; limited/offline/workspace-failure/recovery; empty research/benchmark selection/three-mode fixture experiment/results passed.
+No paid or production provider calls. No push/deploy/production settings changes.
+Cleanup verification:
+Disabled login, erased password; remaining sessions: 0
+Disabled login, erased password; remaining sessions: 0
+Remaining temporary roles: 0
+Remaining isolated checkpoint schema: 0
+Remaining generated bridge schemas/roles: 0
+Private credential file and provisioning/runner files removed
