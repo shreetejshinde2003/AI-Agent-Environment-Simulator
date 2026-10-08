@@ -47,36 +47,119 @@ Historical phase reports remain evidence of their own checkout and date.
 
 ## Local development
 
-The accepted environment uses the existing root `.venv`, Python 3.13.3 and Node 25.5.0.
-For a fresh checkout, install the backend requirements into a virtual environment:
+Use Python **3.13** (validated locally with 3.13.3). Python 3.10+ satisfies the
+current declared minimums, but other interpreter versions have not been freshly
+validated. Use Node **22.12+ on the 22.x line**, or another supported Node release
+satisfying Vite's `^20.19.0 || >=22.12.0` requirement. Existing acceptance used
+Node 25.5.0. Check `python3 --version`, `node --version` and `npm --version` first.
+
+Clone the repository, or obtain the agreed review branch after it is published:
 
 ```sh
-cd backend
-python -m venv .venv
+git clone https://github.com/shreetejshinde2003/AI-Agent-Environment-Simulator.git
+cd AI-Agent-Environment-Simulator
+```
+
+### Backend terminal
+
+For a fresh checkout, create a virtual environment at the repository root, then
+run the backend from `backend/` so settings and SQLite resolve consistently:
+
+```sh
+python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+python -m pip install -r backend/requirements.txt
+cd backend
+cp .env.example .env
+# Configure the private development settings described below before sign-in.
 python run.py
 ```
 
-Configure settings privately through environment variables or the `.env` in the
-backend process's working directory. All application settings live in
-`backend/app/core/config.py`. Supply Google OAuth client/secret, exact callback URL,
-frontend origin and trusted CORS origins to use real sign-in; supply a Groq key to
-run real AI. Never commit credentials or put provider keys in frontend variables.
-Missing configuration produces explicit errors. From `backend/`, copy
-`.env.example` to `.env` and supply only the settings needed for your environment.
+Copy the template only when `.env` does not already exist; preserve existing private
+settings. `python run.py` serves the API at `http://localhost:8000`. The alternative
+is `python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000` from
+`backend/`. Use one API worker. All settings are declared in `app/core/config.py`;
+process environment overrides the working-directory `.env`.
+
+The template explicitly selects `DATABASE_URL=sqlite:///./simulator.db`, which
+creates/initializes **backend/simulator.db** during startup. No separate database
+server or manual migration command is required for a fresh local SQLite database.
+Starting from another directory selects a different relative database and `.env`.
+Initialization can upgrade existing databases: back up an existing database before
+starting newer code. Never use production PostgreSQL credentials for development.
+Leave checkpoint, graph-runtime and live-research flags at their template defaults.
+
+### Frontend terminal
+
+From the repository root in a second terminal:
 
 ```sh
 cd frontend
-npm install
-npm run dev
+npm ci
+cp .env.example .env
+npm run dev -- --port 5173 --strictPort
 ```
 
-Vite defaults to 5173 and the API to 8000. Set `VITE_API_BASE_URL` for the actual API
-origin and optionally `VITE_WS_URL` for `/ws/live`. Backend/.env loading and the
-relative `sqlite:///./simulator.db` path depend on the backend working directory;
-starting from the repository root selects a different database from starting in
-`backend/`. Choose the intended database explicitly. Use one API worker.
+Again, do not overwrite an existing `.env`. Open **http://localhost:5173**.
+Frontend installation, tests, lint, build, login-page rendering and `/privacy` or
+`/terms` rendering require no production credentials. The authenticated workspace
+requires real Google development sign-in; demo mode does not bypass authentication.
+Use `npm run dev` for local API work: `npm run preview` uses production-origin auth
+routing and has no local backend proxy.
+
+Development API requests go directly to `http://localhost:8000`; Vite does not
+proxy them. `VITE_API_BASE_URL` selects REST and development auth/workspace traffic;
+`VITE_WS_URL` selects `/ws/live`. These browser-visible variables must never contain
+credentials. Ollama is not used by the current runtime and need not be started.
+
+### Google development sign-in
+
+An authorized Google OAuth **Web application** development client is required.
+GitHub collaborator access and cloning do not supply OAuth client credentials.
+Obtain a dedicated development client through the project owner or an authorized
+Google Cloud project administrator; do not reuse production secrets.
+
+Set these privately in `backend/.env`:
+
+| Variable | Local configuration |
+| --- | --- |
+| `GOOGLE_CLIENT_ID` | Authorized development client ID; blank in the template. |
+| `GOOGLE_CLIENT_SECRET` | Development client secret; blank in the template. |
+| `GOOGLE_REDIRECT_URI` | `http://localhost:8000/api/v1/auth/google/callback` |
+| `FRONTEND_URL` | `http://localhost:5173` |
+| `CORS_ORIGINS` | JSON list of trusted local frontend origins; supplied in the template. |
+
+In Google Cloud Console, register the exact callback above as an **Authorized
+redirect URI** for that development web client. Configure the OAuth consent screen
+and permitted/test users as appropriate to the project's publishing status and
+account restrictions. If configuring Authorized JavaScript origins, use the local
+frontend origin `http://localhost:5173`; it is not a replacement for callback
+registration. Use `localhost` consistently through frontend, API and callback.
+Restart the backend after changing settings; restart Vite after changing its `.env`.
+
+`GROQ_API_KEY` is optional for frontend/manual-record work. Actual AI execution
+requires a valid separately authorized development Groq credential and provider
+access. Missing credentials must surface errors; never disable authentication or
+create fake application sessions to work around setup.
+
+### Connection diagnostics
+
+- Open `http://localhost:8000/health`: expect HTTP 200 with `status: ok`.
+- Before sign-in, `/api/v1/auth/me` returns **401**, which the frontend treats as
+  anonymous. Protected workspace APIs also require authentication.
+- `/api/v1/auth/google/login` returns **503 / google_auth_not_configured** if any
+  of the four required OAuth settings is blank. Check names/presence, backend
+  working directory and process overrides without printing secret values.
+- With configuration present, login starts with a **302** to Google. A redirect
+  mismatch means the configured callback must match the development client's
+  registered URI exactly; configuration presence does not prove valid credentials.
+- If Vite cannot start, check the Node requirement and dependency installation.
+  `--strictPort` makes an occupied 5173 fail explicitly instead of changing origins.
+- In browser Network/Console, verify requests target the local API, not Vercel or
+  Railway. For CORS/403 errors, check `CORS_ORIGINS`, `FRONTEND_URL`, actual browser
+  origin and consistent hostname/ports. Do not share cookies or authorization headers.
+- For WebSocket failures, verify `ws://localhost:8000/ws/live`, successful sign-in
+  and workspace selection. REST refresh remains available when the live socket fails.
 
 For an offline, disposable academic demonstration using synthetic inputs and
 mocked provider responses, follow [the demo fixture instructions](docs/FINAL_DEMO_GUIDE.md).

@@ -29,20 +29,41 @@ in the UI. No protected evidence can be permanently deleted.
 
 ## Local operation
 
-Run from this directory with a virtual environment containing `requirements.txt`:
+Use Python 3.13 (validated with 3.13.3); the current dependency minimum is 3.10.
+From the repository root, create/activate `.venv` and install the current manifest:
 
 ```sh
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r backend/requirements.txt
+cd backend
+cp .env.example .env
 python run.py
-python -m compileall -q app tests scripts
 ```
 
-Run regression from the repository root with `.venv/bin/python -m pytest backend/tests`.
-No dependency reinstall is necessary in the accepted checkout. Settings come only
-from `app/core/config.py`, environment variables and working-directory `.env`.
-The relative SQLite path selects `backend/simulator.db` when run here; choose
-`DATABASE_URL` explicitly if another local database is intended. Never print keys.
-Copy `.env.example` to `.env` for documented placeholders. Tests use disposable stores and mocked providers.
-Google authentication and Groq execution require separately supplied configuration.
+Copy the template only for a fresh setup; never overwrite an existing private `.env`.
+The [root setup guide](../README.md#local-development) explains Google development
+client registration, frontend setup and connection diagnostics. Backend settings
+come from `app/core/config.py`, process environment and working-directory `.env`.
+The template's local SQLite URL selects `backend/simulator.db`; startup creates and
+initializes a fresh database, and may migrate an existing one. Back up existing local
+data before a version upgrade. No production database or manual fresh-SQLite migration
+is needed. Use one worker and keep graph/checkpoint/live-research defaults disabled.
+
+Google sign-in requires `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
+`GOOGLE_REDIRECT_URI` and `FRONTEND_URL`. Register
+`http://localhost:8000/api/v1/auth/google/callback` on an authorized Google OAuth
+web development client. Keep its secret private; cloning GitHub does not supply it.
+Anonymous `/api/v1/auth/me` returns 401; blank OAuth configuration returns 503 at
+login. The login page can render without configured OAuth, but workspaces require
+real sign-in. Groq credentials are needed only for actual AI requests; Ollama is
+inactive. Never print keys or put them in frontend settings.
+
+Tests use disposable stores and mocked provider calls. From the repository root,
+`.venv/bin/python -m pytest backend/tests` runs the suite; restricted local PostgreSQL
+checks require separately approved test credentials and otherwise skip. Do not point
+tests at production storage. `python -m pip check` checks the installed environment;
+a successful check does not prove a fresh installation.
 
 ## Contracts and APIs
 
