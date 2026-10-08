@@ -2,3 +2,36 @@ node_modules
 dist
 .env
 *.log
+
+# Private environment variants; keep safe example configurations trackable.
+.env.*
+!.env.example
+!.env.*.example
+
+# Local databases, backups and SQLite journal/WAL sidecars.
+*.db
+*.sqlite
+*.sqlite3
+*.db-*
+*.sqlite-*
+*.sqlite3-*
+*.db.*
+*.sqlite.*
+*.sqlite3.*
+
+# Local scratch files and generated tooling output.
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.venv*/
+venv/
+node_modules/
+dist/
+build/
