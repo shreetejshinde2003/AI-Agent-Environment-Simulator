@@ -19,6 +19,7 @@ from app.api.routes import auth
 from app.main import app
 from app.storage import models as dbm
 from app.storage.database import repository
+from app.security.session import oauth_cookie_name
 
 
 @pytest.fixture
@@ -133,17 +134,8 @@ def test_google_login_builds_state_nonce_and_pkce(
         assert query["nonce"]
         assert query["code_challenge"]
 
-        assert client.cookies.get(
-            "oauth_state"
-        )
-
-        assert client.cookies.get(
-            "oauth_nonce"
-        )
-
-        assert client.cookies.get(
-            "oauth_pkce"
-        )
+        assert client.cookies.get(oauth_cookie_name(query["state"][0]))
+        assert not client.cookies.get("oauth_state")
 
 
 def test_callback_creates_local_user_and_session(

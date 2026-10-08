@@ -5,7 +5,7 @@ clients without browser headers still authenticate with the opaque session.
 """
 from urllib.parse import urlsplit
 
-from starlette.datastructures import Headers
+from starlette.datastructures import Headers, MutableHeaders
 from starlette.responses import JSONResponse
 
 from app.core.config import settings
@@ -35,6 +35,18 @@ class BrowserOriginMiddleware:
         self.app = app
 
     async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope["path"].startswith("/api/v1/auth/"):
+            original_send = send
+
+            async def auth_send(message):
+                if message["type"] == "http.response.start":
+                    headers = MutableHeaders(scope=message)
+                    headers["Cache-Control"] = "no-store, private"
+                    headers["CDN-Cache-Control"] = "no-store"
+                    headers["Vercel-CDN-Cache-Control"] = "no-store"
+                await original_send(message)
+
+            send = auth_send
         if (scope["type"] == "http"
                 and scope["method"] not in {"GET", "HEAD", "OPTIONS"}
                 and not trusted_browser_request(Headers(scope=scope))):

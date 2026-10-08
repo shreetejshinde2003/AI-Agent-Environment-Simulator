@@ -55,6 +55,7 @@ def test_fresh_database_contains_auth_tables(tmp_path):
 
     assert "users" in names
     assert "auth_sessions" in names
+    assert "oauth_transactions" in names
 
     with sqlite3.connect(repo.path) as connection:
         assert (

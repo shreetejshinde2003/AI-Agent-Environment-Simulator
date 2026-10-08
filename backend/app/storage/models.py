@@ -42,6 +42,14 @@ auth_sessions = Table("auth_sessions", metadata,
 Index("ix_auth_sessions_user", auth_sessions.c.user_id)
 Index("ix_auth_sessions_expires", auth_sessions.c.expires_at)
 
+# Pre-authentication records have no user/tenant yet. Only digests are stored;
+# possession of the matching HttpOnly browser cookie authorizes consumption.
+oauth_transactions = Table("oauth_transactions", metadata,
+    Column("state_digest", String(64), primary_key=True),
+    Column("cookie_digest", String(64), nullable=False),
+    Column("expires_at", String(40), nullable=False))
+Index("ix_oauth_transactions_expires", oauth_transactions.c.expires_at)
+
 # ---------------------------------------------------------------------------
 # Workspace / tenancy foundation.
 #

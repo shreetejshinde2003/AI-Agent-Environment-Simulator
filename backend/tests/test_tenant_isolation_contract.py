@@ -69,6 +69,7 @@ def test_global_and_identity_tables_are_not_mistaken_for_tenant_business_data():
     assert TABLE_ISOLATION_RULES["agent_roster"].scope == IsolationScope.SYSTEM_GLOBAL
     assert TABLE_ISOLATION_RULES["users"].scope == IsolationScope.IDENTITY
     assert TABLE_ISOLATION_RULES["auth_sessions"].scope == IsolationScope.IDENTITY
+    assert TABLE_ISOLATION_RULES["oauth_transactions"].scope == IsolationScope.IDENTITY
 
 
 def test_tenant_owned_inventory_contains_root_direct_indirect_and_pending_tables():

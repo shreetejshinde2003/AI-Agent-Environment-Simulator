@@ -1,5 +1,14 @@
 # Phase 10 security audit and release-readiness assessment
 
+## Local OAuth correction; production release remains paused
+
+See [OAuth portability evidence and acceptance](OAUTH_PORTABILITY.md). Schema 14
+now also creates a digest-only pre-authentication transaction table/index. Verify
+its production CREATE/DML privileges and restricted PostgreSQL acceptance before
+release. Multi-device production sign-in is not yet accepted. The Railway hold,
+database binding, role/ownership/RLS, backup/restore and old-backend maintenance
+blockers remain open. No settings, push, migration or deployment was authorized.
+
 Verified locally on 7 October 2026. This is a repository/code/test assessment,
 not production acceptance or an external penetration-test certification.
 The final [acceptance report](PHASE10_ACCEPTANCE_REPORT.md) supplies exact results.

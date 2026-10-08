@@ -11,6 +11,16 @@
 
 ## Local post-deployment product correction — 2026-10-08
 
+The subsequent [local OAuth portability correction](OAUTH_PORTABILITY.md) adds
+independent, database-backed one-time login transactions and auth no-store headers
+to the unreleased schema-14 candidate. Real-device OAuth and new-table PostgreSQL
+acceptance remain pending. Coordinated deployment stays paused on its previously
+identified binding, role/RLS, backup, hold and maintenance blockers.
+Final OAuth-candidate validation: 800 backend tests passed with 101 environment
+skips; 63 focused auth/security tests passed with one PostgreSQL skip; 192 frontend
+tests passed. Lint/build/compileall/dependency/diff checks pass with documented
+existing warnings. No new live PostgreSQL or real-device OAuth result is claimed.
+
 The current local candidate completes owner-confirmed execution-evidence purge, custom-agent archive, managed one-time invitations, state-aware member controls, readable readiness diagnostics and a usable Research Lab entry. Schema 14 adds invitation history. The seven synthetic benchmark definitions now ship inside the backend package. Nothing was pushed or deployed. Earlier reports below describe their historical validation snapshots; the changed retention/invitation policies supersede those earlier product assumptions.
 
 Final local acceptance: 776 backend regression tests passed (99 environment-gated skips in that run), 62 distinct focused PostgreSQL/checkpoint cases passed separately, and 191 frontend tests passed. Browser workflows and temporary-resource cleanup passed. Lint/build/compileall/dependency/diff checks pass; remaining warnings and release gates are documented.

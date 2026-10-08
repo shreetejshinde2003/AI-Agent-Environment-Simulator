@@ -48,6 +48,11 @@ TABLE_ISOLATION_RULES: dict[str, TableIsolationRule] = {
         parent_column="user_id",
         notes="Opaque application sessions are scoped to one authenticated user.",
     ),
+    "oauth_transactions": TableIsolationRule(
+        "oauth_transactions",
+        IsolationScope.IDENTITY,
+        notes="Pre-authentication identity transaction: digest-bound browser cookie, no tenant/user yet; no listing API.",
+    ),
     "workspaces": TableIsolationRule(
         "workspaces",
         IsolationScope.WORKSPACE_ROOT,

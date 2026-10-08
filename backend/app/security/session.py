@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -13,6 +14,30 @@ SESSION_COOKIE_NAME = "app_session"
 OAUTH_STATE_COOKIE = "oauth_state"
 OAUTH_NONCE_COOKIE = "oauth_nonce"
 OAUTH_PKCE_COOKIE = "oauth_pkce"
+OAUTH_TRANSACTION_COOKIE_PREFIX = "oauth_tx_"
+
+
+def oauth_cookie_name(state: str) -> str:
+    return OAUTH_TRANSACTION_COOKIE_PREFIX + token_digest(state)
+
+
+class OAuthAccessLogFilter(logging.Filter):
+    """Uvicorn must not record callback codes/state or other auth queries."""
+
+    def filter(self, record):
+        if isinstance(record.args, tuple) and len(record.args) == 5:
+            path = record.args[2]
+            if isinstance(path, str) and path.startswith("/api/v1/auth/"):
+                args = list(record.args)
+                args[2] = path.split("?", 1)[0]
+                record.args = tuple(args)
+        return True
+
+
+def protect_oauth_access_logs():
+    logger = logging.getLogger("uvicorn.access")
+    if not any(isinstance(item, OAuthAccessLogFilter) for item in logger.filters):
+        logger.addFilter(OAuthAccessLogFilter())
 
 OAUTH_TRANSACTION_SECONDS = 600
 SESSION_HOURS = 12

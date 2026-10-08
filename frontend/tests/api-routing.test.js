@@ -25,6 +25,14 @@ for(const path of ['/api/v1/auth/me','/api/v1/workspaces','/api/v1/workspaces/or
 for(const path of ['/','/live','/organizations','/research/report']) test(`${path} retains SPA`,()=>assert.equal(rewriteDestination(config,path),'/index.html'));
 test('API outside versioned route cannot hit SPA',()=>assert.equal(rewriteDestination(config,'/api/unknown'),null));
 test('health reaches backend',()=>assert.equal(new URL(rewriteDestination(config,'/health')).pathname,'/health'));
+test('OAuth login and callback retain API proxy and disable caching',()=>{
+  for(const path of ['/api/v1/auth/google/login','/api/v1/auth/google/callback']) {
+    assert.equal(new URL(rewriteDestination(config,path)).pathname,path);
+  }
+  const headers=config.headers.find(rule=>rule.source==='/api/v1/auth/:path*').headers;
+  assert.ok(headers.some(header=>header.key==='Cache-Control'&&header.value==='no-store, private'));
+  assert.ok(headers.some(header=>header.key==='Vercel-CDN-Cache-Control'&&header.value==='no-store'));
+});
 test('local resolution retains configured and default backend; production ignores override',()=>{
   assert.equal(resolveApiBase({DEV:true}),'http://localhost:8000');
   assert.equal(resolveApiBase({DEV:true,VITE_API_BASE_URL:'http://127.0.0.1:8019/'}),'http://127.0.0.1:8019');

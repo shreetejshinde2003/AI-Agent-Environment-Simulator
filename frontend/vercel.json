@@ -1,4 +1,14 @@
 {
+  "headers": [
+    {
+      "source": "/api/v1/auth/:path*",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, private" },
+        { "key": "CDN-Cache-Control", "value": "no-store" },
+        { "key": "Vercel-CDN-Cache-Control", "value": "no-store" }
+      ]
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/v1/:path*",

@@ -10,9 +10,12 @@ persisted in the application database.
 from __future__ import annotations
 
 import asyncio
+import base64
 import hmac
+import json
 import uuid
-from urllib.parse import urlencode
+from datetime import timedelta
+from urllib.parse import urlencode, urlsplit
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request, Response
@@ -26,6 +29,7 @@ from app.security.session import (
     OAUTH_PKCE_COOKIE,
     OAUTH_STATE_COOKIE,
     OAUTH_TRANSACTION_SECONDS,
+    oauth_cookie_name,
     SESSION_COOKIE_NAME,
     SESSION_HOURS,
     create_opaque_token,
@@ -89,11 +93,33 @@ def _require_google_configuration() -> None:
             },
         )
 
+    # Public URLs are explicit configuration, never derived from proxy headers.
+    # Local development permits its separate localhost API/frontend ports.
+    callback = urlsplit(settings.GOOGLE_REDIRECT_URI)
+    frontend = urlsplit(settings.FRONTEND_URL)
+    local_hosts = {"localhost", "127.0.0.1", "::1"}
+    local = callback.hostname in local_hosts and frontend.hostname in local_hosts
+    valid_urls = (
+        callback.scheme in {"http", "https"} and frontend.scheme in {"http", "https"}
+        and callback.netloc and frontend.netloc
+        and not callback.username and not callback.password
+        and not frontend.username and not frontend.password
+        and callback.path == "/api/v1/auth/google/callback"
+        and frontend.path in {"", "/"}
+        and not callback.query and not callback.fragment
+        and not frontend.query and not frontend.fragment
+    )
+    if not valid_urls or (not local and (
+        callback.scheme != "https" or frontend.scheme != "https"
+        or callback.netloc != frontend.netloc
+    )):
+        raise HTTPException(503, detail={
+            "code": "oauth_origin_mismatch",
+            "message": "OAuth callback must use the configured application origin."})
+
 
 def _production_cookie() -> bool:
-    return settings.GOOGLE_REDIRECT_URI.startswith(
-        "https://"
-    )
+    return urlsplit(settings.GOOGLE_REDIRECT_URI).scheme == "https"
 
 
 def _set_oauth_cookie(
@@ -114,8 +140,10 @@ def _set_oauth_cookie(
 
 def _clear_oauth_cookies(
     response: Response,
+    state: str,
 ) -> None:
     for name in (
+        oauth_cookie_name(state),
         OAUTH_STATE_COOKIE,
         OAUTH_NONCE_COOKIE,
         OAUTH_PKCE_COOKIE,
@@ -141,8 +169,8 @@ def _set_session_cookie(
         max_age=SESSION_HOURS * 60 * 60,
         httponly=True,
         secure=secure,
-        # Railway and Vercel are separate sites in production.
-        samesite="none" if secure else "lax",
+        # Browser-visible login, callback and REST share the frontend origin.
+        samesite="lax",
         path="/",
     )
 
@@ -157,7 +185,7 @@ def _clear_session_cookie(
         path="/",
         secure=secure,
         httponly=True,
-        samesite="none" if secure else "lax",
+        samesite="lax",
     )
 
 
@@ -341,6 +369,14 @@ async def google_login():
     state = create_opaque_token()
     nonce = create_opaque_token()
     verifier, challenge = create_pkce_pair()
+    cookie = base64.urlsafe_b64encode(
+        json.dumps([nonce, verifier], separators=(",", ":")).encode("ascii")
+    ).decode("ascii").rstrip("=")
+    now = utcnow()
+    repository.save_oauth_transaction(
+        state_digest=token_digest(state), cookie_digest=token_digest(cookie),
+        now=now.isoformat(),
+        expires_at=(now + timedelta(seconds=OAUTH_TRANSACTION_SECONDS)).isoformat())
 
     query = urlencode(
         {
@@ -365,23 +401,7 @@ async def google_login():
         status_code=302,
     )
 
-    _set_oauth_cookie(
-        response,
-        OAUTH_STATE_COOKIE,
-        state,
-    )
-
-    _set_oauth_cookie(
-        response,
-        OAUTH_NONCE_COOKIE,
-        nonce,
-    )
-
-    _set_oauth_cookie(
-        response,
-        OAUTH_PKCE_COOKIE,
-        verifier,
-    )
+    _set_oauth_cookie(response, oauth_cookie_name(state), cookie)
 
     return response
 
@@ -397,48 +417,36 @@ async def google_callback(
 
     _require_google_configuration()
 
-    if error:
-        raise HTTPException(
-            400,
-            detail={
-                "code": "google_authorization_denied",
-                "message": (
-                    "Google authorization was cancelled or denied."
-                ),
-            },
-        )
-
-    expected_state = request.cookies.get(
-        OAUTH_STATE_COOKIE
-    )
-
-    nonce = request.cookies.get(
-        OAUTH_NONCE_COOKIE
-    )
-
-    verifier = request.cookies.get(
-        OAUTH_PKCE_COOKIE
-    )
-
-    if (
-        not state
-        or not expected_state
-        or not hmac.compare_digest(
-            state,
-            expected_state,
-        )
+    cookie = request.cookies.get(oauth_cookie_name(state)) if state and len(state) <= 256 else None
+    reason = None
+    if not state or len(state) > 256:
+        reason = "missing_or_invalid_state"
+    elif not cookie:
+        reason = "missing_transaction_cookie"
+    elif not repository.consume_oauth_transaction(
+        state_digest=token_digest(state), cookie_digest=token_digest(cookie), now=utcnow().isoformat()
     ):
+        reason = "transaction_unavailable"
+    if reason:
         raise HTTPException(
             400,
             detail={
                 "code": "invalid_oauth_state",
-                "message": (
-                    "OAuth state validation failed."
-                ),
+                "reason": reason,
+                "message": "Sign-in could not be matched to this browser. Return to the application and start Google sign-in again.",
             },
         )
 
-    if not code or not nonce or not verifier:
+    if error:
+        raise HTTPException(400, detail={
+            "code": "google_authorization_denied",
+            "message": "Google authorization was cancelled or denied."})
+
+    try:
+        nonce, verifier = json.loads(base64.urlsafe_b64decode(cookie + "=" * (-len(cookie) % 4)).decode("ascii"))
+    except (ValueError, TypeError, UnicodeError):
+        nonce = verifier = None
+    if not code or not isinstance(nonce, str) or not nonce or not isinstance(verifier, str) or not verifier:
         raise HTTPException(
             400,
             detail={
@@ -638,7 +646,7 @@ async def google_callback(
         status_code=302,
     )
 
-    _clear_oauth_cookies(response)
+    _clear_oauth_cookies(response, state)
 
     _set_session_cookie(
         response,

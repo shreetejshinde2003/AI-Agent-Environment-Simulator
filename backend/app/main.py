@@ -32,9 +32,11 @@ from app.core.config import settings
 from app.websocket.manager import manager
 from app.security.rbac import AuthorizationError, Permission, resolve_workspace_authorization
 from app.security.browser_origin import BrowserOriginMiddleware, trusted_browser_request
+from app.security.session import protect_oauth_access_logs
 
 @asynccontextmanager
 async def lifespan(app):
+    protect_oauth_access_logs()
     # PG initialization activates the ready data plane and user-bound bootstrap;
     # recovery then uses workspace-scoped locked maintenance transactions.
     repository.initialize()

@@ -11,7 +11,8 @@ Version 9 adds upload ownership; version 10 adds simulation recycle-bin metadata
 Version 11 adds tenant-owned custom agents and immutable configuration revisions.
 Version 12 adds hiring records and pinned revisions; version 13 adds immutable
 human review submissions and transition history. Version 14 adds managed one-time
-invitation history without storing plaintext secrets.
+invitation history and pre-authentication OAuth transactions without storing
+plaintext secrets. Both are additive in the unreleased V14 schema.
 """
 
 from __future__ import annotations
@@ -2367,6 +2368,23 @@ class Repository(CustomAgentRepository, HiringRepository, HRReviewRepository):
             rows = connection.execute(statement).mappings().all()
 
         return [dict(row) for row in rows]
+
+    def save_oauth_transaction(self, *, state_digest, cookie_digest, expires_at, now):
+        with self.engine.begin() as connection:
+            connection.execute(delete(dbm.oauth_transactions).where(
+                dbm.oauth_transactions.c.expires_at <= now))
+            connection.execute(insert(dbm.oauth_transactions).values(
+                state_digest=state_digest, cookie_digest=cookie_digest, expires_at=expires_at))
+
+    def consume_oauth_transaction(self, *, state_digest, cookie_digest, now):
+        # One conditional DELETE serializes competing callbacks on SQLite/PG.
+        # Provider failures also consume the transaction: retry with a new login.
+        with self.engine.begin() as connection:
+            result = connection.execute(delete(dbm.oauth_transactions).where(
+                dbm.oauth_transactions.c.state_digest == state_digest,
+                dbm.oauth_transactions.c.cookie_digest == cookie_digest,
+                dbm.oauth_transactions.c.expires_at > now))
+            return result.rowcount == 1
 
     def save_auth_session(self, session: dict):
         """Persist only a digest of the browser's opaque session token."""
