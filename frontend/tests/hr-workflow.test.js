@@ -4,11 +4,22 @@ import React from "react";
 import {renderToStaticMarkup} from "react-dom/server";
 import {createServer} from "vite";
 import {fileURLToPath} from "node:url";
-import {draftWorkflow, relatedDrafts, relatedRuns, loadHiringWorkspace} from "../src/utils/hrWorkflow.js";
+import {draftWorkflow, latestHiringDraft, relatedDrafts, relatedRuns, loadHiringWorkspace} from "../src/utils/hrWorkflow.js";
 const draft={id:"JD-one",revision:2,updatedByUserId:"human",updatedAt:"2026-10-07T00:00:00Z",content:{title:"Human JD",status:"draft",requirement:{id:"REQ-one",revision:1},roleKnowledge:{id:"KN-one",revision:3}}};
 const review=(revision,status,stale=false)=>({id:`review-${revision}`,jobDescription:{...draft,revision},status,stale,history:[],submittedAt:draft.updatedAt,requestedByUserId:"recruiter"});
 const recruiter={submit:true}, reviewer={recommend:true,request_changes:true}, approver={recommend:true,approve:true,reject:true};
 const run={id:"AI-one",status:"completed",assignedAgentId:"hr_jd_draft",hrExecution:{request:{requirement:draft.content.requirement,roleKnowledge:draft.content.roleKnowledge},sources:[{kind:"requirement",id:"REQ-one",revision:1}]}};
+
+test("hiring guide chooses the newest saved draft regardless of API or local insertion order",()=>{
+ const older={...draft,id:"JD-old",createdAt:"2026-10-01T00:00:00Z"};
+ const newer={...draft,id:"JD-new",createdAt:"2026-10-10T00:00:00Z"};
+ const unrelated={...newer,id:"JD-other",content:{...draft.content,requirement:{id:"REQ-other"}}};
+ const list=[older,newer,unrelated];
+ assert.equal(latestHiringDraft(list,"REQ-one").id,"JD-new");
+ assert.equal(latestHiringDraft([...list].reverse(),"REQ-one").id,"JD-new");
+ assert.deepEqual(list,[older,newer,unrelated]);
+ assert.equal(latestHiringDraft(list,"missing"),undefined);
+});
 
 test("current draft needs submission even when an earlier revision was approved",()=>{
  const flow=draftWorkflow(draft,[review(1,"approved",true)],[run],recruiter);

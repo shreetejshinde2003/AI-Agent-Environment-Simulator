@@ -75,7 +75,7 @@ export function ResearchRun({run, task, onInspect, onReview, busy}) {
 }
 
 function ResearchWorkspace({workspaceId}) {
-  const {selectTask,setActivePage} = useSimulation();
+  const {selectTask,setActivePage,acceptRun} = useSimulation();
   const [view,setView]=useState("welcome"),[confirming,setConfirming]=useState(false);
   const [registry,setRegistry]=useState(null), [experiments,setExperiments]=useState([]);
   const [selected,setSelected]=useState(""),[summary,setSummary]=useState(null);
@@ -157,8 +157,8 @@ function ResearchWorkspace({workspaceId}) {
       <ExportedResearchReport report={exportedReport}/>
       {summary && <section aria-label="Experiment summary"><h2>{experiments.find(e=>e.experimentId===selected)?.purpose ?? "Selected experiment"}</h2><p>Modes: {summary.configuration.modes?.join(", ") ?? [...new Set(summary.runs.map(r=>r.mode))].join(", ")}</p><p>Benchmarks: {new Set(summary.runs.map(r=>r.benchmarkId)).size} · Repetitions: {Math.max(0,...summary.runs.map(r=>r.trialNumber))}</p><p>Trial progress: {summary.runs.filter(r=>["completed","failed"].includes(r.status)).length} / {summary.runs.length}</p></section>}
       <ComparisonTable summary={summary}/>
-      {summary && <><h3>Individual trials and routing</h3><label>Trial<select value={runId} onChange={e=>setRunId(e.target.value)} disabled={busy}><option value="">Select run</option>{summary.runs.map(r=><option key={r.taskId} value={r.taskId}>{r.benchmarkId} · {r.mode} · trial {r.trialNumber} · {r.status}</option>)}</select></label></>}
-      {currentRun&&<ResearchRun key={runId} run={currentRun} task={task} busy={busy} onReview={saveReview} onInspect={()=>{if(task){selectTask(task.id);setActivePage("live");}}}/>}
+      {summary && <><h3>Individual trials and routing</h3><label>Trial<select aria-label="Trial" value={runId} onChange={e=>setRunId(e.target.value)} disabled={busy}><option value="">Select run</option>{summary.runs.map(r=><option key={r.taskId} value={r.taskId}>{r.benchmarkId} · {r.mode} · trial {r.trialNumber} · {r.status}</option>)}</select></label></>}
+      {currentRun&&<ResearchRun key={runId} run={currentRun} task={task} busy={busy} onReview={saveReview} onInspect={()=>{if(task&&acceptRun(task)){selectTask(task.id);setActivePage("live");}}}/>}
     </section>}
     {confirming && <Modal title="Review experiment" onClose={()=>setConfirming(false)} canDismiss={!busy}><p>{cases.length} cases × {modes.length} modes × {repetitions} repetitions = <strong>{cases.length*modes.length*repetitions} trials</strong>.</p><p>{registry?.configuration.evidenceKind === "deterministic_fixture" ? "This local test environment uses a fixture provider. It cannot establish live model quality." : "This invokes the configured AI provider. Multiple stage calls may be made; usage and cost are not estimated here."}</p><p>Results will be saved to this workspace under Your saved experiments. Starting does not approve or publish any result.</p><button disabled={busy || !registry?.executionEnabled} onClick={confirmStart}>Start {cases.length*modes.length*repetitions} trials</button></Modal>}
   </main>;

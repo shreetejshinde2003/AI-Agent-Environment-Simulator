@@ -62,3 +62,13 @@ test('five-step hiring guide restricts authoring and cannot imply automatic appr
   for(const text of ['1. Define','2. Create','3. Review','4. Submit','5. Record'])assert.ok(html.includes(text));
   assert.match(html,/Owner\/Admin access does not grant/);assert.match(html,/disabled=""/);assert.match(html,/read-only for drafting/);
 });
+
+test('hiring guide explains absent suggestions and sends recruiter feedback back to revision',()=>{
+  const draft={id:'JD-one',revision:1,createdAt:'2026-10-10T00:00:00Z',content:{title:'Engineer',status:'draft',requirement:{id:'REQ-one',revision:1}}};
+  const snapshot={records:{requirements:[{id:'REQ-one',revision:1,content:{title:'Engineer',status:'draft'}}],'job-descriptions':[draft]},reviews:[{id:'REV-one',jobDescription:draft,status:'changes_requested',stale:false}],runs:[],agents:[],capabilities:{view:true,job_descriptions:true},reviewCapabilities:{submit:true}};
+  const html=render(HRJourney,{snapshot,onNavigate(){}});
+  assert.match(html,/No matching AI suggestion is saved/);
+  assert.match(html,/<button[^>]*disabled=""[^>]*><span>Review AI suggestions<\/span><\/button>/);
+  assert.match(html,/Revise saved description/);
+  assert.doesNotMatch(html,/Submit saved description<\/button>/);
+});

@@ -1,0 +1,40 @@
+{
+  "production": false,
+  "postgresVersion": "16-alpine",
+  "restrictedRoleFlagsVerified": true,
+  "pytestExitCode": 0,
+  "before": {
+    "catalogSha256": "19506697111d23b1dc75259486a23a13a59ea4f160e4e4fe0bdace16cb6cbbcb",
+    "schemaSha256": "5dc96e02cbb97dfadb1d18842975de559534d0bac24f6870c0ad2f4279188e1d",
+    "checkpointCounts": {
+      "public.checkpoints": 13,
+      "public.checkpoint_blobs": 18,
+      "public.checkpoint_writes": 44,
+      "public.checkpoint_migrations": 10,
+      "langgraph_checkpoints.checkpoints": 0,
+      "langgraph_checkpoints.checkpoint_blobs": 0,
+      "langgraph_checkpoints.checkpoint_writes": 0,
+      "langgraph_checkpoints.checkpoint_migrations": 10
+    }
+  },
+  "after": {
+    "catalogSha256": "19506697111d23b1dc75259486a23a13a59ea4f160e4e4fe0bdace16cb6cbbcb",
+    "schemaSha256": "5dc96e02cbb97dfadb1d18842975de559534d0bac24f6870c0ad2f4279188e1d",
+    "checkpointCounts": {
+      "public.checkpoints": 13,
+      "public.checkpoint_blobs": 18,
+      "public.checkpoint_writes": 44,
+      "public.checkpoint_migrations": 10,
+      "langgraph_checkpoints.checkpoints": 0,
+      "langgraph_checkpoints.checkpoint_blobs": 0,
+      "langgraph_checkpoints.checkpoint_writes": 0,
+      "langgraph_checkpoints.checkpoint_migrations": 10
+    }
+  },
+  "cleanup": {
+    "disabledAndPasswordErased": true,
+    "credentialFilesRemoved": true,
+    "databaseRoleSessionsAbsent": true,
+    "existingCatalogSchemaCheckpointCountsUnchanged": true
+  }
+}

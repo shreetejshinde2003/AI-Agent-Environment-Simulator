@@ -1,5 +1,10 @@
 import {matchingReviewRuns, reviewActions, reviewLabels} from "./hrReviews.js";
 
+export function latestHiringDraft(drafts, requirementId) {
+  return drafts.filter(draft=>draft.content.requirement.id === requirementId)
+    .sort((a,b)=>Date.parse(b.createdAt)-Date.parse(a.createdAt))[0];
+}
+
 // Read projections only: authority remains with the Phase 5–7 mutation APIs.
 export function draftWorkflow(draft, reviews, runs, capabilities, currentRevision = draft.revision) {
   const history = reviews.filter(item => item.jobDescription.id === draft.id);

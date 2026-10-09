@@ -113,9 +113,10 @@ export default function AgentBuilder({workspaceId, workspace, onRunCreated}) {
       setRun(queued); setRuns(current => [...current, queued]); setNotice(`Run accepted using saved revision ${queued.customAgentRevision}.`);
     } catch (failure) {
       if (mounted.current) setError(failure.outcomeUnknown ? `Run acknowledgement unavailable. Refresh runs before retrying: ${failure.message}` : failure.message);
-    } finally {if (mounted.current) setBusy(false);}
+    } finally {operationLock.current=false;if (mounted.current) setBusy(false);}
   }
   async function history() {
+    if(operationLock.current)return;operationLock.current=true;
     setBusy(true);
     try {
       const saved = await apiClient.getCustomAgentRevisions(selected.id, workspaceId);
@@ -124,6 +125,7 @@ export default function AgentBuilder({workspaceId, workspace, onRunCreated}) {
     finally {operationLock.current=false;if(mounted.current)setBusy(false);}
   }
   async function refreshRun() {
+    if(operationLock.current)return;operationLock.current=true;
     setBusy(true);
     try {
       const saved = await apiClient.getTask(run.id, workspaceId);
@@ -150,9 +152,9 @@ export default function AgentBuilder({workspaceId, workspace, onRunCreated}) {
             <h3>{selected ? selected.config.name : "New agent"}</h3>
             <fieldset disabled={!manage || busy}>
               <label>Name<input placeholder="Example: Meeting summary assistant" value={draft.name} onChange={event => field("name", event.target.value)} maxLength={80} required /></label>
-              <p>Give the agent a clear purpose and instructions, then save it. Run it with input text to create a result in this workspace.</p><label>Description<textarea value={draft.description} onChange={event => field("description", event.target.value)} maxLength={1000} /></label>
-              <label>Purpose<textarea placeholder="Example: Summarize decisions and action owners" value={draft.purpose} onChange={event => field("purpose", event.target.value)} maxLength={1000} required /></label>
-              <label>Instructions<textarea placeholder="Describe what the answer should include and how it should be formatted" className="builder-instructions" value={draft.instructions} onChange={event => field("instructions", event.target.value)} maxLength={8000} required /></label>
+              <p>Give the agent a clear purpose and instructions, then save it. Run it with input text to create a result in this workspace.</p><label>Description<textarea aria-label="Description" value={draft.description} onChange={event => field("description", event.target.value)} maxLength={1000} /></label>
+              <label>Purpose<textarea aria-label="Purpose" placeholder="Example: Summarize decisions and action owners" value={draft.purpose} onChange={event => field("purpose", event.target.value)} maxLength={1000} required /></label>
+              <label>Instructions<textarea aria-label="Instructions" placeholder="Describe what the answer should include and how it should be formatted" className="builder-instructions" value={draft.instructions} onChange={event => field("instructions", event.target.value)} maxLength={8000} required /></label>
               <details><summary>Model and execution limits</summary><div className="builder-fields">
                 <label>Model<select value={draft.model} onChange={event => field("model", event.target.value)}>
                   <option value="default">Default · {options?.models.default}</option><option value="fast">Fast · {options?.models.fast}</option></select></label>
@@ -175,7 +177,7 @@ export default function AgentBuilder({workspaceId, workspace, onRunCreated}) {
             {revisions.map(version => <details key={version.revision}><summary>Revision {version.revision} · {new Date(version.updatedAt).toLocaleString()} · {version.config.active ? "Active" : "Archived"}</summary>
               <p>Saved by {version.updatedByUserId} · {version.resolvedModel}</p><pre>{JSON.stringify(version.config, null, 2)}</pre></details>)}
             <form onSubmit={execute} aria-label="Run saved agent"><h3>Run saved agent</h3><p className="muted">Uses the saved version. Save edits first. This invokes the configured AI provider; it does not grant tools or approval authority. Results are saved with this agent and in Simulation History.</p>
-              <label>Input text<textarea value={input} onChange={event => setInput(event.target.value)} maxLength={10000} required disabled={busy || live || !selected.config.active} /></label>
+              <label>Input text<textarea aria-label="Input text" value={input} onChange={event => setInput(event.target.value)} maxLength={10000} required disabled={busy || live || !selected.config.active} /></label>
               <button className="btn btn-primary" type="submit" disabled={busy || live || !selected.config.active}>Run agent</button>
               {!selected.config.active && <p className="muted">This agent is inactive. A manager must activate it before execution.</p>}
             </form>
