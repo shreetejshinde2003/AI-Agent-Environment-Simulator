@@ -1,5 +1,6 @@
 import { API_BASE_URL } from "./apiConfig";
 import { parseApiResponse } from "./apiResponse";
+import { sessionHeaders } from "./sessionSync";
 
 export const AUTH_LOGIN_URL =
   API_BASE_URL + "/api/v1/auth/google/login";
@@ -38,6 +39,7 @@ export async function logout() {
       credentials: "include",
       headers: {
         Accept: "application/json",
+        ...sessionHeaders(),
       },
       signal: AbortSignal.timeout(15000),
     },

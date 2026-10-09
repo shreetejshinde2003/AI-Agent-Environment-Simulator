@@ -1,5 +1,7 @@
 // Fixed copy deliberately excludes server messages, OAuth details and response bodies.
 export function sessionPresentation(error, context = "session") {
+  if (error?.code === "oauth_sign_in_failed") return {title: "Sign-in could not finish", message: "Start Google sign-in again in this browser. Complete it within ten minutes and allow cookies for this application.", signIn: true};
+  if (error?.code === "session_changed") return {title: "Browser account changed", message: "Another tab changed the shared browser sign-in. Recheck your session to continue."};
   if (error?.code === "session_expired") return {title: "Session expired", message: "Your session has expired. Sign in again to continue.", signIn: true};
   if (error?.code === "unexpected_api_response" && !(error?.status >= 500)) return {title: "Unable to connect", message: "The application received an unexpected response. Try again in a moment."};
   if (error?.status === 401) return {title: "Sign in again", message: "Your session is no longer available. Sign in again to continue.", signIn: true};

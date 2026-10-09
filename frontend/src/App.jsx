@@ -135,7 +135,7 @@ function AuthenticatedApp() {
   }
 
   return (
-    <WorkspaceProvider>
+    <WorkspaceProvider key={user.id}>
       <WorkspaceBootstrap>
         <SimulationProvider>
           <AppContent

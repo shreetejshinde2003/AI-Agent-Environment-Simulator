@@ -23,6 +23,8 @@ for (const [error, title, signIn] of [
   [{status: 503}, "Server unavailable", false],
   [{status: 401, code: "session_expired"}, "Session expired", true],
   [{status: 401, code: "session_revoked"}, "Sign in again", true],
+  [{code: "oauth_sign_in_failed"}, "Sign-in could not finish", true],
+  [{status: 401, code: "session_changed"}, "Browser account changed", false],
   [{status: 403, code: "user_unavailable"}, "Access unavailable", true],
   [{name: "TimeoutError"}, "Connection timed out", false],
   [new TypeError("PRIVATE token"), "Connection interrupted", false],

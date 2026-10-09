@@ -1,6 +1,7 @@
 import {creationError} from "../utils/apiErrors";
 import { API_BASE_URL } from "./apiConfig";
 import { parseApiResponse, requireResponseType } from "./apiResponse";
+import { sessionHeaders } from "./sessionSync";
 export { API_BASE_URL, WS_URL } from "./apiConfig";
 function workspaceHeaders(workspaceId) {
   return workspaceId ? {"X-Workspace-Id": workspaceId} : {};
@@ -9,7 +10,7 @@ async function request(path, options = {}) {
   const response = await fetch(API_BASE_URL + "/api/v1" + path, {
     ...options,
     credentials: "include",
-    headers: { "Content-Type": "application/json", ...options.headers },
+    headers: { "Content-Type": "application/json", ...sessionHeaders(), ...options.headers },
     signal: options.signal ?? AbortSignal.timeout(15000),
   });
   return parseApiResponse(response, "/api/v1" + path);
@@ -70,7 +71,7 @@ export const apiClient = {
       "Content-Type": file.type || "application/octet-stream"}}),
   async exportRun(id, format, workspaceId) {
     const response = await fetch(API_BASE_URL + "/api/v1/simulations/" + encodeURIComponent(id) +
-      "/export?format=" + format, {credentials: "include", headers: workspaceHeaders(workspaceId), signal: AbortSignal.timeout(15000)});
+      "/export?format=" + format, {credentials: "include", headers: {...sessionHeaders(), ...workspaceHeaders(workspaceId)}, signal: AbortSignal.timeout(15000)});
     const requestPath = "/api/v1/simulations/" + encodeURIComponent(id) + "/export";
     if (!response.ok) await parseApiResponse(response, requestPath);
     requireResponseType(response, requestPath, {json: "application/json", txt: "text/plain", csv: "text/csv"}[format]);

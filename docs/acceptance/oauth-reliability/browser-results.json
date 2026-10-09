@@ -1,0 +1,95 @@
+{
+  "browser": "Playwright isolated Google Chrome contexts",
+  "topology": "local HTTPS same-origin proxy; cross-site localhost mock Google; disposable SQLite",
+  "results": [
+    {
+      "name": "Secure HttpOnly Lax transaction accepted over local HTTPS",
+      "status": "passed"
+    },
+    {
+      "name": "Fresh login and workspace bootstrap across cross-site mock Google",
+      "status": "passed"
+    },
+    {
+      "name": "Successful callback clears its transaction cookie",
+      "status": "passed"
+    },
+    {
+      "name": "Login logout login",
+      "status": "passed"
+    },
+    {
+      "name": "Two simultaneous login tabs retain separate cookies",
+      "status": "passed"
+    },
+    {
+      "name": "Account switch reconciles previously authenticated tab through broadcast",
+      "status": "passed"
+    },
+    {
+      "name": "Reverse callback completion changes shared identity to last success",
+      "status": "passed"
+    },
+    {
+      "name": "Independent browser contexts retain independent identities",
+      "status": "passed"
+    },
+    {
+      "name": "Three consecutive fresh logins",
+      "status": "passed"
+    },
+    {
+      "name": "Missing cookie fails closed and recovers to login without callback secrets",
+      "status": "passed"
+    },
+    {
+      "name": "Callback replay fails closed",
+      "status": "passed"
+    },
+    {
+      "name": "Logout reconciles other open tabs",
+      "status": "passed"
+    },
+    {
+      "name": "Logout preserves another pending OAuth transaction",
+      "status": "passed"
+    },
+    {
+      "name": "Expired session clears authenticated view on focus",
+      "status": "passed"
+    },
+    {
+      "name": "Fresh login after expiry",
+      "status": "passed"
+    },
+    {
+      "name": "Storage and BroadcastChannel restrictions retain cookie authority and focus fallback",
+      "status": "passed"
+    },
+    {
+      "name": "Periodic fallback detects account switch without storage or broadcast",
+      "status": "passed"
+    },
+    {
+      "name": "Lost callback network allows a fresh login without replay",
+      "status": "passed"
+    },
+    {
+      "name": "Delayed mock provider callback completes within transaction TTL",
+      "status": "passed"
+    },
+    {
+      "name": "HTML proxy failure presents safe connection recovery",
+      "status": "passed"
+    }
+  ],
+  "blockedCookieReasons": [],
+  "transactionCookieMetadata": {
+    "secure": true,
+    "httpOnly": true,
+    "sameSite": "Lax",
+    "path": "/api/v1/auth/google/callback"
+  },
+  "liveGoogle": false,
+  "production": false
+}

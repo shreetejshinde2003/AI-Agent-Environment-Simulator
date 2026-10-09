@@ -19,7 +19,7 @@ from urllib.parse import urlencode, urlsplit
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request, Response
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from google.auth.transport.requests import Request as GoogleRequest
 from google.oauth2 import id_token as google_id_token
 
@@ -187,6 +187,14 @@ def _clear_session_cookie(
         httponly=True,
         samesite="lax",
     )
+
+
+def _sign_in_unavailable():
+    return HTMLResponse(
+        "<!doctype html><title>Sign-in unavailable</title>"
+        "<h1>Sign-in unavailable</h1><p>Try again later.</p>"
+        '<p><a href="/">Return to the application</a></p>',
+        status_code=503, headers={"Referrer-Policy": "no-referrer"})
 
 
 async def _exchange_code(
@@ -357,14 +365,27 @@ def _authenticated_record(
             },
         )
 
+    # A tab's asserted identity can only restrict the cookie's authority.
+    # It never authenticates a caller or grants workspace access.
+    expected_user = request.headers.get("x-expected-user-id")
+    if expected_user is not None and not hmac.compare_digest(expected_user.encode(), user["id"].encode()):
+        raise HTTPException(401, detail={
+            "code": "session_changed",
+            "message": "The shared browser account changed. Refresh sign-in."})
+
     return user, session
 
 
 @router.get("/google/login")
-async def google_login():
+async def google_login(request: Request):
     """Begin the browser-based Google authorization-code flow."""
 
-    _require_google_configuration()
+    try:
+        _require_google_configuration()
+    except HTTPException:
+        if "text/html" in request.headers.get("accept", ""):
+            return _sign_in_unavailable()
+        raise
 
     state = create_opaque_token()
     nonce = create_opaque_token()
@@ -413,6 +434,26 @@ async def google_callback(
     state: str | None = None,
     error: str | None = None,
 ):
+    try:
+        return await _complete_google_callback(request, code, state, error)
+    except HTTPException:
+        # API clients keep structured diagnostics. Browser navigations recover
+        # using fixed public copy; no code/state/provider detail leaves callback.
+        if "text/html" not in request.headers.get("accept", ""):
+            raise
+        try:
+            _require_google_configuration()
+        except HTTPException:
+            return _sign_in_unavailable()
+        response = RedirectResponse(
+            settings.FRONTEND_URL.rstrip("/") + "/?auth=failed",
+            status_code=302, headers={"Referrer-Policy": "no-referrer"})
+        if state and len(state) <= 256:
+            _clear_oauth_cookies(response, state)
+        return response
+
+
+async def _complete_google_callback(request, code, state, error):
     """Complete Google authentication and create a local app session."""
 
     _require_google_configuration()
@@ -636,6 +677,14 @@ async def google_callback(
         }
     )
 
+    # Rotate only the session presented by this browser. Other profiles/devices
+    # retain independent sessions; other pending OAuth transactions are untouched.
+    previous_token = request.cookies.get(SESSION_COOKIE_NAME)
+    if previous_token:
+        previous_session = repository.get_auth_session_by_digest(token_digest(previous_token))
+        if previous_session is not None and previous_session["revoked_at"] is None:
+            repository.revoke_auth_session(previous_session["id"], now.isoformat())
+
     destination = (
         settings.FRONTEND_URL.rstrip("/")
         + "/?auth=success"
@@ -644,6 +693,7 @@ async def google_callback(
     response = RedirectResponse(
         url=destination,
         status_code=302,
+        headers={"Referrer-Policy": "no-referrer"},
     )
 
     _clear_oauth_cookies(response, state)
@@ -681,6 +731,8 @@ async def me(request: Request):
 
 @router.post("/logout", status_code=204)
 async def logout(request: Request):
+    if request.headers.get("x-expected-user-id") is not None:
+        _authenticated_record(request)
     token = request.cookies.get(
         SESSION_COOKIE_NAME
     )

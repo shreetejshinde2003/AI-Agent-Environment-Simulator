@@ -1,5 +1,6 @@
 import { API_BASE_URL } from "./apiConfig";
 import { parseApiResponse } from "./apiResponse";
+import { sessionHeaders } from "./sessionSync";
 
 async function workspaceRequest(path = "", options = {}) {
   const response = await fetch(
@@ -10,6 +11,7 @@ async function workspaceRequest(path = "", options = {}) {
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
+        ...sessionHeaders(),
         ...options.headers,
       },
       signal: options.signal ?? AbortSignal.timeout(15000),

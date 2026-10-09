@@ -1,0 +1,41 @@
+✔ current draft needs submission even when an earlier revision was approved (74.595667ms)
+✔ pending review next action respects recruiter authority (0.163292ms)
+✔ pending review next action respects reviewer authority (0.078291ms)
+✔ pending review next action respects approver authority (0.067167ms)
+✔ pending review next action respects combined authority (0.078875ms)
+✔ pending review next action respects IAM only authority (0.058917ms)
+✔ pending review next action respects no HR role authority (0.060792ms)
+✔ awaiting approval is actionable only with approver authority (0.098625ms)
+✔ terminal feedback requires human revision and terminal approval has no decision action (0.176125ms)
+✔ relationship traversal retains exact pinned revisions and includes failed historical evidence (1.435875ms)
+✔ workspace read uses one scope and abort signal for every authoritative API (0.340375ms)
+✔ denied HR capability never fetches tenant records or evidence (0.099209ms)
+✔ a partial workspace response fails rather than exposing a mixed snapshot (0.377834ms)
+✔ workflow renders source links original approval and AI proposal boundary with human attribution (186.834792ms)
+✔ historical approved JD inspection exposes that revision without new actions (0.345083ms)
+✔ a new revision after feedback requires its own submission (0.192791ms)
+✔ source inspection renders historical JD usage while allowing actions only on the current revision (4.440083ms)
+✔ historical source lookup sends exact revision authenticated workspace and cancellation (45.744166ms)
+✔ member-management visibility follows centralized frontend role semantics (315.530667ms)
+✔ member workspace does not expose management controls (11.942708ms)
+✔ admin gets read-only member-management surface (1.383834ms)
+✔ owner gets role-management surface and Personal Workspace gets no org controls (1.085292ms)
+✔ research configuration bounds modes repetitions purpose and total work (576.965917ms)
+✔ real zero is displayed while missing telemetry remains unknown (0.50575ms)
+✔ comparison empty state invents no metrics (18.733167ms)
+✔ comparison shows measured sample counts missing values and descriptive fixture boundary (5.875042ms)
+✔ integrity failures appear explicitly (3.194625ms)
+✔ adaptive run shows selected skipped actual route and persistent output (10.423833ms)
+✔ failed runs disclose failures and offer no human scoring of absent output (1.799708ms)
+✔ human rubric validates output identity complete scores notes and review count (0.800916ms)
+✔ workspace switches remount research and all reads are cancellable scoped calls (14.434583ms)
+✔ API calls preserve authenticated workspace scoping and human optimistic revision (4.347083ms)
+✔ exported report remains available when browser file saving is unavailable (1.830208ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 33
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2763.398167
