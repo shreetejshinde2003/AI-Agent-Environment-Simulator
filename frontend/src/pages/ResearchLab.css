@@ -16,3 +16,12 @@
 .research-score-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap: 8px; }
 .research-run { margin-top: 18px; overflow-wrap: anywhere; }
 .research-lab textarea[readonly] { width: 100%; font-family: monospace; white-space: pre; }
+.research-choices { display: flex; flex-wrap: wrap; gap: var(--space-3); margin: var(--space-5) 0; }
+.research-choices button[aria-pressed="true"] { border-color: var(--accent-primary); background: var(--accent-primary-soft); }
+.research-steps { color: var(--text-secondary); padding-left: var(--space-6); }
+.sample-label { display: inline-block; padding: var(--space-2) var(--space-3); border: 1px solid var(--status-warning); border-radius: var(--radius-md); }
+.research-sample > * { margin-bottom: var(--space-4); }
+.research-sample article { padding: var(--space-4); border-bottom: 1px solid var(--border-subtle); }
+.research-sample blockquote { margin: var(--space-3) 0; padding: var(--space-3); background: var(--bg-panel-raised); }
+.research-sample pre { max-height: 400px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.research-sample select { max-width: 100%; width: 100%; }

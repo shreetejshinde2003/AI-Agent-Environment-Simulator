@@ -34,7 +34,7 @@ function RevisionPicker({label, kind, records = [], workspaceId, onSelect, optio
 function Proposal({task, onNavigate}) {
   const output = hrStructuredOutput(task);
   return <article className="hr-assistance-result" aria-label="HR execution result">
-    <h3>{task.title}</h3><p role="status">Execution status: {task.status}</p><p>Run: {task.id}</p>
+    <h3>Saved AI suggestion</h3><p role="status">Result: {task.status}</p>
     {task.error && <p role="alert">{task.error}</p>}
     {output && <><h4>AI-generated proposal · human review required</h4>
       {Object.entries(output).map(([field, value]) => <section key={field}><h4>{field.replace(/([A-Z])/g, " $1")}</h4>
@@ -43,7 +43,7 @@ function Proposal({task, onNavigate}) {
       </section>)}
     </>}
     <details><summary>Source provenance and execution evidence</summary>
-      <p>Provider: {task.hrExecution.provider} · configured model: {task.hrExecution.model} · implementation: {task.hrExecution.implementationVersion}</p>
+      <p>Run: {task.id}</p><p>Provider: {task.hrExecution.provider} · configured model: {task.hrExecution.model} · implementation: {task.hrExecution.implementationVersion}</p>
       <ul>{task.hrExecution.sources.map(source => <li key={source.kind}>{source.kind}: {source.id} · revision {source.revision}{onNavigate && <Button onClick={() => onNavigate({section:"record",kind:{requirement:"requirements",role_knowledge:"role-knowledge",job_description:"job-descriptions"}[source.kind],id:source.id,revision:source.revision})}>Inspect source revision</Button>}<br/>Fingerprint: {source.fingerprint}</li>)}</ul>
       {task.stages.map((stage, i) => <p key={i}>Stage: {stage.status} · response model: {stage.model ?? "Unavailable"} · input tokens: {stage.inputTokens ?? "Unavailable"} · output tokens: {stage.outputTokens ?? "Unavailable"} · total tokens: {stage.totalTokens ?? "Unavailable"}</p>)}
       <p>Created: {task.createdAt} · completed: {task.completedAt ?? "Pending"}</p>
@@ -107,7 +107,7 @@ export default function HRAssistance({workspaceId, records, snapshot, focus, onN
     finally {if (alive.current) setSubmitting(false);}
   };
   return <Card title="AI assistance">
-    <p>AI outputs are proposals. Review the sources and suggestions before making any human decision. These actions preserve human-authored records.</p>
+    <p>AI outputs are proposals. Choose a saved requirement and an action, then start AI assistance. The configured AI service generates a saved suggestion; it never edits or approves your job description. Review and apply useful suggestions yourself.</p>
     {error && <p role="alert">{error} <Button type="button" onClick={() => {setError(""); if (snapshot) onChanged(); else setReload(v => v + 1);}}>Reload assistance</Button></p>}
     <form className="hiring-form" onSubmit={submit}>
       <label>HR agent action<select value={action} disabled={submitting} onChange={e => {setSeed(null); setAction(e.target.value); setRequirement(null); setKnowledge(null); setDraft(null);}}>
@@ -125,8 +125,8 @@ export default function HRAssistance({workspaceId, records, snapshot, focus, onN
         {submitting ? "Submitting…" : hrRunPending(task) ? "Executing…" : "Run AI assistance"}
       </Button>
     </form>
-    <label className="hiring-form">Persisted HR runs<select value={task?.id ?? ""} onChange={e => {setError(""); setTask(runs.find(run => run.id === e.target.value) ?? null);}}>
-      <option value="">Choose run</option>{runs.map(run => <option key={run.id} value={run.id}>{run.assignedAgentId} · {run.status} · {run.id}</option>)}
+    <label className="hiring-form">Your saved AI suggestions<select aria-label="Your saved AI suggestions" value={task?.id ?? ""} onChange={e => {setError(""); setTask(runs.find(run => run.id === e.target.value) ?? null);}}>
+      <option value="">Choose run</option>{runs.map(run => <option key={run.id} value={run.id}>{catalog.find(agent=>agent.id === run.assignedAgentId)?.title ?? "AI assistance"} · {run.status} · {new Date(run.createdAt).toLocaleString()}</option>)}
     </select></label>
     {task && <Proposal task={task} onNavigate={onNavigate}/>}
     <p className="muted">Failures remain in run history. Submit a new run to retry; each submission may call the configured provider. No approval or publication is performed.</p>

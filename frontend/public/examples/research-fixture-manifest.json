@@ -1,0 +1,8 @@
+{
+  "source": "docs/acceptance/phase10-fixture-report.json",
+  "sha256": "ed54990100ee02e1829247099cb3dca3ef090a938a70b54749a38f11bbdcffd2",
+  "reportVersion": "research-report-v1",
+  "trialCount": 42,
+  "recordedAt": "2026-10-07T15:58:17.404264+00:00",
+  "kind": "historical_deterministic_fixture"
+}

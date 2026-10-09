@@ -3,9 +3,11 @@ import {useWorkspace} from "../hooks/useWorkspace";
 import {apiClient} from "../services/apiClient";
 import Button from "../components/common/Button";
 import Card from "../components/common/Card";
-import {hiringKinds, hiringLabels, hiringForm, hiringPayload, hiringStatuses, listFields} from "../utils/hiring";
+import {hiringKinds, hiringLabels, hiringForm, hiringPayload, hiringStatuses, listFields, hiringExamples} from "../utils/hiring";
 import "./Hiring.css";
 import HRWorkflow from "../components/hiring/HRWorkflow";
+import HRJourney from "../components/hiring/HRJourney";
+import {useSimulation} from "../context/SimulationContext";
 import {loadHiringWorkspace} from "../utils/hrWorkflow";
 import HRReviews from "../components/hiring/HRReviews";
 import HRAssistance from "../components/hiring/HRAssistance";
@@ -28,6 +30,8 @@ function HiringWorkspace({workspaceId}) {
   const [loading, setLoading] = useState(true);
   const [opening, setOpening] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveNotice,setSaveNotice]=useState("");
+  const saveLock=useRef(false);
   const [reload, setReload] = useState(0);
   useEffect(() => {
     const invalidateDetails = () => {detailRequest.current++;};
@@ -74,7 +78,7 @@ function HiringWorkspace({workspaceId}) {
     finally {if (requestId === detailRequest.current) setOpening(false);}
   };
   const save = async event => {
-    event.preventDefault(); setSaving(true); setError("");
+    event.preventDefault(); if(saveLock.current)return;saveLock.current=true;setSaving(true);setError("");setSaveNotice("");
     const requestId = ++detailRequest.current;
     try {
       const payload = hiringPayload(kind, form, selected?.revision);
@@ -84,12 +88,15 @@ function HiringWorkspace({workspaceId}) {
       setSnapshot(previous => previous ? {...previous,records:{...previous.records,[kind]:[saved,...(previous.records[kind] ?? []).filter(item => item.id !== saved.id)]}} : previous);
       setSelected(saved); setForm(hiringForm(kind, saved.content)); setHistory([]);
       setEvidenceReload(value => value + 1);
+      setSaveNotice(`${saved.content.title} saved. It is available in the hiring guide and saved records; review has not been submitted automatically.`);
     } catch (e) {setError(e.message); if ([401,403,404].includes(e.status)) refreshEvidence();}
-    finally {setSaving(false);}
+    finally {saveLock.current=false;setSaving(false);}
   };
   const navigate = target => {
     if (saving) return;
-    if (target.section === "record") {
+    if (target.section === "create-record") {
+      detailRequest.current++;setOpening(false);setSection("records");setKind(target.kind);setSelected(null);setHistory([]);setLinkedDrafts(null);setError("");setSaveNotice("");setForm(hiringForm(target.kind));
+    } else if (target.section === "record") {
       const targetKind = target.kind ?? "job-descriptions";
       openRecord(records[targetKind]?.find(item => item.id === target.id), targetKind, target.revision);
     } else if (target.section === "create-draft") {
@@ -114,16 +121,17 @@ function HiringWorkspace({workspaceId}) {
     </select></label>;
   };
   return <div className="hiring-workspace">
-    <p className="muted">Requirement → role knowledge → human draft / AI proposals → revision → review → approval.</p>
+    <p>Start with the hiring guide. Your drafts, source knowledge and human decisions are saved in this organization.</p>
+    {saveNotice&&<p className="step-saved" role="status">{saveNotice}</p>}
     {loading && <p role="status">Loading hiring records…</p>}
     {error && <p role="alert" className="run-error">{error} <Button type="button" disabled={saving} onClick={() => {setEvidenceReload(0); setReload(v => v + 1);}}>Reload</Button></p>}
     {!loading && capabilities && !capabilities.view && <p role="status">An active HR Recruiter, Reviewer or Approver role is required. Manage assignments in Organizations.</p>}
     {!loading && capabilities?.view && <>
       <Button disabled={refreshing || saving} onClick={refreshEvidence}>Refresh hiring workspace</Button>
       {refreshing && <p role="status">Refreshing saved workflow…</p>}
-      <nav aria-label="HR workflow navigation" className="hiring-tabs">{[["workflow", "Hiring workflow"], ["records", "Source records and drafts"], ["assistance", "AI assistance"], ["reviews", "Human review and approval"]].map(([key,label]) =>
+      <nav aria-label="HR workflow navigation" className="hiring-tabs">{[["workflow", "Hiring guide"], ["records", "Saved records and drafts"], ["assistance", "AI assistance"], ["reviews", "Human review and approval"]].map(([key,label]) =>
         <Button key={key} aria-pressed={section === key} disabled={saving} onClick={() => setSection(key)}>{label}</Button>)}</nav>
-      {snapshot && <div hidden={section !== "workflow"}><HRWorkflow snapshot={snapshot} onNavigate={navigate}/></div>}
+      {snapshot && <div hidden={section !== "workflow"}><HRJourney snapshot={snapshot} onNavigate={navigate}/><details><summary>Saved document relationships and full workflow history</summary><HRWorkflow snapshot={snapshot} onNavigate={navigate}/></details></div>}
       <div hidden={section !== "assistance"}><HRAssistance workspaceId={workspaceId} records={records} snapshot={snapshot} onNavigate={navigate} focus={focus?.section === "assistance" ? focus : null} onChanged={refreshEvidence}/></div>
       <div hidden={section !== "reviews"}><HRReviews workspaceId={workspaceId} records={records} snapshot={snapshot} focus={focus?.section === "reviews" ? focus : null} onChanged={refreshEvidence} onRevise={id => openRecord(records["job-descriptions"]?.find(item => item.id === id), "job-descriptions")}/></div>
       <div hidden={section !== "records"}>
@@ -137,22 +145,30 @@ function HiringWorkspace({workspaceId}) {
           {record.content.title}<small>{record.content.status} · revision {record.revision}</small></Button></li>)}</ul>
       </Card><Card title={selected ? "Record details" : "New record"}>
         {!form && <p role="status">{opening ? "Loading selected revision…" : "Select a record or create one."}</p>}
-        {selected && <HRWorkflow snapshot={snapshot} record={selected} kind={kind} linkedDrafts={linkedDrafts} onNavigate={navigate}/>}
+        {selected && <details><summary>Linked sources, AI runs and decision history</summary><HRWorkflow snapshot={snapshot} record={selected} kind={kind} linkedDrafts={linkedDrafts} onNavigate={navigate}/></details>}
         {selected && selected.revision < headRevision && selected.content.status !== "archived" && <p role="status">Historical revision · read-only. Select the current record to edit.</p>}
         {selected?.content.status === "archived" && <p className="muted">Archived record · read-only. Its revision history remains available.</p>}
         {form && <form onSubmit={save} className="hiring-form">
-          {selected && <p className="muted">Revision {selected.revision} · {selected.id}<br/>Created by {selected.createdByUserId} · {new Date(selected.createdAt).toLocaleString()}<br/>Updated by {selected.updatedByUserId} · {new Date(selected.updatedAt).toLocaleString()}</p>}
-          {definition.fields.map(field => <label key={field}>{hiringLabels[field]}{listFields.has(field) && <small>One item per line</small>}
+          {selected && <details><summary>Saved version and author details</summary><p className="muted">Revision {selected.revision} · {selected.id}<br/>Created by {selected.createdByUserId} · {new Date(selected.createdAt).toLocaleString()}<br/>Updated by {selected.updatedByUserId} · {new Date(selected.updatedAt).toLocaleString()}</p></details>}
+          {definition.fields.filter(field=>["title","purpose","summary"].includes(field)).map(field => <label key={field}>{hiringLabels[field]}{listFields.has(field) && <small>One item per line</small>}
+            {field === "openings" ? <input type="number" min="1" max="10000" step="1" required placeholder={field === "title" ? "Example: Software Engineer" : field === "purpose" ? "Explain why this role is needed and what the person will do." : "Describe the role using the saved hiring requirement."} value={form[field]} disabled={!canEdit || saving} onChange={e => setForm({...form, [field]: e.target.value})}/> :
+              <textarea rows={listFields.has(field) || ["purpose", "summary"].includes(field) ? 3 : 1}
+                required={["title", "purpose", "summary"].includes(field)} maxLength={["title", "department", "location", "employmentArrangement"].includes(field) ? 200 : field === "summary" ? 8000 : listFields.has(field) ? undefined : 4000}
+                placeholder={hiringExamples[field]} value={form[field]} disabled={!canEdit || saving} onChange={e => setForm({...form, [field]: e.target.value})}/>}
+          </label>)}
+          <details className="hiring-optional"><summary>Responsibilities, skills and additional details</summary>
+          {definition.fields.filter(field=>!["title","purpose","summary"].includes(field)).map(field => <label key={field}>{hiringLabels[field]}{listFields.has(field) && <small>One item per line</small>}
             {field === "openings" ? <input type="number" min="1" max="10000" step="1" required value={form[field]} disabled={!canEdit || saving} onChange={e => setForm({...form, [field]: e.target.value})}/> :
               <textarea rows={listFields.has(field) || ["purpose", "summary"].includes(field) ? 3 : 1}
                 required={["title", "purpose", "summary"].includes(field)} maxLength={["title", "department", "location", "employmentArrangement"].includes(field) ? 200 : field === "summary" ? 8000 : listFields.has(field) ? undefined : 4000}
-                value={form[field]} disabled={!canEdit || saving} onChange={e => setForm({...form, [field]: e.target.value})}/>}
+                placeholder={hiringExamples[field]} value={form[field]} disabled={!canEdit || saving} onChange={e => setForm({...form, [field]: e.target.value})}/>}
           </label>)}
+          </details>
           {kind === "job-descriptions" && <>{sourceSelect("requirement", "requirements", "Source hiring requirement", true)}{sourceSelect("roleKnowledge", "role-knowledge", "Source role knowledge", false)}<p className="muted">Sources retain their selected revisions when the source records change.</p></>}
-          <label>Lifecycle status<select value={form.status} disabled={!canEdit || saving || !selected} onChange={e => setForm({...form, status: e.target.value})}>
+          <details><summary>Archive and lifecycle options</summary><label>Lifecycle status<select value={form.status} disabled={!canEdit || saving || !selected} onChange={e => setForm({...form, status: e.target.value})}>
             {hiringStatuses(kind, selected?.content.status).map(value => <option key={value}>{value}</option>)}
-          </select></label>
-          <Button variant="primary" type="submit" disabled={!canEdit || saving}>{saving ? "Saving…" : "Save"}</Button>
+          </select></label><p>Archiving preserves saved versions and makes the record read-only. It does not approve a description.</p></details>
+          <Button variant="primary" type="submit" disabled={!canEdit || saving}>{saving ? "Saving…" : kind === "job-descriptions" ? "Save job description" : kind === "requirements" ? "Save requirement" : "Save role knowledge"}</Button>
         </form>}
         {!!history.length && <details><summary>Revision history ({history.length})</summary>{history.map(record => <article key={record.revision}><h3>Revision {record.revision} · {record.content.status}</h3><Button disabled={saving} onClick={() => openRecord(record, kind, record.revision)}>Inspect revision {record.revision}</Button><p>{record.updatedByUserId} · {new Date(record.updatedAt).toLocaleString()}</p><dl>{Object.entries(record.content).map(([key, value]) => <div key={key}><dt>{hiringLabels[key] ?? key}</dt><dd>{Array.isArray(value) ? value.join("; ") : value && typeof value === "object" ? `${value.id} · revision ${value.revision}` : String(value ?? "None")}</dd></div>)}</dl></article>)}</details>}
       </Card></div></div>
@@ -161,7 +177,8 @@ function HiringWorkspace({workspaceId}) {
 }
 export default function Hiring() {
   const {activeWorkspace, activeWorkspaceId, status} = useWorkspace();
-  return <section><h1>HR Hiring</h1>{status !== "ready" ? <p>Loading workspace…</p> : activeWorkspace?.kind !== "organization" ?
-    <p>HR Hiring is available in an organization workspace. Choose an organization from the workspace selector, or open Organizations to create or join one.</p> :
+  const {setActivePage}=useSimulation();
+  return <section><h1>HR Hiring</h1><p>Prepare a job description with optional AI help, then record authorized human review and approval.</p>{status !== "ready" ? <p>Loading workspace…</p> : activeWorkspace?.kind !== "organization" ?
+    <div><p>HR Hiring needs a shared organization and an assigned Recruiter, Reviewer or Approver responsibility. Your Personal Workspace stays separate.</p><Button variant="primary" onClick={()=>setActivePage("organizations")}>Create or join an organization</Button></div> :
     <HiringWorkspace key={activeWorkspaceId} workspaceId={activeWorkspaceId}/>}</section>;
 }

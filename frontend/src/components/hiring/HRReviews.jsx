@@ -95,7 +95,7 @@ export default function HRReviews({workspaceId, records, onRevise, snapshot, foc
     {error && <p role="alert" className="run-error">{error}</p>}
     <Button type="button" disabled={busy} onClick={() => {setBusy(false); if (snapshot) onChanged(); else setReload(v => v + 1);}}>Reload review requests</Button>
     {capabilities.submit && <form onSubmit={submit} className="hiring-form">
-      <label>Draft to submit<select required value={draftId} disabled={busy || loading} onChange={e => {setDraftId(e.target.value); setAiIds([]);}}>
+      <label>Draft to submit<select aria-label="Draft to submit" required value={draftId} disabled={busy || loading} onChange={e => {setDraftId(e.target.value); setAiIds([]);}}>
         <option value="">Choose saved job description</option>{drafts.map(record => <option key={record.id} value={record.id}>{record.content.title} · revision {record.revision}</option>)}
       </select></label>
       {!!availableRuns.length && <fieldset><legend>Associate AI assistance (optional)</legend><p>Links retain original run evidence; they do not claim adoption or approval.</p>
@@ -118,16 +118,16 @@ export default function HRReviews({workspaceId, records, onRevise, snapshot, foc
       <Button variant="primary" disabled={busy} onClick={confirmDecision}>{busy ? "Recording…" : "Confirm decision"}</Button>
     </Modal>}
     {selected && <article><h4>{reviewLabels[selected.status]} · revision {selected.jobDescription.revision}</h4>
-      <p>{selected.id}<br/>Submitted by {selected.requestedByUserId} · {new Date(selected.submittedAt).toLocaleString()}</p>
+      <details><summary>Submission metadata</summary><p>{selected.id}<br/>Submitted by {selected.requestedByUserId} · {new Date(selected.submittedAt).toLocaleString()}</p></details>
       {selected.stale && <p role="status">The JD has changed. This historical decision applies only to its submitted revision; further decisions are blocked.</p>}
       <Snapshot record={selected.jobDescription} label="Submitted job description"/>
       <Snapshot record={selected.requirement} label="Pinned requirement"/>
       <Snapshot record={selected.roleKnowledge} label="Pinned role knowledge"/>
       {!!selected.aiRunIds.length && <details><summary>Associated AI proposals</summary>{selected.aiRunIds.map(id => {
         const run = runs.find(item => item.id === id);
-        return <div key={id}><p>{id} · {run?.assignedAgentId ?? "Retained evidence"}</p>{run ? <pre>{JSON.stringify({sources:run.hrExecution.sources, proposal:hrStructuredOutput(run)}, null, 2)}</pre> : <p>Evidence is retained. Restore the run from Recycle Bin to inspect it.</p>}</div>;
+        return <div key={id}><p>{id} · {run?.assignedAgentId ?? "Unavailable evidence"}</p>{run ? <pre>{JSON.stringify({sources:run.hrExecution.sources, proposal:hrStructuredOutput(run)}, null, 2)}</pre> : <p>This AI run is unavailable in the current history. Check Recycle Bin or ask the workspace Owner; it may have been removed or become inaccessible.</p>}</div>;
       })}</details>}
-      {!!actions.length && <form onSubmit={decide} className="hiring-form"><label>Human decision<select required disabled={busy} value={decision} onChange={e => setDecision(e.target.value)}>
+      {!!actions.length && <form onSubmit={decide} className="hiring-form"><label>Human decision<select aria-label="Human decision" required disabled={busy} value={decision} onChange={e => setDecision(e.target.value)}>
         <option value="">Choose decision</option>{actions.map(action => <option key={action} value={action}>{actionLabels[action]}</option>)}</select></label>
         <label>Decision notes<textarea required maxLength={4000} rows={3} disabled={busy} value={notes} onChange={e => setNotes(e.target.value)}/></label>
         <Button type="submit" variant="primary" disabled={busy || !actions.includes(decision) || !notes.trim()}>{busy ? "Recording…" : "Record human decision"}</Button>

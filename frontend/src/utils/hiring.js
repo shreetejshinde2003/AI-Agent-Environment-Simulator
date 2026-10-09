@@ -47,3 +47,14 @@ export function hiringStatuses(kind, current) {
   if (kind === "requirements") return current === "active" ? ["active", "closed", "archived"] : current === "closed" ? ["closed", "archived"] : ["draft", "active", "archived"];
   return kind === "role-knowledge" ? ["active", "archived"] : ["draft", "archived"];
 }
+export const hiringExamples = {
+  title: "Example: Software Engineer",
+  purpose: "Explain why the role is needed and what the person will do.",
+  summary: "Describe the role using the saved hiring requirement.",
+  responsibilities: "Build internal tools\nReview and maintain existing services",
+  requiredSkills: "Python\nSQL and database design",
+  preferredSkills: "Cloud deployment experience",
+  experience: "Example: Experience maintaining a small web application",
+  competencies: "Reliable delivery\nClear communication",
+  evaluationCriteria: "Demonstrate a working example\nExplain design tradeoffs",
+};

@@ -59,7 +59,7 @@ test("revocation and provider errors are exposed without fabricated results", as
 test("assistance screen renders proposal boundary and real action/history controls", async () => {
   const {default:Component}=await server.ssrLoadModule("/src/components/hiring/HRAssistance.jsx");
   const html=renderToStaticMarkup(React.createElement(Component,{workspaceId:"WS-a",records:{}}));
-  assert.match(html,/AI assistance/);assert.match(html,/HR agent action/);assert.match(html,/Persisted HR runs/);
+  assert.match(html,/AI assistance/);assert.match(html,/HR agent action/);assert.match(html,/Your saved AI suggestions/);
   assert.match(html,/AI outputs are proposals/);assert.match(html,/Run AI assistance/);
   assert.doesNotMatch(html,/Approve job|Publish job/);
 });
