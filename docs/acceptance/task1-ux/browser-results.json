@@ -1,0 +1,116 @@
+{
+  "completed": true,
+  "checks": [
+    "login server unavailable",
+    "login hides internal server diagnostics",
+    "login retry recovers without redirect",
+    "Google sign-in retains API path",
+    "expired session has sign-in action",
+    "authentication failure differs from outage",
+    "temporary network error has retry",
+    "authentication loading is visible",
+    "workspace loading is visible",
+    "workspace bootstrap opens simulation",
+    "workspace failure provides retry",
+    "empty workspace has honest guidance",
+    "empty desktop has no horizontal overflow",
+    "create simulation modal opens",
+    "task input receives initial keyboard focus",
+    "blank task disables submission",
+    "single mode selection works",
+    "fixed mode selection works",
+    "adaptive mode selection works",
+    "individual specialist selection remains available",
+    "optional file upload remains available",
+    "empty benchmark registry is explained and disabled",
+    "reference file upload has a prepared preview",
+    "modal Tab wraps to first control",
+    "modal Shift Tab wraps to last control",
+    "submission has loading feedback",
+    "submission disables editing",
+    "pending submission cannot dismiss modal",
+    "creation opens acknowledged queued run",
+    "one mocked submission preserves mode and upload API payload",
+    "creation returns focus to new run title",
+    "running state uses persisted active agent",
+    "polling updates running snapshot to completed",
+    "completed answer is primary and readable",
+    "technical graph starts collapsed",
+    "Raw output view works",
+    "copy reports successful clipboard write",
+    "copied raw output equals persisted fixture output",
+    "completed desktop has no horizontal overflow",
+    "focus reader opens",
+    "focus reader restores keyboard focus",
+    "recorded graph remains accessible",
+    "routing evidence remains accessible",
+    "failed run offers evidence recovery guidance",
+    "failed-stage review opens technical evidence",
+    "changing runs restores primary output view",
+    "completed phone has no horizontal overflow",
+    "phone navigation labels remain readable",
+    "phone modal has no horizontal overflow",
+    "phone task input is wide enough to read",
+    "phone modal reopens",
+    "registered dataset selection remains available",
+    "validation rejection keeps a useful form error",
+    "validation rejection preserves the task draft",
+    "uncertain submission directs user to History",
+    "uncertain submission preserves modal",
+    "creation errors never automatically resubmit",
+    "sign out announces progress",
+    "sign out prevents duplicate requests",
+    "failed sign out preserves session and offers retry",
+    "sign out retry succeeds",
+    "workspace API 401 ends authenticated view",
+    "simulation load error offers retry",
+    "unavailable simulation data disables creation with explanation",
+    "simulation retry announces loading",
+    "simulation retry prevents duplicate clicks",
+    "simulation load retry recovers",
+    "independent browser with storage blocked still opens workspace",
+    "independent browser can select an authorized workspace",
+    "no uncaught browser errors",
+    "no external or provider requests"
+  ],
+  "passed": 71,
+  "errors": [],
+  "warnings": [
+    "[React Flow]: It looks like you've created a new nodeTypes or edgeTypes object. If this wasn't on purpose please define the nodeTypes/edgeTypes outside of the component or memoize them. Help: https://reactflow.dev/error#002",
+    "WebSocket connection to 'ws://127.0.0.1:5183/ws/live?workspaceId=WS-fixture' failed: WebSocket is closed before the connection is established."
+  ],
+  "expectedHttpAndNetworkErrors": [
+    "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "Failed to load resource: net::ERR_INTERNET_DISCONNECTED",
+    "Failed to load resource: the server responded with a status of 422 (Unprocessable Entity)"
+  ],
+  "failedRequests": [
+    {
+      "url": "http://127.0.0.1:5183/api/v1/auth/me",
+      "failure": {
+        "errorText": "net::ERR_INTERNET_DISCONNECTED"
+      }
+    },
+    {
+      "url": "http://127.0.0.1:5183/api/v1/auth/me",
+      "failure": {
+        "errorText": "net::ERR_INTERNET_DISCONNECTED"
+      }
+    },
+    {
+      "url": "http://127.0.0.1:5183/api/v1/auth/logout",
+      "failure": {
+        "errorText": "net::ERR_ABORTED"
+      }
+    }
+  ],
+  "externalRequests": [],
+  "mockSubmissions": 3,
+  "fixtureOnly": true,
+  "viewport": [
+    "1440x1000",
+    "390x844"
+  ]
+}

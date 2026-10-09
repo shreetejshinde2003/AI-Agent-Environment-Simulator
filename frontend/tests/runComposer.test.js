@@ -79,7 +79,7 @@ test("picker empty, loading and error states do not fabricate runs", () => {
 
 test("composer explains three research strategies with native labelled radios and a separate specialist utility", () => {
   const html = form();
-  assert.match(html, /Goal \/ directive/);
+  assert.match(html, /Task · required/);
   assert.match(html, /required="" maxLength="10000"/);
   assert.match(html, /Run title · optional/);
   assert.match(html, /maxLength="120"/);

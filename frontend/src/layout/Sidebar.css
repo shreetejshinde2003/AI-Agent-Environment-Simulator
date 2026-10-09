@@ -241,3 +241,6 @@
   font-size: 0.68rem;
   line-height: 1.35;
 }
+
+.workspace-switcher-control:focus-within { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+.workspace-switcher > p { overflow-wrap: anywhere; }

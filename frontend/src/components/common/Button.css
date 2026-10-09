@@ -39,3 +39,12 @@
 .btn-ghost {
   border-color: transparent;
 }
+
+.btn { min-height: 40px; }
+.btn:disabled, .btn:disabled:hover {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--bg-hover);
+  border-color: var(--border-subtle);
+  color: var(--text-secondary);
+}

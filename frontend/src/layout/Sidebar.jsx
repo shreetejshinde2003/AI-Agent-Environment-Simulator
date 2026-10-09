@@ -100,12 +100,13 @@ export default function Sidebar({ activePage = "live", onNavigate = () => {}, us
             type="button"
             className="sidebar-logout"
             onClick={user.onLogout}
+            disabled={user.signingOut}
           >
             <LogOut
               size={15}
               strokeWidth={2}
             />
-            <span>Sign out</span>
+            <span>{user.signingOut ? "Signing out…" : "Sign out"}</span>
           </button>
         )}
 

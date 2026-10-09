@@ -16,7 +16,7 @@ test('last-owner controls distinguish sole owner from members and transferable o
   assert.equal(isLastOrganizationOwner(owner,[owner,{...owner,userId:'c'}]),false);
 });
 for (const [backendStatus,workspaceStatus,socketStatus,label] of [
-  ['connected','ready','connected','Ready'],['connected','ready','offline','Limited connectivity'],
+  ['connected','ready','connected','Ready'],['connected','ready','offline','Ready · automatic refresh'],
   ['error','ready','offline','Offline'],['connected','error','offline','Workspace unavailable'],
 ]) test(`readiness displays ${label} with truthful expanded diagnostics`,()=>{
   const html=renderToStaticMarkup(createElement(Topbar,{backendStatus,workspaceStatus,socketStatus}));

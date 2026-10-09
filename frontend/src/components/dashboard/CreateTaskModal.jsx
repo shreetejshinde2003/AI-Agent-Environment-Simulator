@@ -14,41 +14,44 @@ export function RunConfigurationForm({draft, onChange, agents, datasets, dataset
   const selectedDataset = datasets?.find(dataset => dataset.datasetId === draft.datasetId);
   const busy = !!work;
   return <form className="run-composer" onSubmit={onSubmit} aria-busy={busy}>
-    <p className="muted">Configure one simulation run. Results and recorded execution remain available in History.</p>
+    <p className="muted">Describe what you want to accomplish, choose how agents work, then run the simulation.</p>
     {error && <div className="form-error" role="alert" tabIndex={-1} data-composer-error>
       {error.message}{error.outcomeUnknown && <p>The submission outcome is not confirmed. Check Simulation History before submitting again.</p>}
     </div>}
     {busy && <p role="status" tabIndex={-1} data-composer-busy>{work === "uploading" ? "Uploading reference data…" : "Submitting run…"} Keep this dialog open until the request finishes.</p>}
     <fieldset className="composer-fields" disabled={busy}>
       <legend className="sr-only">Run configuration</legend>
-      <section aria-labelledby="composer-goal-heading"><h4 id="composer-goal-heading">Goal</h4>
-        <div className="form-field"><label htmlFor="task-directive">Goal / directive</label>
-          <textarea id="task-directive" required maxLength={10000} value={draft.directive} autoFocus
-            onChange={event => onChange({directive: event.target.value})} placeholder="What should this run accomplish?"/></div>
+      <section aria-labelledby="composer-goal-heading"><h4 id="composer-goal-heading">1. Describe your task</h4>
+        <div className="form-field"><label htmlFor="task-directive">Task · required</label>
+          <textarea id="task-directive" required maxLength={10000} value={draft.directive} autoFocus rows={6} aria-describedby="composer-task-help"
+            onChange={event => onChange({directive: event.target.value})} placeholder="Example: Compare the options in the attached data and recommend a next step. Include the audience and the format you want, such as a short summary or a table."/>
+          <p className="muted" id="composer-task-help">State the goal, any constraints, and what the final answer should look like.</p></div>
         <div className="form-field"><label htmlFor="task-title">Run title · optional</label>
           <input id="task-title" maxLength={120} value={draft.title} onChange={event => onChange({title: event.target.value})}
             placeholder="A short label to find this run later" aria-describedby="composer-title-help"/>
-          <p className="muted" id="composer-title-help">Leave blank to use a compact title from the goal. Stored titles use up to 80 characters; the immutable run ID is retained separately.</p></div>
+          <p className="muted" id="composer-title-help">Leave blank to name the run from your task. A short title helps you find it in History.</p></div>
       </section>
-      <fieldset className="composer-strategies"><legend>Execution strategy</legend>
+      <fieldset className="composer-strategies"><legend>2. Choose an execution mode</legend>
         <div className="strategy-options">{EXECUTION_STRATEGIES.map(strategy => <label className="strategy-option" key={strategy.value}>
           <input type="radio" name="executionMode" value={strategy.value} checked={draft.executionMode === strategy.value}
             aria-label={`${strategy.label} · ${strategy.subtitle}`} aria-describedby={`strategy-${strategy.value}-help`}
             onChange={() => onChange({executionMode: strategy.value, taskType: ""})}/>
           <span><strong>{strategy.label}</strong><span>{strategy.subtitle}</span><small id={`strategy-${strategy.value}-help`}>{strategy.description}</small></span>
         </label>)}</div>
-        <details className="composer-utility"><summary>Individual Specialist · legacy utility</summary>
+        <details className="composer-utility"><summary>Advanced: choose an individual specialist</summary>
           <label className="strategy-option"><input type="radio" name="executionMode" value="single_agent"
-            checked={draft.executionMode === "single_agent"} aria-label="Individual Specialist · legacy utility"
+            checked={draft.executionMode === "single_agent"} disabled={!specialistAgents(agents).length} aria-label="Individual Specialist · legacy utility"
             onChange={() => onChange({executionMode: "single_agent", taskType: ""})}/>
             <span><strong>Individual Specialist</strong><small>Utility/debug execution of one specialist. Separate from the Single, Fixed and Adaptive research baselines.</small></span></label>
           {draft.executionMode === "single_agent" && <div className="form-field"><label htmlFor="task-agent">Specialist</label>
             <select id="task-agent" value={draft.assignedAgentId} onChange={event => onChange({assignedAgentId: event.target.value})}>
               {specialistAgents(agents).map(agent => <option key={agent.id} value={agent.id}>{agent.name}</option>)}
             </select><p className="muted">Some specialists require source material. Reference uploads are not sent by this legacy utility; existing draft attachments are retained when you return to a research mode.</p></div>}
+          {!specialistAgents(agents).length && <p className="muted">No executable specialists are available in this workspace.</p>}
         </details>
       </fieldset>
-      <section aria-labelledby="composer-context-heading"><h4 id="composer-context-heading">Context · optional</h4>
+      <details className="composer-context"><summary id="composer-context-heading">3. Add context · optional</summary>
+        <p className="muted">Attach reference files or select a registered dataset to help agents answer your task.</p>
         <div className="form-field"><label htmlFor="benchmark-dataset">Benchmark dataset</label>
           <select id="benchmark-dataset" value={draft.datasetId} onChange={event => onChange({datasetId: event.target.value})}
             disabled={datasets === null || datasetError || !options.length} aria-describedby="composer-dataset-help">
@@ -72,8 +75,8 @@ export function RunConfigurationForm({draft, onChange, agents, datasets, dataset
             <p className="muted">Detach removes this draft's reference; it does not delete the stored upload.</p>
           </div>)}
         </>}
-      </section>
-      {draft.executionMode === "adaptive" ? <div className="form-field"><label htmlFor="task-type">Adaptive task category</label>
+      </details>
+      {draft.executionMode === "adaptive" ? <div className="form-field"><label htmlFor="task-type">Advanced: task category · optional</label>
         <select id="task-type" value={draft.taskType} onChange={event => onChange({taskType: event.target.value})}>
           <option value="">Infer from goal and supplied context</option>{ADAPTIVE_CATEGORIES.map(type => <option key={type} value={type}>{type.replaceAll("_", " ")}</option>)}
         </select><p className="muted">An explicit category overrides keyword inference. Summarization needs an attachment, benchmark, or a new line beginning “Source:” followed by the material.</p></div> :
@@ -138,7 +141,7 @@ export default function CreateTaskModal({agents, onClose}) {
     } catch (err) { setError(err); }
     finally { lock.current.release(); setWork(null); }
   }
-  return <Modal title="New run" className="run-composer-dialog" onClose={onClose} canDismiss={!work} returnFocusRef={returnFocus}>
+  return <Modal title="Create simulation" className="run-composer-dialog" onClose={onClose} canDismiss={!work} returnFocusRef={returnFocus}>
     <p className="muted">Run workspace: <strong>{activeWorkspace?.name ?? "Resolving…"}</strong></p>
     <RunConfigurationForm draft={draft} onChange={patch => setDraft(previous => ({...previous, ...patch}))}
       agents={agents} datasets={datasets} datasetError={datasetError} uploads={uploads} work={work} error={error}

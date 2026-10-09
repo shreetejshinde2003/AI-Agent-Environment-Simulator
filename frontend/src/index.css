@@ -130,3 +130,9 @@ a {
   .badge-pulse .badge-dot { animation: none !important; opacity: 1; }
   .react-flow__edge.animated path { animation: none !important; }
 }
+
+button:disabled, input:disabled, select:disabled, textarea:disabled {
+  cursor: not-allowed;
+}
+button:disabled { opacity: 0.55; }
+input:disabled, select:disabled, textarea:disabled { opacity: 0.65; }

@@ -98,3 +98,13 @@ summary { cursor: pointer; line-height: 1.6; }
   .topbar-actions { flex-wrap: wrap; justify-content: flex-end; }
   .topbar-actions .topbar-btn:disabled { display: none; }
 }
+
+/* The compact tablet rail must not override the stacked phone navigation. */
+@media (max-width: 700px) {
+  .sidebar { width: 100%; min-width: 0; }
+  .sidebar-brand-text { display: flex; }
+  .sidebar-nav-item { justify-content: flex-start; padding: var(--space-3); }
+  .sidebar-nav-item span { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
+  .sidebar-totals { display: none; }
+  .topbar { height: auto; min-height: var(--topbar-height); }
+}

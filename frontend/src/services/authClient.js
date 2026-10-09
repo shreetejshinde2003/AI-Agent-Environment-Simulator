@@ -21,7 +21,7 @@ export async function getCurrentUser() {
   try {
     payload = await parseApiResponse(response, "/api/v1/auth/me");
   } catch (error) {
-    if (response.status === 401 && error.code !== "unexpected_api_response") return null;
+    if (response.status === 401 && (!error.code || error.code === "not_authenticated")) return null;
     throw error;
   }
 

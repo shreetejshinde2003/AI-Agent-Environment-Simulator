@@ -1,7 +1,7 @@
 export const EXECUTION_STRATEGIES = [
-  {value: "single", label: "Single", subtitle: "Direct baseline", description: "One Direct Agent model call answers the goal using permitted context."},
-  {value: "fixed", label: "Fixed", subtitle: "Five-specialist pipeline", description: "Research → Data → Analysis → Summarizer → Report."},
-  {value: "adaptive", label: "Adaptive", subtitle: "Deterministic routing", description: "Rules select specialists using task capabilities and available validated inputs. Only selected specialists execute; routing uses no model call."},
+  {value: "single", label: "Single", subtitle: "One agent answers directly", description: "One Direct Agent model call answers the goal using permitted context."},
+  {value: "fixed", label: "Fixed", subtitle: "Five specialists in sequence", description: "Research → Data → Analysis → Summarizer → Report."},
+  {value: "adaptive", label: "Adaptive", subtitle: "Specialists selected for your task", description: "Rules select specialists using task capabilities and available validated inputs. Only selected specialists execute; routing uses no model call."},
 ];
 export const ADAPTIVE_CATEGORIES = ["summarization", "transformation", "analysis", "reporting", "research_synthesis", "structured_data_analysis", "mixed"];
 export const specialistAgents = agents => agents.filter(agent => agent.implemented && !["direct", "orchestrator", "websearch", "web_search"].includes(agent.id));

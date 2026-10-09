@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
+import {resolveAcknowledgedRuns} from '../src/utils/acknowledgedRuns.js';
 import {mergeRuns, mergeActiveRuns} from '../src/utils/runs.js';
 
 // Exercise the real hook with controlled hook slots and deferred API reads.
@@ -32,10 +33,10 @@ function world() {
         slots[n]?.cleanup?.(); slots[n] = {deps, cleanup: fn()};
       });
     },
-    apiClient: {getAgents: api('agents'), getTasks: api('tasks'), getMetrics: api('metrics')},
+    apiClient: {getAgents: api('agents'), getTasks: api('tasks'), getMetrics: api('metrics'), getTask: (taskId, id) => new Promise((resolve, reject) => requests.push({name: 'detail', taskId, id, resolve, reject}))},
     useWorkspace: () => ({activeWorkspaceId: workspaceId, status: workspaceStatus}),
     useBackendConnection: () => 'connected', useLiveSocket: () => 'connected',
-    mergeRuns, mergeActiveRuns, setInterval: () => 1, clearInterval() {},
+    mergeRuns, mergeActiveRuns, resolveAcknowledgedRuns, setInterval: () => 1, clearInterval() {},
   };
   hook = vm.runInNewContext(source + '\nuseSimulationData;', context);
   const render = (id = workspaceId, commit = true) => {
@@ -44,7 +45,7 @@ function world() {
     return result;
   };
   const resolve = (id, title) => requests.filter(r => r.id === id && !r.done).forEach(r => {
-    r.done = true; r.resolve(r.name === 'tasks' ? [{id: title, workspaceId: id}] : r.name === 'agents' ? [] : {summary: {}});
+    r.done = true; r.resolve(r.name === 'tasks' ? Array.isArray(title) ? title : [{id: title, workspaceId: id}] : r.name === 'agents' ? [] : {summary: {}});
   });
   return {render, resolve, requests, setWorkspaceStatus: value => {workspaceStatus = value;}};
 }
@@ -100,4 +101,46 @@ test('workspace bootstrap failure cannot display operational REST or endless loa
   assert.equal(state.connectionStatus, 'disconnected');
   assert.equal(state.workspaceStatus, 'error');
   assert.equal(state.isLoading, false);
+});
+
+
+test('acknowledged run survives stale lists only while detail evidence confirms it', async () => {
+  const h = world(); h.render(); h.resolve('A', []); await tick();
+  const run = {id: 'created-A', workspaceId: 'A', status: 'queued'};
+  h.render().acceptRun(run);
+  h.render().refresh(); h.resolve('A', []); await tick();
+  const detail = h.requests.find(r => r.name === 'detail');
+  assert.equal(detail.taskId, run.id); assert.equal(detail.id, 'A');
+  detail.done = true; detail.resolve(run); await tick();
+  assert.equal(h.render().tasks[0].id, run.id);
+  h.render().refresh(); h.resolve('A', [run]); await tick();
+  h.render().refresh(); h.resolve('A', []); await tick();
+  assert.equal(h.render().tasks.length, 0);
+  assert.equal(h.requests.filter(r => r.name === 'detail').length, 1);
+});
+
+test('delayed acknowledged detail cannot leak evidence after workspace switch', async () => {
+  const h = world(); h.render(); h.resolve('A', []); await tick();
+  const run = {id: 'created-A', workspaceId: 'A', status: 'queued'};
+  h.render().acceptRun(run);
+  h.render().refresh(); h.resolve('A', []); await tick();
+  const detail = h.requests.find(r => r.name === 'detail');
+  h.render('B'); detail.done = true; detail.resolve(run); await tick();
+  h.resolve('B', []); await tick();
+  assert.equal(h.render().tasks.length, 0);
+  assert.equal(h.render().hasLoaded, true);
+});
+
+
+test('refresh feedback is pending during a read and clears on success or failure', async () => {
+  const h = world(); h.render();
+  assert.equal(h.render().isRefreshing, true);
+  h.resolve('A', []); await tick();
+  assert.equal(h.render().isRefreshing, false);
+  h.render().refresh();
+  assert.equal(h.render().isRefreshing, true);
+  h.requests.filter(r => r.name === 'tasks' && !r.done).forEach(r => {r.done = true; r.reject(new Error('fixture retry failure'));});
+  await tick();
+  assert.equal(h.render().isRefreshing, false);
+  assert.equal(h.render().error.message, 'fixture retry failure');
 });

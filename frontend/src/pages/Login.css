@@ -127,3 +127,11 @@
 .login-footer a:hover {
   color: var(--text-primary);
 }
+
+.login-error strong { display: block; margin-bottom: var(--space-2); }
+.login-panel > .btn { width: 100%; min-height: 44px; margin-bottom: var(--space-3); }
+@media (max-width: 480px) {
+  .login-page { padding: var(--space-4); }
+  .login-panel { padding: var(--space-5); }
+  .login-panel h1 { font-size: 1.5rem; }
+}

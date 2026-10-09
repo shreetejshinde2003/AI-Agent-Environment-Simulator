@@ -16,11 +16,13 @@ import Settings from "./pages/Settings";
 import Organizations from "./pages/Organizations";
 import { PrivacyPolicy, TermsOfService } from "./pages/LegalPages";
 import Login from "./pages/Login";
+import SessionState from "./components/common/SessionState";
+import {sessionPresentation} from "./utils/sessionPresentation";
 import { useAuth } from "./hooks/useAuth";
 import "./components/dashboard/SimulationWorkspace.css";
 const PAGES = {research: ResearchLab, live: LiveSimulation, "task-summary": TaskSummary, agents: Agents, hiring: Hiring,
   messages: Messages, logs: Logs, replay: Replay, organizations: Organizations, settings: Settings, "recycle-bin": RecycleBin};
-function AppContent({ authUser, onSignOut }) {
+function AppContent({ authUser, onSignOut, signingOut, authError }) {
   const workspace = useWorkspace();
   const {
     activePage,
@@ -45,6 +47,7 @@ function AppContent({ authUser, onSignOut }) {
     role: authUser?.email ?? "Signed in",
     avatarUrl: authUser?.profilePicture ?? null,
     onLogout: onSignOut,
+    signingOut,
   };
 
   return (
@@ -55,9 +58,10 @@ function AppContent({ authUser, onSignOut }) {
       workspace={workspace}
       topbarProps={{
         goal: ["messages", "logs", "replay"].includes(activePage) ? selectedTask?.directive : null,
-        onToggleReplay: activePage === "live" ? () => {setExecutionView("events");setActivePage("live");} : null,
+        onToggleReplay: activePage === "live" && selectedTask ? () => {setExecutionView("events");setActivePage("live");} : null,
       }}
     >
+      {authError && <p className="run-error" role="alert">Sign out could not be confirmed. {sessionPresentation(authError).message} Use Sign out to try again.</p>}
       {["messages", "logs", "replay"].includes(activePage) && (
         <div className="run-toolbar">
           <RunPicker
@@ -81,7 +85,7 @@ function AppContent({ authUser, onSignOut }) {
         </div>
       )}
 
-      {error && ["live", "task-summary", "agents"].includes(activePage) && (
+      {error && ["task-summary", "agents"].includes(activePage) && (
         <p
           className="run-error"
           role="alert"
@@ -97,25 +101,29 @@ function AppContent({ authUser, onSignOut }) {
     </AppShell>
   );
 }
+export function WorkspaceBootstrap({children}) {
+  const workspace = useWorkspace();
+  if (!workspace.activeWorkspaceId || workspace.status === "error") {
+    return <SessionState context="workspace" title="Loading your workspaces…"
+      description="Preparing workspace access. Your saved selection will open when it is ready."
+      error={workspace.error ?? (workspace.status === "ready" ? {status: 404} : null)}
+      onRetry={() => workspace.refreshWorkspaces().catch(() => {})}/>;
+  }
+  return children;
+}
+
 function AuthenticatedApp() {
   const {
     user,
     status,
     error,
     signOut,
+    signingOut,
+    refresh,
   } = useAuth();
 
   if (status === "loading") {
-    return (
-      <main className="login-page">
-        <section className="login-panel">
-          <p className="login-eyebrow">
-            Agent Environment Simulator
-          </p>
-          <h1>Checking session…</h1>
-        </section>
-      </main>
-    );
+    return <SessionState title="Checking session…" description="Checking your sign-in before opening your workspace."/>;
   }
 
   if (
@@ -123,17 +131,21 @@ function AuthenticatedApp() {
     status === "error" ||
     !user
   ) {
-    return <Login error={error} />;
+    return <Login error={error} onRetry={refresh} />;
   }
 
   return (
     <WorkspaceProvider>
-      <SimulationProvider>
-        <AppContent
-          authUser={user}
-          onSignOut={signOut}
-        />
-      </SimulationProvider>
+      <WorkspaceBootstrap>
+        <SimulationProvider>
+          <AppContent
+            authUser={user}
+            onSignOut={signOut}
+            signingOut={signingOut}
+            authError={error}
+          />
+        </SimulationProvider>
+      </WorkspaceBootstrap>
     </WorkspaceProvider>
   );
 }

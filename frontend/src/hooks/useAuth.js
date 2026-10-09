@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useState,
+  useRef,
 } from "react";
 
 import {
@@ -13,12 +14,18 @@ export function useAuth() {
   const [user, setUser] = useState(null);
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState(null);
+  const [signingOut, setSigningOut] = useState(false);
+  const generation = useRef(0);
+  const logoutBusy = useRef(false);
 
   const refresh = useCallback(async () => {
+    const request = ++generation.current;
     setStatus("loading");
+    setError(null);
 
     try {
       const currentUser = await getCurrentUser();
+      if (request !== generation.current) return;
 
       setUser(currentUser);
       setError(null);
@@ -28,11 +35,14 @@ export function useAuth() {
           : "anonymous",
       );
     } catch (err) {
+      if (request !== generation.current) return;
       setUser(null);
       setError(err);
       setStatus("error");
     }
   }, []);
+
+  const invalidateRefresh = useCallback(() => { ++generation.current; }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(
@@ -53,15 +63,36 @@ export function useAuth() {
       );
     }
 
+    function unavailable(event) {
+      ++generation.current;
+      setUser(null);
+      setError(event.detail);
+      setStatus("error");
+    }
+    window.addEventListener("session-unavailable", unavailable);
     refresh();
-  }, [refresh]);
+    return () => {
+      invalidateRefresh();
+      window.removeEventListener("session-unavailable", unavailable);
+    };
+  }, [refresh, invalidateRefresh]);
 
   const signOut = useCallback(async () => {
-    await logoutRequest();
-
-    setUser(null);
+    if (logoutBusy.current) return;
+    logoutBusy.current = true;
+    setSigningOut(true);
     setError(null);
-    setStatus("anonymous");
+    try {
+      await logoutRequest();
+      ++generation.current;
+      setUser(null);
+      setStatus("anonymous");
+    } catch (err) {
+      setError(err);
+    } finally {
+      logoutBusy.current = false;
+      setSigningOut(false);
+    }
   }, []);
 
   return {
@@ -70,5 +101,6 @@ export function useAuth() {
     error,
     refresh,
     signOut,
+    signingOut,
   };
 }

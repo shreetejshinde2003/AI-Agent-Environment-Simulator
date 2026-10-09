@@ -10,11 +10,12 @@ export default function Button({
   variant = "default",
   onClick,
   type = "button",
+  className = "",
   ...rest
 }) {
   return (
-    <button type={type} className={`btn btn-${variant}`} onClick={onClick} {...rest}>
-      {Icon && <Icon size={15} strokeWidth={2} />}
+    <button type={type} className={`btn btn-${variant}${className ? ` ${className}` : ""}`} onClick={onClick} {...rest}>
+      {Icon && <Icon size={15} strokeWidth={2} aria-hidden="true" />}
       <span>{children}</span>
     </button>
   );

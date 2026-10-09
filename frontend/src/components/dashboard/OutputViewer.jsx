@@ -34,9 +34,9 @@ export function MarkdownOutput({text}) {
   }
   return <div className="output-markdown">{blocks}</div>;
 }
-export default function OutputViewer({text, directive = "", contract, label = "Final answer", intermediate = false}) {
+export default function OutputViewer({text, directive = "", contract, label = "Final answer", intermediate = false, emptyMessage}) {
   const [raw,setRaw]=useState(false),[expanded,setExpanded]=useState(!intermediate),[focused,setFocused]=useState(false),[copied,setCopied]=useState("");
-  if(text==null)return <p className="empty-note">No {intermediate ? "stage output" : "final result"} recorded.</p>;
+  if(text==null)return <p className="empty-note">{emptyMessage ?? `No ${intermediate ? "stage output" : "final result"} recorded.`}</p>;
   const presented=presentOutput(text,directive,contract);
   function body(){return raw?<pre className="output-text">{text}</pre>:presented.type==="markdown"?<MarkdownOutput text={presented.text}/>:<pre className="output-text">{presented.text}</pre>;}
   async function copy(){try{await navigator.clipboard.writeText(raw?text:presented.text);setCopied("Copied");}catch{setCopied("Copy unavailable; select the output text.");}}

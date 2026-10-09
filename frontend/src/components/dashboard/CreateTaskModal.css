@@ -25,3 +25,16 @@
 .run-composer p[role="status"] { color: var(--text-primary); line-height: 1.6; }
 @media (max-width: 640px) { .strategy-options { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 480px) { .run-composer-dialog .modal-panel { max-height: calc(100dvh - 16px); } }
+
+.run-composer-dialog .modal-panel { max-width: 840px; }
+.run-composer textarea { min-height: 160px; line-height: 1.65; font-size: 16px; }
+.run-composer input:not([type="radio"]), .run-composer select { font-size: 16px; min-height: 44px; }
+.run-composer .form-field label { text-transform: none; font-size: 14px; letter-spacing: normal; color: var(--text-primary); }
+.composer-context { border-top: 1px solid var(--border-subtle); padding: var(--space-4) 0; }
+.composer-context > summary { font-size: 16px; font-weight: 600; }
+.composer-context > p { margin: var(--space-3) 0; }
+.run-composer .form-actions { position: sticky; bottom: 0; background: var(--bg-panel); padding-bottom: var(--space-2); }
+.run-composer .form-actions .btn { min-height: 44px; }
+@media (max-width: 480px) {
+  .run-composer .form-actions { display: grid; grid-template-columns: auto minmax(0, 1fr); }
+}

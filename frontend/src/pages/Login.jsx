@@ -4,11 +4,15 @@ import {
 } from "lucide-react";
 
 import { AUTH_LOGIN_URL } from "../services/authClient";
+import { sessionPresentation } from "../utils/sessionPresentation";
+import Button from "../components/common/Button";
 import "./Login.css";
 
 export default function Login({
   error = null,
+  onRetry,
 }) {
+  const feedback = error ? sessionPresentation(error) : null;
   return (
     <main className="login-page">
       <section className="login-panel">
@@ -33,10 +37,12 @@ export default function Login({
             className="login-error"
             role="alert"
           >
-            Authentication service is temporarily
-            unavailable. Please try again.
+            <strong>{feedback.title}</strong>
+            <p>{feedback.message}</p>
           </div>
         )}
+
+        {error && !feedback.signIn && onRetry && <Button variant="primary" onClick={onRetry}>Retry connection</Button>}
 
         <a
           className="google-login-button"

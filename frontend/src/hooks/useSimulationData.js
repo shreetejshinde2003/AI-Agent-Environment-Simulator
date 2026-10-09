@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { apiClient } from "../services/apiClient";
 import { useBackendConnection } from "./useBackendConnection";
 import { useLiveSocket } from "./useLiveSocket";
+import { resolveAcknowledgedRuns } from "../utils/acknowledgedRuns";
 import { mergeRuns, mergeActiveRuns } from "../utils/runs";
 import { useWorkspace } from "./useWorkspace";
 const EMPTY = {agents: [], tasks: [], metrics: {summary: {}, agents: [], history: []}};
@@ -10,6 +11,7 @@ export function useSimulationData() {
   const { activeWorkspaceId, status: workspaceStatus } = useWorkspace();
   const [data, setData] = useState(EMPTY);
   const [error, setError] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [lastRefreshedAt, setLastRefreshedAt] = useState(null);
   const [dataWorkspaceId, setDataWorkspaceId] = useState(null);
@@ -22,6 +24,7 @@ export function useSimulationData() {
     if (!workspaceRef.current) return;
     if (busy.current) { pending.current = true; return; }
     busy.current = true;
+    if (mounted.current) setIsRefreshing(true);
     do {
       pending.current = false;
       const workspaceId = workspaceRef.current;
@@ -29,9 +32,16 @@ export function useSimulationData() {
       const refreshRevision = revision.current;
       if (!workspaceId) break;
       try {
-        const [agents, tasks, metrics] = await Promise.all([
+        const [agents, listedTasks, metrics] = await Promise.all([
           apiClient.getAgents(workspaceId), apiClient.getTasks(workspaceId), apiClient.getMetrics(workspaceId)]);
+        if (!mounted.current || workspaceRef.current !== workspaceId || generation.current !== requestGeneration) continue;
+        const acknowledgedIds = [...accepted.current].filter(([, value]) => value <= refreshRevision).map(([id]) => id);
+        const tasks = await resolveAcknowledgedRuns(listedTasks, acknowledgedIds, id => apiClient.getTask(id, workspaceId));
         if (mounted.current && workspaceRef.current === workspaceId && generation.current === requestGeneration) {
+          // Keep checking omitted acknowledgements until the list catches up or
+          // detail confirms removal. Historical list omissions remain authoritative.
+          acknowledgedIds.filter(id => listedTasks.some(task => task.id === id) || !tasks.some(task => task.id === id))
+            .forEach(id => accepted.current.delete(id));
           setDataWorkspaceId(workspaceId);
           setData(previous => ({agents, tasks: mergeActiveRuns(tasks, previous.tasks,
             [...accepted.current].filter(([, value]) => value > refreshRevision).map(([id]) => id)), metrics}));
@@ -44,6 +54,7 @@ export function useSimulationData() {
       }
     } while (pending.current && mounted.current);
     busy.current = false;
+    if (mounted.current) setIsRefreshing(false);
   }, []);
   useEffect(() => {
     mounted.current = true;
@@ -76,7 +87,7 @@ export function useSimulationData() {
   const visibleError = current ? error : null;
   const loaded = current && hasLoaded;
   return {...visible, stats: visible.metrics.summary, refresh, acceptRun, error: visibleError, socketStatus,
-    hasLoaded: loaded, lastRefreshedAt: current ? lastRefreshedAt : null,
+    hasLoaded: loaded, isRefreshing: current && isRefreshing, lastRefreshedAt: current ? lastRefreshedAt : null,
     backendStatus: health, workspaceStatus,
     connectionStatus: visibleError || workspaceStatus === "error" || health === "disconnected" ? "disconnected" :
       !activeWorkspaceId || !loaded ? "connecting" : health, isDemoMode: false,

@@ -28,6 +28,15 @@ export async function parseApiResponse(response, requestPath) {
   let payload;
   try { payload = await response.json(); }
   catch { throw responseError("API returned an invalid JSON response.", response, requestPath); }
-  if (!response.ok) throw apiError(payload?.detail, response.status);
+  if (!response.ok) {
+    const error = apiError(payload?.detail, response.status);
+    // A real API 401 ends the local authenticated view; no redirect loop or retry
+    // of mutations. HTML/proxy errors above never masquerade as session expiry.
+    if (response.status === 401 && typeof window !== "undefined" &&
+        !requestPath.startsWith("/api/v1/auth/")) {
+      window.dispatchEvent(new CustomEvent("session-unavailable", {detail: error}));
+    }
+    throw error;
+  }
   return payload;
 }

@@ -443,3 +443,15 @@
 .danger-action { color: #f87171; }
 .sidebar-totals { margin: var(--space-3); font-size: 12px; }
 @media (max-width: 640px) { .run-reading-pane { padding: var(--space-2); } }
+
+.workbench-runs { border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: var(--space-4); background: var(--bg-panel); }
+.run-progress { padding: var(--space-4); border: 1px solid var(--border-strong); border-radius: var(--radius-md); line-height: 1.65; overflow-wrap: anywhere; }
+.run-progress p + p, .run-progress details, .run-progress button { margin-top: var(--space-2); }
+.run-progress.state-failed { border-color: var(--status-danger); }
+.execution-flow-details { padding: var(--space-4); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-panel); min-width: 0; }
+.execution-flow-details > summary { color: var(--text-secondary); font-weight: 600; }
+.execution-flow-details[open] > summary { margin-bottom: var(--space-4); }
+.simulation-create-action { flex-shrink: 0; max-width: 260px; }
+.simulation-create-action p { margin-top: var(--space-2); }
+.run-reading-pane { background: var(--bg-panel); }
+.run-reading-pane > details { margin-top: var(--space-4); }
