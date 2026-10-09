@@ -9,3 +9,6 @@ export function resolveSocketUrl(env, browserOrigin) {
 }
 export const API_BASE_URL = resolveApiBase(import.meta.env);
 export const WS_URL = resolveSocketUrl(import.meta.env, globalThis.location?.origin);
+// REST polling is the default until an authenticated socket topology is approved.
+export function liveUpdatesEnabled(env) { return env.VITE_LIVE_UPDATES_ENABLED === "true"; }
+export const LIVE_UPDATES_ENABLED = liveUpdatesEnabled(import.meta.env);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 import { useSimulation } from "../context/SimulationContext";
@@ -28,7 +28,9 @@ export default function AppShell({
   // it's the layout root, so this is where "global" data (like sim
   // stats needed by the Sidebar's info panel) gets pulled in and handed
   // down as plain props. Individual layout pieces stay context-free.
-  const { stats, backendStatus, workspaceStatus, socketStatus, isLoading, error } = useSimulation();
+  const contentRef=useRef(null);
+  useEffect(()=>{const content=contentRef.current;if(content){content.scrollTop=0;content.focus({preventScroll:true});}},[activePage,workspace?.activeWorkspaceId]);
+  const { stats, backendStatus, workspaceStatus, socketStatus, isLoading, error, isRefreshing, lastRefreshedAt, refresh } = useSimulation();
 
   return (
     <div className="app-shell">
@@ -40,8 +42,8 @@ export default function AppShell({
         stats={stats}
       />
       <div className="app-shell-main">
-        <Topbar {...topbarProps} dataStatus={error ? "error" : isLoading ? "loading" : "ready"} backendStatus={backendStatus} workspaceStatus={workspaceStatus} socketStatus={socketStatus} />
-        <main className="app-shell-content" tabIndex={-1}>{children}</main>
+        <Topbar {...topbarProps} dataStatus={error ? "error" : isLoading ? "loading" : "ready"} backendStatus={backendStatus} workspaceStatus={workspaceStatus} socketStatus={socketStatus} isRefreshing={isRefreshing} lastRefreshedAt={lastRefreshedAt} onRefresh={refresh} authError={error?.status === 401} />
+        <main ref={contentRef} className="app-shell-content" tabIndex={-1}>{children}</main>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Modal from "../common/Modal";
 import { Shield, UsersRound } from "lucide-react";
 
@@ -22,6 +22,8 @@ function memberName(member) {
 }
 
 export default function OrganizationMembers({ workspace, onMembershipChanged }) {
+  const alive=useRef(false);
+  const [pendingRole,setPendingRole]=useState(null);
   const [pendingRemoval, setPendingRemoval] = useState(null);
   const [members, setMembers] = useState([]);
   const [humanRoleAssignments, setHumanRoleAssignments] = useState([]);
@@ -31,6 +33,7 @@ export default function OrganizationMembers({ workspace, onMembershipChanged }) 
   const [removingUserId, setRemovingUserId] = useState(null);
   const [changingHumanRole, setChangingHumanRole] = useState(null);
   const [notice, setNotice] = useState(null);
+  const [reload,setReload]=useState(0);
 
   const canView =
     workspace?.kind === "organization" &&
@@ -39,7 +42,7 @@ export default function OrganizationMembers({ workspace, onMembershipChanged }) 
   const canManageHumanRoles = canManageHrHumanRoles(workspace?.membershipRole);
 
   useEffect(() => {
-    let cancelled = false;
+    let cancelled = false;alive.current=true;
 
     if (!canView) {
       setMembers([]);
@@ -75,9 +78,9 @@ export default function OrganizationMembers({ workspace, onMembershipChanged }) 
       });
 
     return () => {
-      cancelled = true;
+      cancelled = true;alive.current=false;
     };
-  }, [canView, workspace?.id]);
+  }, [canView, workspace?.id,reload]);
 
   const sortedMembers = useMemo(
     () => [...members].sort((a, b) => memberName(a).localeCompare(memberName(b))),
@@ -104,6 +107,7 @@ export default function OrganizationMembers({ workspace, onMembershipChanged }) 
         membershipRole,
       );
 
+      if(!alive.current)return;setPendingRole(null);
       setMembers(current =>
         current.map(item =>
           item.userId === updated.userId
@@ -142,6 +146,7 @@ export default function OrganizationMembers({ workspace, onMembershipChanged }) 
         member.userId,
       );
 
+      if(!alive.current)return;
       setMembers(current =>
         current.filter(item => item.userId !== member.userId),
       );
@@ -176,6 +181,7 @@ export default function OrganizationMembers({ workspace, onMembershipChanged }) 
           member.userId,
           humanRole,
         );
+        if(!alive.current)return;
         setHumanRoleAssignments(current => {
           const alreadyAssigned = current.some(
             item => item.userId === member.userId && item.humanRole === humanRole,
@@ -191,6 +197,7 @@ export default function OrganizationMembers({ workspace, onMembershipChanged }) 
           member.userId,
           humanRole,
         );
+        if(!alive.current)return;
         setHumanRoleAssignments(current =>
           current.filter(
             item => !(item.userId === member.userId && item.humanRole === humanRole),
@@ -256,6 +263,8 @@ export default function OrganizationMembers({ workspace, onMembershipChanged }) 
         </div>
       </div>
 
+      <button className="organization-secondary-button" disabled={status === "loading" || changingUserId !== null || removingUserId !== null || changingHumanRole !== null} onClick={()=>setReload(v=>v+1)}>Refresh members</button>
+      {pendingRole&&<Modal title="Change member access" onClose={()=>setPendingRole(null)} canDismiss={changingUserId === null}><p>Change {memberName(pendingRole.member)} from {organizationRoleLabel(pendingRole.member.membershipRole)} to {organizationRoleLabel(pendingRole.role)}? Owner and Admin access allows management of the team; HR responsibilities remain separate.</p>{error&&<p role="alert">{error.message}</p>}<button disabled={changingUserId!==null} onClick={()=>changeRole(pendingRole.member,pendingRole.role)}>Confirm access change</button></Modal>}
       {pendingRemoval && <Modal title="Remove organization member" onClose={() => setPendingRemoval(null)} canDismiss={removingUserId === null}><p>Remove {memberName(pendingRemoval)}? This immediately revokes organization access and all active HR responsibilities. If this is your account, you will lose access too.</p><button disabled={removingUserId !== null} onClick={() => removeMember(pendingRemoval)}>Confirm removal</button>{error && <p role="alert">{error.message}</p>}</Modal>}
       {error && (
         <div className="organization-alert is-error" role="alert">
@@ -307,7 +316,7 @@ export default function OrganizationMembers({ workspace, onMembershipChanged }) 
                           removingUserId !== null ||
                           changingHumanRole !== null
                         }
-                        onChange={event => changeRole(member, event.target.value)}
+                        onChange={event => setPendingRole({member,role:event.target.value})}
                         aria-label={`Access role for ${memberName(member)}`}
                       >
                         <option value="owner">Owner</option>
@@ -344,7 +353,7 @@ export default function OrganizationMembers({ workspace, onMembershipChanged }) 
                   )}
                 </div>
 
-                <fieldset className="organization-human-roles">
+                <details className="member-hr-details"><summary>Hiring responsibilities</summary><p>These grants are separate from organization access. Recruiters write, Reviewers recommend, and Approvers make final decisions.</p><fieldset className="organization-human-roles">
                   <legend>HR responsibilities</legend>
                   <div className="organization-human-role-options">
                     {HR_HUMAN_ROLE_OPTIONS.map(option => {
@@ -370,7 +379,7 @@ export default function OrganizationMembers({ workspace, onMembershipChanged }) 
                       );
                     })}
                   </div>
-                </fieldset>
+                </fieldset></details>
               </article>
             );
           })}

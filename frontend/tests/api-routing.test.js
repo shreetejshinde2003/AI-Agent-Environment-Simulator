@@ -77,7 +77,7 @@ test('anonymous auth and empty logout preserve 401 and 204 behavior',async()=>{
 });
 test('topbar separates backend, workspace and live events on bootstrap failure',()=>{
   const html=renderToStaticMarkup(createElement(Topbar,{backendStatus:'connected',workspaceStatus:'error',socketStatus:'disconnected'}));
-  assert.match(html,/Backend reachable/);assert.match(html,/Workspace unavailable/);assert.match(html,/Live events offline/);assert.doesNotMatch(html,/>Connected<|>Live</);
+  assert.match(html,/Backend reachable/);assert.match(html,/Workspace unavailable/);assert.match(html,/Automatic refresh is used/);assert.doesNotMatch(html,/>Connected<|>Live</);
 });
 test('HTML 401 cannot silently masquerade as an anonymous session',async()=>{
   const original=globalThis.fetch;

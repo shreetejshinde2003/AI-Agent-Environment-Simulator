@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { WS_URL } from "../services/apiClient";
+import { LIVE_UPDATES_ENABLED } from "../services/apiConfig";
 export function useLiveSocket(onEvent, enabled = true, workspaceId = null) {
   const callback = useRef(onEvent);
   callback.current = onEvent;
   const [status, setStatus] = useState("disconnected");
   useEffect(() => {
+    if (!LIVE_UPDATES_ENABLED) { setStatus("disabled"); return; }
     if (!enabled) { setStatus("disconnected"); return; }
     let socket, timer, disposed = false, retry = 0;
     function connect() {

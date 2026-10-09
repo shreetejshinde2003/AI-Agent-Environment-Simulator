@@ -16,12 +16,12 @@ test('last-owner controls distinguish sole owner from members and transferable o
   assert.equal(isLastOrganizationOwner(owner,[owner,{...owner,userId:'c'}]),false);
 });
 for (const [backendStatus,workspaceStatus,socketStatus,label] of [
-  ['connected','ready','connected','Ready'],['connected','ready','offline','Ready · automatic refresh'],
-  ['error','ready','offline','Offline'],['connected','error','offline','Workspace unavailable'],
+  ['connected','ready','connected','Ready'],['connected','ready','offline','Ready'],
+  ['error','ready','offline','Connection problem'],['connected','error','offline','Connection problem'],
 ]) test(`readiness displays ${label} with truthful expanded diagnostics`,()=>{
   const html=renderToStaticMarkup(createElement(Topbar,{backendStatus,workspaceStatus,socketStatus}));
   assert.ok(html.includes(label));assert.match(html,/<details/);
-  if(socketStatus==='offline') assert.match(html,/Live events offline/);
+  if(socketStatus==='offline') assert.match(html,/Automatic refresh/);
   if(backendStatus==='error') assert.match(html,/Backend unavailable/);
 });
 test('research entry exposes real configuration and empty history',async()=>{

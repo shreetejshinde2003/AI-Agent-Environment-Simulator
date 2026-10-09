@@ -101,8 +101,8 @@ test("composer keeps optional context subordinate and disables unavailable speci
 
 test("readiness distinguishes available refresh from simulation data failure", () => {
   const props = {backendStatus: "connected", workspaceStatus: "ready", socketStatus: "offline"};
-  assert.match(render(Topbar, props), /Ready · automatic refresh/);
+  assert.match(render(Topbar, props), /Ready/);
   const html = render(Topbar, {...props, dataStatus: "error"});
-  assert.match(html, /Simulations unavailable/); assert.match(html, /Backend reachable/);
-  assert.doesNotMatch(html, /Ready · automatic refresh/);
+  assert.match(html, /Connection problem/); assert.match(html, /Backend reachable/);
+  assert.doesNotMatch(html, /Ready/);
 });

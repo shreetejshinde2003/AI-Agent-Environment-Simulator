@@ -451,3 +451,9 @@
   opacity: 0.45;
   cursor: not-allowed;
 }
+.organization-actions-grid { margin-bottom: var(--space-6); }
+.organization-workspace-card button { margin-top: var(--space-2); }
+.invitation-history { list-style: none; padding: 0; }
+.invitation-history li { padding: var(--space-4) 0; border-bottom: 1px solid var(--border-subtle); }
+.organization-created input { width: 100%; font-family: var(--font-mono); margin: var(--space-2) 0; }
+.organizations-page details > summary { cursor: pointer; font-weight: 600; }
