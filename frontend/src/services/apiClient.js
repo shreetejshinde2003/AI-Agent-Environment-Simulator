@@ -43,6 +43,7 @@ export const apiClient = {
     {method: id ? "PUT" : "POST", body: JSON.stringify(payload), headers: workspaceHeaders(workspaceId)}),
   getAgents: workspaceId => request("/agents", {headers: workspaceHeaders(workspaceId)}),
   getCustomAgents: workspaceId => request("/agent-builder", {headers: workspaceHeaders(workspaceId)}),
+  getAgentDeletionEligibility: (id, workspaceId, signal) => request("/agent-builder/" + encodeURIComponent(id) + "/deletion-eligibility", {headers: workspaceHeaders(workspaceId), signal}),
   getAgentBuilderOptions: workspaceId => request("/agent-builder/options", {headers: workspaceHeaders(workspaceId)}),
   getCustomAgentRevisions: (id, workspaceId) => request("/agent-builder/" + encodeURIComponent(id) + "/revisions", {headers: workspaceHeaders(workspaceId)}),
   saveCustomAgent: (id, payload, workspaceId) => request("/agent-builder" + (id ? "/" + encodeURIComponent(id) : ""),

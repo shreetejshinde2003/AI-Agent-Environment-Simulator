@@ -139,3 +139,15 @@ def test_live_unicode_name_casefold_expansion_is_supported(pg_repo):
     with pytest.raises(AgentBuilderError) as duplicate:
         pg_repo.save_custom_agent(definition, **identity)
     assert duplicate.value.status_code == 409
+
+
+def test_live_deletion_eligibility_keeps_revision_guards_and_tenant_boundary(pg_repo):
+    owner, foreign = scope(pg_repo), scope(pg_repo, 'USR-b')
+    agent = pg_repo.save_custom_agent(config(), **owner)
+    result = pg_repo.custom_agent_deletion_eligibility(agent.id, **owner)
+    assert result['eligible'] is False and result['revisionCount'] == 1 and result['runCount'] == 0
+    assert pg_repo.custom_agent_revisions(agent.id, **owner) == [agent]
+    with pytest.raises(AgentBuilderError):
+        pg_repo.custom_agent_deletion_eligibility(agent.id, **foreign)
+    with tenant_transaction(pg_repo.engine, **owner) as connection:
+        assert connection.execute(delete(dbm.custom_agent_revisions)).rowcount == 0

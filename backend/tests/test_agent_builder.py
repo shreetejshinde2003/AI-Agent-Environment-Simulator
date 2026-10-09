@@ -106,6 +106,7 @@ def test_role_controls_and_removed_membership(context, provider, role, manage):
     agent = repository.save_custom_agent(CustomAgentConfig(**config()), **scope)
     headers = {"X-Workspace-Id": target_org["id"]}
     assert len(client.get("/api/v1/agent-builder", headers=headers).json()) == 1
+    assert client.get(f'/api/v1/agent-builder/{agent.id}/deletion-eligibility', headers=headers).status_code == (200 if manage else 403)
     assert client.put(f'/api/v1/agent-builder/{agent.id}', json={**config(), "expectedRevision": 1}, headers=headers).status_code == (200 if manage else 403)
     revision = 2 if manage else 1
     assert client.post(f'/api/v1/agent-builder/{agent.id}/runs', json={"text": "review", "expectedRevision": revision}, headers=headers).status_code == 202
@@ -321,3 +322,21 @@ def test_builtin_agent_cannot_be_archived_through_custom_api(context, agent_id):
         json={**config(), 'active': False, 'expectedRevision': 1}).status_code == 404
     assert client.delete('/api/v1/agents/' + agent_id).status_code == 405
     assert client.get('/api/v1/agents/' + agent_id).status_code == 200
+
+
+def test_deletion_checks_preserve_unused_and_used_agent_evidence(context, provider):
+    client = context[0]
+    agent = create(context)
+    path = f'/api/v1/agent-builder/{agent["id"]}/deletion-eligibility'
+    result = client.get(path).json()
+    assert result['eligible'] is False and result['revisionCount'] == 1
+    assert result['runCount'] == 0 and result['reason'] == 'immutable_revisions'
+    run = client.post(f'/api/v1/agent-builder/{agent["id"]}/runs', json={'text': 'Fixture input', 'expectedRevision': 1})
+    assert run.status_code == 202
+    assert client.get(path).json()['runCount'] == 1
+    assert client.get(path).json()['reason'] == 'execution_evidence'
+    assert client.delete(f'/api/v1/agent-builder/{agent["id"]}').status_code == 405
+    assert client.get(f'/api/v1/agent-builder/{agent["id"]}/revisions').json() == [agent]
+    foreign = {'X-Workspace-Id': context[3]['id']}
+    assert client.get(path, headers=foreign).status_code == 404
+    assert client.get('/api/v1/agent-builder/direct/deletion-eligibility').status_code == 409

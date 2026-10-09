@@ -1,0 +1,178 @@
+{
+  "checks": [
+    {
+      "name": "Organization purpose, create/join entry and named workspace navigation",
+      "status": "passed"
+    },
+    {
+      "name": "Creation persists an organization and displays initial code once",
+      "status": "passed"
+    },
+    {
+      "name": "Invitation copy works without showing the code in history",
+      "status": "passed"
+    },
+    {
+      "name": "Workspace switching does not duplicate panels or redisplay a hidden code",
+      "status": "passed"
+    },
+    {
+      "name": "Code can be hidden and no timed expiry is falsely promised",
+      "status": "passed"
+    },
+    {
+      "name": "Private one-use invitation joins a real membership",
+      "status": "passed"
+    },
+    {
+      "name": "Consumed invitation reports a safe recoverable error",
+      "status": "passed"
+    },
+    {
+      "name": "Member has no invitation or member-administration controls",
+      "status": "passed"
+    },
+    {
+      "name": "Invitation confirmation contains keyboard focus and Escape returns to its trigger",
+      "status": "passed"
+    },
+    {
+      "name": "Invitation replacement requires confirmation and saves new history",
+      "status": "passed"
+    },
+    {
+      "name": "Revocation is confirmed and persists",
+      "status": "passed"
+    },
+    {
+      "name": "Owner changes ordinary member access through a confirmation",
+      "status": "passed"
+    },
+    {
+      "name": "Last Owner removal controls remain absent",
+      "status": "passed"
+    },
+    {
+      "name": "Historical sample is available while new execution is disabled",
+      "status": "passed"
+    },
+    {
+      "name": "Opening sample causes zero provider calls",
+      "status": "passed"
+    },
+    {
+      "name": "Sample exposes actual stored input, answer and descriptive evidence",
+      "status": "passed"
+    },
+    {
+      "name": "Disabled-live explanation and action preserve server gate",
+      "status": "passed"
+    },
+    {
+      "name": "Guided experiment reviews trial count and fixture/provider usage",
+      "status": "passed"
+    },
+    {
+      "name": "Approved fixture experiment persists three real trial records",
+      "status": "passed"
+    },
+    {
+      "name": "Saved experiment reloads from authoritative history",
+      "status": "passed"
+    },
+    {
+      "name": "HR five-step guide opens for authorized Recruiter",
+      "status": "passed"
+    },
+    {
+      "name": "Guided requirement form saves real revisioned content",
+      "status": "passed"
+    },
+    {
+      "name": "AI proposal runs through the real source-bound API with a mocked provider and no automatic draft adoption",
+      "status": "passed"
+    },
+    {
+      "name": "JD draft saves with the selected immutable requirement source",
+      "status": "passed"
+    },
+    {
+      "name": "Recruiter submits but receives no reviewer/approver decision control",
+      "status": "passed"
+    },
+    {
+      "name": "Reviewer recommendation records a real immutable event",
+      "status": "passed"
+    },
+    {
+      "name": "Approver completes the supported state machine with retained history",
+      "status": "passed"
+    },
+    {
+      "name": "IAM Admin without HR responsibility cannot author or decide",
+      "status": "passed"
+    },
+    {
+      "name": "Unused agent receives a server dependency explanation without weakening revision protection",
+      "status": "passed"
+    },
+    {
+      "name": "Archive preserves history and blocks new execution",
+      "status": "passed"
+    },
+    {
+      "name": "Reactivation saves an authorized new version",
+      "status": "passed"
+    },
+    {
+      "name": "Custom-agent result persists through the real API with a mocked provider",
+      "status": "passed"
+    },
+    {
+      "name": "Polling failure reports connection problem without fabricated fresh results",
+      "status": "passed"
+    },
+    {
+      "name": "Polling recovers after an actual local HTTP failure",
+      "status": "passed"
+    },
+    {
+      "name": "Default polling makes zero application WebSocket attempts",
+      "status": "passed"
+    },
+    {
+      "name": "Mobile organization forms and navigation fit viewport",
+      "status": "passed"
+    },
+    {
+      "name": "Mobile sample uses an independently scrollable results table",
+      "status": "passed"
+    },
+    {
+      "name": "Shared-profile account change discards prior HR authority and workspace state",
+      "status": "passed"
+    },
+    {
+      "name": "Mobile five-step HR guide and approved saved state fit viewport",
+      "status": "passed"
+    },
+    {
+      "name": "Mobile custom-agent form and lifecycle guidance fit viewport",
+      "status": "passed"
+    },
+    {
+      "name": "Agent dependency report refreshes after a newly persisted run without enabling deletion",
+      "status": "passed"
+    }
+  ],
+  "applicationWebSocketAttempts": 0,
+  "provider": {
+    "mockedProviderCalls": {
+      "sdk": 10,
+      "hr": 1
+    },
+    "liveProvider": false
+  },
+  "production": false,
+  "storage": "Disposable SQLite"
+}

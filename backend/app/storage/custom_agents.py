@@ -4,7 +4,7 @@ import json
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import insert, select, update
+from sqlalchemy import func, insert, select, update
 from sqlalchemy.exc import IntegrityError
 from pydantic import ValidationError
 
@@ -83,6 +83,30 @@ class CustomAgentRepository:
                 dbm.custom_agent_revisions.c.workspace_id == workspace_id
             ).order_by(dbm.custom_agent_revisions.c.revision)).scalars().all()
             return [self._agent_record(connection, agent_id, workspace_id, v) for v in versions]
+
+    def custom_agent_deletion_eligibility(self, agent_id, *, workspace_id, user_id):
+        """Report real dependencies without bypassing immutable revision guards.
+
+        Every schema-14 saved definition has a retained creation revision.
+        Deletion is therefore unavailable even without execution evidence.
+        This read cannot authorize a future mutation or erase history.
+        """
+        with tenant_transaction(self.engine, workspace_id=workspace_id, user_id=user_id) as connection:
+            self._agent_scope(connection, workspace_id, user_id, Permission.AGENT_MANAGE)
+            agent = self._agent_record(connection, agent_id, workspace_id)
+            revision_count = connection.execute(select(func.count()).select_from(dbm.custom_agent_revisions).where(
+                dbm.custom_agent_revisions.c.agent_id == agent_id,
+                dbm.custom_agent_revisions.c.workspace_id == workspace_id)).scalar_one()
+            # Include soft-deleted runs: hiding them does not remove dependencies.
+            run_count = connection.execute(select(func.count()).select_from(
+                dbm.simulations.join(dbm.tasks, dbm.tasks.c.simulation_id == dbm.simulations.c.id)).where(
+                    dbm.simulations.c.workspace_id == workspace_id,
+                    dbm.tasks.c.assigned_agent_id == agent_id)).scalar_one()
+            return {"agentId": agent_id, "eligible": False, "revision": agent.revision,
+                    "revisionCount": revision_count, "runCount": run_count,
+                    "reason": "execution_evidence" if run_count else "immutable_revisions",
+                    "message": "Saved runs and configuration versions must be retained. Archive this agent instead."
+                    if run_count else "Saved configuration versions are retained under the current policy. Archive this agent instead."}
 
     def save_custom_agent(self, config, *, workspace_id, user_id, agent_id=None, expected_revision=None):
         # Revalidate even trusted internal callers; no arbitrary persisted execution settings.

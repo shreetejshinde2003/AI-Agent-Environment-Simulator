@@ -5,8 +5,8 @@ import Card from "../components/common/Card";
 export default function Agents() {
   const {activeWorkspaceId, activeWorkspace} = useWorkspace();
   const {agents, metrics, acceptRun, selectTask, refresh} = useSimulation();
-  return <div className="workspace-stack"><h1>Agent directory</h1>
-    <p className="muted">Five specialist agents and one Direct baseline agent are executable. The coordinator makes no model call. Status is across the shared workspace; metrics come from saved stage attempts.</p>
+  return <div className="workspace-stack"><h1>Agents</h1>
+    <p className="muted">Create a text assistant for repeatable work, or inspect the built-in agents used in simulations. Saved custom agents and their results belong to the selected workspace.</p>
     <AgentBuilder key={activeWorkspaceId} workspaceId={activeWorkspaceId} workspace={activeWorkspace}
       onRunCreated={run => {acceptRun(run); selectTask(run.id); refresh();}} />
     <h2>System agent directory</h2><p className="muted">Built-in agents are protected and cannot be archived or deleted.</p>

@@ -20,8 +20,18 @@ export default function AgentBuilder({workspaceId, workspace, onRunCreated}) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const mounted = useRef(false);
+  const operationLock=useRef(false);
+  const [eligibility,setEligibility]=useState(null),[eligibilityError,setEligibilityError]=useState("");
   const manage = canManageAgents(workspace);
 
+  const selectedId=selected?.id,selectedVersion=selected?.revision;
+  const selectedRunId=run?.id,selectedRunStatus=run?.status;
+  useEffect(()=>{
+    setEligibility(null);setEligibilityError("");if(!selectedId||!manage)return;
+    const controller=new AbortController();
+    apiClient.getAgentDeletionEligibility(selectedId,workspaceId,controller.signal).then(value=>{if(!controller.signal.aborted)setEligibility(value);}).catch(()=>{if(!controller.signal.aborted)setEligibilityError("Removal checks could not load. Reload this agent before changing its availability.");});
+    return()=>controller.abort();
+  },[selectedId,selectedVersion,workspaceId,manage,selectedRunId,selectedRunStatus]);
   async function reload() {
     setLoading(true); setError("");
     try {
@@ -68,34 +78,34 @@ export default function AgentBuilder({workspaceId, workspace, onRunCreated}) {
   }
   function field(name, value) {setDraft(current => ({...current, [name]: value})); setNotice("");}
   async function save(event) {
-    event.preventDefault();
+    event.preventDefault();if(operationLock.current)return;
     const invalid = validateAgentConfig(draft);
     if (invalid) {setError(invalid); return;}
-    setBusy(true); setError(""); setNotice("");
+    operationLock.current=true;setBusy(true);setError("");setNotice("");
     try {
       const saved = await apiClient.saveCustomAgent(selected?.id, selected ? {...draft, expectedRevision: selected.revision} : draft, workspaceId);
       if (!mounted.current) return;
       setSelected(saved); setDraft({...saved.config}); setRevisions([]);
       setAgents(current => [...current.filter(agent => agent.id !== saved.id), saved]); setNotice(`Saved revision ${saved.revision}.`);
     } catch (failure) {if (mounted.current) setError(failure.message);}
-    finally {if (mounted.current) setBusy(false);}
+    finally {operationLock.current=false;if(mounted.current)setBusy(false);}
   }
-  async function archive() {
-    setBusy(true); setError("");
+  async function archive(active = false) {
+    if(operationLock.current)return;operationLock.current=true;setBusy(true);setError("");
     try {
-      const saved = await apiClient.saveCustomAgent(selected.id, {...selected.config, active: false, expectedRevision: selected.revision}, workspaceId);
+      const saved = await apiClient.saveCustomAgent(selected.id, {...selected.config, active, expectedRevision: selected.revision}, workspaceId);
       if (!mounted.current) return;
       setSelected(saved); setDraft({...saved.config}); setArchiving(false);
       setAgents(current => current.map(agent => agent.id === saved.id ? saved : agent));
-      setNotice("Agent archived. Saved revisions and historical runs remain available.");
+      setNotice(active ? "Agent reactivated. It is available for new runs." : "Agent archived. Saved revisions and historical runs remain available.");
     } catch (failure) {if (mounted.current) setError(failure.message);}
-    finally {if (mounted.current) setBusy(false);}
+    finally {operationLock.current=false;if(mounted.current)setBusy(false);}
   }
   async function execute(event) {
-    event.preventDefault();
+    event.preventDefault();if(operationLock.current)return;
     const invalid = validateAgentInput(input);
     if (invalid) {setError(invalid); return;}
-    setBusy(true); setError(""); setNotice("");
+    operationLock.current=true;setBusy(true);setError("");setNotice("");
     try {
       const queued = await apiClient.runCustomAgent(selected.id, {text: input.trim(), expectedRevision: selected.revision}, workspaceId);
       if (!mounted.current) return;
@@ -111,7 +121,7 @@ export default function AgentBuilder({workspaceId, workspace, onRunCreated}) {
       const saved = await apiClient.getCustomAgentRevisions(selected.id, workspaceId);
       if (mounted.current) setRevisions(saved);
     } catch (failure) {if (mounted.current) setError(failure.message);}
-    finally {if (mounted.current) setBusy(false);}
+    finally {operationLock.current=false;if(mounted.current)setBusy(false);}
   }
   async function refreshRun() {
     setBusy(true);
@@ -119,7 +129,7 @@ export default function AgentBuilder({workspaceId, workspace, onRunCreated}) {
       const saved = await apiClient.getTask(run.id, workspaceId);
       if (mounted.current) {setRun(saved); setError("");}
     } catch (failure) {if (mounted.current) setError(failure.message);}
-    finally {if (mounted.current) setBusy(false);}
+    finally {operationLock.current=false;if(mounted.current)setBusy(false);}
   }
   const live = run && ["queued", "in_progress"].includes(run.status);
   return <section className="agent-builder" aria-label="Agent Builder">
@@ -139,30 +149,32 @@ export default function AgentBuilder({workspaceId, workspace, onRunCreated}) {
           <form onSubmit={save} aria-label="Agent configuration">
             <h3>{selected ? selected.config.name : "New agent"}</h3>
             <fieldset disabled={!manage || busy}>
-              <label>Name<input value={draft.name} onChange={event => field("name", event.target.value)} maxLength={80} required /></label>
-              <label>Description<textarea value={draft.description} onChange={event => field("description", event.target.value)} maxLength={1000} /></label>
-              <label>Purpose<textarea value={draft.purpose} onChange={event => field("purpose", event.target.value)} maxLength={1000} required /></label>
-              <label>Instructions<textarea className="builder-instructions" value={draft.instructions} onChange={event => field("instructions", event.target.value)} maxLength={8000} required /></label>
-              <div className="builder-fields">
+              <label>Name<input placeholder="Example: Meeting summary assistant" value={draft.name} onChange={event => field("name", event.target.value)} maxLength={80} required /></label>
+              <p>Give the agent a clear purpose and instructions, then save it. Run it with input text to create a result in this workspace.</p><label>Description<textarea value={draft.description} onChange={event => field("description", event.target.value)} maxLength={1000} /></label>
+              <label>Purpose<textarea placeholder="Example: Summarize decisions and action owners" value={draft.purpose} onChange={event => field("purpose", event.target.value)} maxLength={1000} required /></label>
+              <label>Instructions<textarea placeholder="Describe what the answer should include and how it should be formatted" className="builder-instructions" value={draft.instructions} onChange={event => field("instructions", event.target.value)} maxLength={8000} required /></label>
+              <details><summary>Model and execution limits</summary><div className="builder-fields">
                 <label>Model<select value={draft.model} onChange={event => field("model", event.target.value)}>
                   <option value="default">Default · {options?.models.default}</option><option value="fast">Fast · {options?.models.fast}</option></select></label>
                 <label>Output token limit<input type="number" min={64} max={1024} required value={draft.maxTokens} onChange={event => field("maxTokens", Number(event.target.value))} /></label>
                 <label>Timeout (seconds)<input type="number" min={1} max={120} required value={draft.timeoutSeconds} onChange={event => field("timeoutSeconds", Number(event.target.value))} /></label>
               </div>
-              <label className="builder-checkbox"><input type="checkbox" checked={draft.active} onChange={event => field("active", event.target.checked)} />Active (turn off to archive)</label>
+              </details><label className="builder-checkbox"><input type="checkbox" checked={draft.active} onChange={event => field("active", event.target.checked)} />Active (turn off to archive)</label>
               {manage && <button className="btn btn-primary" type="submit">{busy ? "Working…" : "Save agent"}</button>}
             </fieldset>
             <p className="muted">Groq · Text input → Text output. Agents generate text using the configured model. Instructions do not grant tools or workspace access.</p>
           </form>
           {selected && <>
-            <dl className="metadata"><dt>Agent ID</dt><dd>{selected.id}</dd><dt>Saved revision / model</dt><dd>{selected.revision} / {selected.resolvedModel}</dd>
-              <dt>Configuration fingerprint</dt><dd className="builder-hash">{selected.configHash}</dd></dl>
+            <details><summary>Saved version and technical details</summary><dl className="metadata"><dt>Agent ID</dt><dd>{selected.id}</dd><dt>Saved revision / model</dt><dd>{selected.revision} / {selected.resolvedModel}</dd>
+              <dt>Configuration fingerprint</dt><dd className="builder-hash">{selected.configHash}</dd></dl></details>
+            {manage && !selected.config.active && <button className="btn btn-primary" onClick={()=>archive(true)} disabled={busy}>Reactivate custom agent</button>}
+            {manage && <details><summary>Archive or permanent removal</summary><p>Archive stops future selection while keeping saved work. Permanent deletion would remove the definition and requires server-verified eligibility.</p>{eligibilityError&&<p role="alert">{eligibilityError}</p>}{!eligibility&&!eligibilityError&&<p role="status">Checking saved dependencies…</p>}{eligibility&&<p>{eligibility.message} {eligibility.revisionCount} saved version(s) and {eligibility.runCount} retained run(s).</p>}<button className="btn btn-default" disabled aria-describedby="agent-removal-reason">Delete permanently</button><p id="agent-removal-reason">Permanent deletion is unavailable under the current immutable-version policy, including unused saved agents. Archive is available instead.</p></details>}
             {manage && selected.config.active && <button className="btn btn-default" onClick={() => setArchiving(true)} disabled={busy}>Archive custom agent</button>}
-            {archiving && <Modal title="Archive custom agent" onClose={() => setArchiving(false)} canDismiss={!busy}><p>This agent will be unavailable for new runs. Historical runs and revisions remain available.</p>{error && <p role="alert">{error}</p>}<button disabled={busy} onClick={archive}>Confirm archive</button></Modal>}
+            {archiving && <Modal title="Archive custom agent" onClose={() => setArchiving(false)} canDismiss={!busy}><p>This agent will be unavailable for new runs. Historical runs and revisions remain available.</p>{error && <p role="alert">{error}</p>}<button disabled={busy} onClick={()=>archive(false)}>Confirm archive</button></Modal>}
             <button className="btn btn-default" onClick={history} disabled={busy}>Inspect revision history</button>
             {revisions.map(version => <details key={version.revision}><summary>Revision {version.revision} · {new Date(version.updatedAt).toLocaleString()} · {version.config.active ? "Active" : "Archived"}</summary>
               <p>Saved by {version.updatedByUserId} · {version.resolvedModel}</p><pre>{JSON.stringify(version.config, null, 2)}</pre></details>)}
-            <form onSubmit={execute} aria-label="Run saved agent"><h3>Run saved agent</h3><p className="muted">Uses saved revision {selected.revision}. Save edits before running.</p>
+            <form onSubmit={execute} aria-label="Run saved agent"><h3>Run saved agent</h3><p className="muted">Uses the saved version. Save edits first. This invokes the configured AI provider; it does not grant tools or approval authority. Results are saved with this agent and in Simulation History.</p>
               <label>Input text<textarea value={input} onChange={event => setInput(event.target.value)} maxLength={10000} required disabled={busy || live || !selected.config.active} /></label>
               <button className="btn btn-primary" type="submit" disabled={busy || live || !selected.config.active}>Run agent</button>
               {!selected.config.active && <p className="muted">This agent is inactive. A manager must activate it before execution.</p>}

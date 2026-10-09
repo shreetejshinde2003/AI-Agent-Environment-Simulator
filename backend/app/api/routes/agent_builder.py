@@ -53,6 +53,14 @@ async def revisions(agent_id: str, request: Request, x_workspace_id: str | None 
     return operation(repository.custom_agent_revisions, agent_id, **scope(request, x_workspace_id, Permission.AGENT_VIEW))
 
 
+@router.get("/{agent_id}/deletion-eligibility")
+async def deletion_eligibility(agent_id: str, request: Request, x_workspace_id: str | None = Header(default=None)):
+    identity = scope(request, x_workspace_id, Permission.AGENT_MANAGE)
+    if agent_id in {"orchestrator", "research", "data", "analysis", "summarizer", "report", "direct", "web_search"}:
+        raise HTTPException(409, {"code": "system_agent_protected", "message": "Built-in agents cannot be removed."})
+    return operation(repository.custom_agent_deletion_eligibility, agent_id, **identity)
+
+
 @router.put("/{agent_id}", response_model=CustomAgentDefinition)
 async def update(agent_id: str, payload: UpdateCustomAgentRequest, request: Request,
                  x_workspace_id: str | None = Header(default=None)):
