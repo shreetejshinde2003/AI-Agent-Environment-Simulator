@@ -12,6 +12,13 @@ after(async()=>{await server?.close();});
 const statistic={mean:0,median:0,min:0,max:0,n:1,sampleStdDev:null};
 const summary={status:'complete',configuration:{evidenceKind:'deterministic_fixture'},statisticalScope:'Descriptive only',integrityIssues:[],limitations:['No significance'],cells:[{benchmarkId:'B-direct',mode:'single',terminalTrials:1,expectedTrials:1,successRate:1,latency:statistic,tokens:{...statistic,mean:null,n:0},agentCalls:statistic,handoffs:statistic,deterministicQuality:statistic,humanQuality:{...statistic,mean:null,n:0}}]};
 const run={taskId:'T-real',trialNumber:1,benchmarkId:'B-direct',mode:'adaptive',status:'completed',completedAgents:['research','report'],failedStages:[],selectedAgents:['research','report'],skippedAgents:['data','analysis','summarizer'],notExecutedAgents:[],agentCalls:2,handoffs:1,totalTokens:{value:null,coverage:'unavailable'},timeoutObserved:false,stageTimings:[],deterministicQuality:{score:1},outputSha256:'a'.repeat(64)};
+test('run evidence navigation waits for fetched task and completed foreground operation',()=>{
+  const render=props=>renderToStaticMarkup(createElement(ResearchRun,{run,onInspect(){},...props}));
+  assert.match(render({task:null}),/<button[^>]*disabled=""[^>]*>Open run evidence<\/button>/);
+  const task={id:'T-real',output:'',stages:[]};
+  assert.doesNotMatch(render({task}),/<button[^>]*disabled=""[^>]*>Open run evidence<\/button>/);
+  assert.match(render({task,busy:true}),/<button[^>]*disabled=""[^>]*>Open run evidence<\/button>/);
+});
 test('research configuration bounds modes repetitions purpose and total work',()=>{
   assert.deepEqual(researchPayload(['B-direct'],['single'],2,' Study ').benchmarkVersion,'1');
   for(const args of [[[],['single'],1,'Study'],[['B-direct'],[],1,'Study'],[['B-direct'],['legacy'],1,'Study'],[['B-direct'],['single'],6,'Study'],[['B-direct'],['single'],1,' '],[Array(7).fill('x'),['single','fixed','adaptive'],3,'Study']])assert.throws(()=>researchPayload(...args));

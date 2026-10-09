@@ -58,7 +58,7 @@ export function ResearchRun({run, task, onInspect, onReview, busy}) {
     <p>Selected route: {run.selectedAgents?.join(" → ") ?? "Not adaptive"} · Skipped: {run.skippedAgents?.join(", ") ?? "Not adaptive"}</p>
     <p>Not executed: {run.notExecutedAgents.join(", ") || "None"} · Stage starts: {run.agentCalls} · Handoffs: {run.handoffs}</p>
     <p>Tokens: {measured(run.totalTokens.value)} · {run.totalTokens.coverage} coverage · Observed timeout: {run.timeoutObserved ? "Yes" : "No explicit evidence"}</p>
-    </details><button type="button" onClick={onInspect}>Open run evidence</button>
+    </details><button type="button" disabled={!task || busy} onClick={onInspect}>Open run evidence</button>
     <details><summary>Stage timings and deterministic checks</summary><pre>{JSON.stringify({timings:run.stageTimings,quality:run.deterministicQuality},null,2)}</pre></details>
     {task ? <OutputViewer key={task.id} text={task.output} directive={task.directive} contract={task.stages?.find(s=>s.output===task.output&&s.outputContract)?.outputContract}/> : <p>Loading saved output…</p>}
     {task?.output && run.status === "completed" && <form onSubmit={submit}>

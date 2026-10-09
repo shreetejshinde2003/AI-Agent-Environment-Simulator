@@ -11,8 +11,10 @@ import {useSimulation} from "../context/SimulationContext";
 import {loadHiringWorkspace} from "../utils/hrWorkflow";
 import HRReviews from "../components/hiring/HRReviews";
 import HRAssistance from "../components/hiring/HRAssistance";
+import HRAccessRequired from "../components/hiring/HRAccessRequired";
 
 function HiringWorkspace({workspaceId}) {
+  const {setActivePage}=useSimulation();
   const [section, setSection] = useState("workflow");
   const [focus, setFocus] = useState(null);
   const [snapshot, setSnapshot] = useState(null);
@@ -125,7 +127,7 @@ function HiringWorkspace({workspaceId}) {
     {saveNotice&&<p className="step-saved" role="status">{saveNotice}</p>}
     {loading && <p role="status">Loading hiring records…</p>}
     {error && <p role="alert" className="run-error">{error} <Button type="button" disabled={saving} onClick={() => {setEvidenceReload(0); setReload(v => v + 1);}}>Reload</Button></p>}
-    {!loading && capabilities && !capabilities.view && <p role="status">An active HR Recruiter, Reviewer or Approver role is required. Manage assignments in Organizations.</p>}
+    {!loading && capabilities && !capabilities.view && <HRAccessRequired onManage={()=>setActivePage("organizations")} onRetry={refreshEvidence} refreshing={refreshing}/>}
     {!loading && capabilities?.view && <>
       <Button disabled={refreshing || saving} onClick={refreshEvidence}>Refresh hiring workspace</Button>
       {refreshing && <p role="status">Refreshing saved workflow…</p>}

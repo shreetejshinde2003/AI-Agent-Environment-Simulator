@@ -1,5 +1,7 @@
 import {test, before, after} from "node:test";
 import assert from "node:assert/strict";
+import {createElement} from "react";
+import {renderToStaticMarkup} from "react-dom/server";
 import {hiringForm, hiringPayload, hiringStatuses} from "../src/utils/hiring.js";
 import {createServer} from "vite";
 import {fileURLToPath} from "node:url";
@@ -41,6 +43,14 @@ before(async () => {
   ({apiClient: client} = await server.ssrLoadModule("/src/services/apiClient.js"));
 });
 after(async () => {await server?.close();});
+test("missing HR responsibility explains the exact assignment path without presenting authoring controls", async () => {
+  const {default:AccessRequired}=await server.ssrLoadModule("/src/components/hiring/HRAccessRequired.jsx");
+  const html=renderToStaticMarkup(createElement(AccessRequired,{onManage(){},onRetry(){}}));
+  for (const text of ["HR responsibility needed","Member management","Hiring responsibilities","Owner/Admin access alone does not grant HR permission","Open Organizations","Check HR access again"]) assert.ok(html.includes(text));
+  assert.doesNotMatch(html,/<form|Save requirement|Submit for review|Record human decision/);
+  const busy=renderToStaticMarkup(createElement(AccessRequired,{onManage(){},onRetry(){},refreshing:true}));
+  assert.match(busy,/<button[^>]*disabled=""[^>]*><span>Checking HR access…<\/span>/);
+});
 test("HR API integrates authenticated current workspace requests and revision payloads", async () => {
   const old = globalThis.fetch, requests = [];
   globalThis.fetch = async (url, options) => {requests.push({url, options}); return {headers: new Headers({"Content-Type": "application/json"}), ok: true, json: async () => []};};
