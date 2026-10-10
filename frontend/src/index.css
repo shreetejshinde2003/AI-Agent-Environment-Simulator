@@ -22,6 +22,8 @@
   /* --- Brand / accent --- */
   --accent-primary: #6366f1;     /* indigo — orchestrator, primary actions */
   --accent-primary-soft: rgba(99, 102, 241, 0.14);
+  --accent-text: #a5b4fc;        /* readable accent text on dark surfaces */
+  --accent-action: #5c5fe8;      /* white action labels exceed 4.5:1 */
 
   /* --- Agent role colors (matches node graph + timeline rows) --- */
   --agent-research: #3b82f6;     /* blue */

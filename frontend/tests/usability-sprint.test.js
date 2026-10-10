@@ -8,6 +8,22 @@ import {createServer} from "vite";
 import {readiness} from "../src/utils/readiness.js";
 import {validateResearchSample,loadResearchSample} from "../src/utils/researchSample.js";
 import {organizationFeedback} from "../src/utils/organizationFeedback.js";
+function luminance(hex) {
+  return hex.slice(1).match(/../g).map(channel=>{
+    const value=parseInt(channel,16)/255;
+    return value<=.04045 ? value/12.92 : ((value+.055)/1.055)**2.4;
+  }).reduce((sum,value,index)=>sum+value*[.2126,.7152,.0722][index],0);
+}
+function contrast(foreground,background) {
+  const values=[luminance(foreground),luminance(background)].sort((a,b)=>a-b);
+  return (values[1]+.05)/(values[0]+.05);
+}
+test('primary action and dark-surface accent labels meet normal-text contrast',async()=>{
+  const css=await readFile(new URL('../src/index.css',import.meta.url),'utf8');
+  const token=name=>css.match(new RegExp('--'+name+':\\s*(#[a-f0-9]{6})'))[1];
+  assert.ok(contrast('#ffffff',token('accent-action'))>=4.5);
+  for(const surface of ['bg-app','bg-panel','bg-panel-raised','bg-card'])assert.ok(contrast(token('accent-text'),token(surface))>=4.5);
+});
 let server,SampleEvidence,HRJourney,resolveLiveUpdates;
 before(async()=>{
   server=await createServer({root:new URL('../',import.meta.url).pathname,envDir:false,server:{middlewareMode:true,hmr:false,ws:false,watch:null},logLevel:'error'});

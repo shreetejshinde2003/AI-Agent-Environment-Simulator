@@ -19,8 +19,8 @@
 }
 
 .btn-primary {
-  background: var(--accent-primary);
-  border-color: var(--accent-primary);
+  background: var(--accent-action);
+  border-color: var(--accent-action);
   color: white;
 }
 .btn-primary:hover {
