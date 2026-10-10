@@ -1,0 +1,20 @@
+{
+  "checks": [
+    {
+      "name": "Mode checkbox and keyboard changes update trial counts with zero provider calls and disabled execution",
+      "status": "passed"
+    }
+  ],
+  "provider": {
+    "mockedProviderCalls": {
+      "sdk": 0,
+      "hr": 0
+    },
+    "liveProvider": false,
+    "researchLiveEnabled": false,
+    "researchJudgeEnabled": false,
+    "researchDemoEnabled": false,
+    "seededHistoricalTrials": 42
+  },
+  "production": false
+}

@@ -23,6 +23,19 @@ const pass=name=>{checks.push({name,status:'passed'});console.log('PASS '+name);
  page.on('websocket',socket=>{if(socket.url().includes('/ws/live'))socketAttempts++;});
  const nav=async(p,name)=>{await p.getByRole('button',{name,exact:true}).click();};
  const workspace=async(p,name)=>{await p.getByLabel('Workspace',{exact:true}).selectOption({label:name});};
+ if(process.argv[3]==='--configuration-only'){
+  await page.goto(api+'/_sprint/session/recruiter');await workspace(page,'Phase 8 hiring acceptance');await nav(page,'Research Lab');
+  await page.getByRole('button',{name:'Set up a new experiment',exact:true}).click();
+  await page.getByRole('checkbox',{name:'Direct answer',exact:true}).check();
+  await page.getByLabel('Repetitions (1–5, at most 45 runs)',{exact:true}).fill('2');
+  await page.getByRole('checkbox',{name:/Fixed ·/}).uncheck();await page.getByText('4 planned runs.',{exact:false}).waitFor();
+  await page.getByRole('checkbox',{name:/Adaptive ·/}).focus();await page.keyboard.press('Space');await page.getByText('2 planned runs.',{exact:false}).waitFor();
+  await page.getByRole('checkbox',{name:/Fixed ·/}).check();await page.getByText('4 planned runs.',{exact:false}).waitFor();
+  assert(await page.getByRole('button',{name:'Review experiment before starting',exact:true}).isDisabled());
+  const stats=await(await context.request.get(api+'/_sprint/stats')).json();assert.deepEqual(stats.mockedProviderCalls,{sdk:0,hr:0});assert.equal(stats.researchLiveEnabled,false);
+  pass('Mode checkbox and keyboard changes update trial counts with zero provider calls and disabled execution');
+  fs.writeFileSync(folder+'/configuration-results.json',JSON.stringify({checks,provider:stats,production:false},null,2)+'\n');await browser.close();return;
+ }
  if(process.argv[3]==='--recovery-only'){
   await page.goto(api+'/_sprint/session/recruiter');await workspace(page,'Phase 8 hiring acceptance');
   const routePattern='**/api/v1/experiments/benchmarks';

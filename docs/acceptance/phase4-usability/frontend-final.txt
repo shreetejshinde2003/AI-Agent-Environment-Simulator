@@ -1,0 +1,48 @@
+✔ hiring guide chooses the newest saved draft regardless of API or local insertion order (76.233583ms)
+✔ current draft needs submission even when an earlier revision was approved (0.35475ms)
+✔ pending review next action respects recruiter authority (0.127041ms)
+✔ pending review next action respects reviewer authority (0.096042ms)
+✔ pending review next action respects approver authority (0.075625ms)
+✔ pending review next action respects combined authority (0.058917ms)
+✔ pending review next action respects IAM only authority (0.059208ms)
+✔ pending review next action respects no HR role authority (0.067209ms)
+✔ awaiting approval is actionable only with approver authority (0.129125ms)
+✔ terminal feedback requires human revision and terminal approval has no decision action (0.166292ms)
+✔ relationship traversal retains exact pinned revisions and includes failed historical evidence (0.229542ms)
+✔ workspace read uses one scope and abort signal for every authoritative API (0.281708ms)
+✔ denied HR capability never fetches tenant records or evidence (0.108834ms)
+✔ a partial workspace response fails rather than exposing a mixed snapshot (0.370333ms)
+✔ workflow renders source links original approval and AI proposal boundary with human attribution (99.150917ms)
+✔ historical approved JD inspection exposes that revision without new actions (0.175333ms)
+✔ a new revision after feedback requires its own submission (0.091584ms)
+✔ source inspection renders historical JD usage while allowing actions only on the current revision (2.262833ms)
+✔ historical source lookup sends exact revision authenticated workspace and cancellation (19.214125ms)
+✔ run evidence navigation waits for fetched task and completed foreground operation (259.545083ms)
+✔ research configuration bounds modes repetitions purpose and total work (1.250625ms)
+✔ real zero is displayed while missing telemetry remains unknown (0.145708ms)
+✔ comparison empty state invents no metrics (0.502167ms)
+✔ comparison shows measured sample counts missing values and descriptive fixture boundary (1.584292ms)
+✔ integrity failures appear explicitly (1.473041ms)
+✔ adaptive run shows selected skipped actual route and persistent output (3.1005ms)
+✔ failed runs disclose failures and offer no human scoring of absent output (0.834292ms)
+✔ human rubric validates output identity complete scores notes and review count (0.549375ms)
+✔ workspace switches remount research and all reads are cancellable scoped calls (2.724ms)
+✔ API calls preserve authenticated workspace scoping and human optimistic revision (1.718208ms)
+✔ exported report remains available when browser file saving is unavailable (0.897458ms)
+✔ primary action and dark-surface accent labels meet normal-text contrast (209.565042ms)
+✔ historical sample matches original bytes and pinned source checksum, with all 42 trials (6.974834ms)
+✔ sample rejects live or missing evidence and never offers mutation/human scoring (34.60075ms)
+✔ sample loader uses only a static unauthenticated read, never a research admission endpoint (18.192375ms)
+✔ status stays Ready with polling, but failures and session changes are distinct (0.258417ms)
+✔ socket requires an explicit opt-in and never treats a URL as permission (0.101459ms)
+✔ private invitation errors are understandable without exposing code validity or raw server messages (0.165375ms)
+✔ five-step hiring guide restricts authoring and cannot imply automatic approval (2.052916ms)
+✔ hiring guide explains absent suggestions and sends recruiter feedback back to revision (1.91325ms)
+ℹ tests 40
+ℹ suites 0
+ℹ pass 40
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1770.49075

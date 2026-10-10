@@ -1,0 +1,20 @@
+✔ run evidence navigation waits for fetched task and completed foreground operation (415.55725ms)
+✔ research configuration bounds modes repetitions purpose and total work (3.395083ms)
+✔ real zero is displayed while missing telemetry remains unknown (0.429333ms)
+✔ comparison empty state invents no metrics (1.204125ms)
+✔ comparison shows measured sample counts missing values and descriptive fixture boundary (3.772ms)
+✔ integrity failures appear explicitly (4.471125ms)
+✔ adaptive run shows selected skipped actual route and persistent output (8.550834ms)
+✔ failed runs disclose failures and offer no human scoring of absent output (1.555959ms)
+✔ human rubric validates output identity complete scores notes and review count (0.902958ms)
+✔ workspace switches remount research and all reads are cancellable scoped calls (6.317208ms)
+✔ API calls preserve authenticated workspace scoping and human optimistic revision (3.85225ms)
+✔ exported report remains available when browser file saving is unavailable (1.778542ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1067.304875

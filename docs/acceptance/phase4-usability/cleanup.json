@@ -1,0 +1,22 @@
+{
+  "fixtureDirectoryRemoved": true,
+  "acceptancePortsStopped": {
+    "8031": true,
+    "5181": true
+  },
+  "acceptanceProcessesStopped": {
+    "10849": true,
+    "8667": true,
+    "11515": true,
+    "11533": true
+  },
+  "normalSettingsGates": {
+    "RESEARCH_LIVE_ENABLED": false,
+    "RESEARCH_JUDGE_ENABLED": false,
+    "RESEARCH_DEMO_ENABLED": false,
+    "LANGGRAPH_RUNTIME_ENABLED": false
+  },
+  "originalHistoricalReportUnchanged": true,
+  "AGENTS_SHA256": "a5f46def185ce9e844d9d468912f3fbee4dbf2d8f14f08c91c02553352e87efd",
+  "finalConfigurationFixtureRemoved": true
+}

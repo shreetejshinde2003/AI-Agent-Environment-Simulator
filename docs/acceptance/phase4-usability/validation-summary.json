@@ -1,0 +1,43 @@
+{
+  "startingHead": "59d7d233c873565b7a0b26b12657bd57127a2a04",
+  "implementationCommit": "412061fc05a1554f24579a73dadf611bec8040f0",
+  "frontendDistinct": {
+    "passed": 74,
+    "failed": 0,
+    "skipped": 0
+  },
+  "frontendAffectedRerun": {
+    "passed": 40,
+    "failed": 0,
+    "skipped": 0
+  },
+  "frontendFinalResearchRerun": {
+    "passed": 12,
+    "failed": 0,
+    "skipped": 0
+  },
+  "backendWorkflow": {
+    "passed": 12,
+    "failed": 0,
+    "skipped": 0
+  },
+  "browserFullChecklist": {
+    "passed": 60,
+    "failed": 0,
+    "skipped": 0
+  },
+  "browserNarrowRecoveryRepeat": {
+    "passed": 1,
+    "failed": 0
+  },
+  "browserFocusedConfiguration": {
+    "passed": 1,
+    "failed": 0
+  },
+  "lint": "passed with two existing warnings",
+  "build": "passed with existing bundle-size warning",
+  "production": false,
+  "realGoogleOrGroqCalls": 0,
+  "researchGatesActivated": false,
+  "screenshotsVisuallyReviewed": true
+}

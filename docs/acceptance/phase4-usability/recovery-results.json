@@ -1,0 +1,20 @@
+{
+  "checks": [
+    {
+      "name": "Research recovery suppresses unknown counts and restores genuine saved evidence without enabling execution",
+      "status": "passed"
+    }
+  ],
+  "provider": {
+    "mockedProviderCalls": {
+      "sdk": 2,
+      "hr": 1
+    },
+    "liveProvider": false,
+    "researchLiveEnabled": false,
+    "researchJudgeEnabled": false,
+    "researchDemoEnabled": false,
+    "seededHistoricalTrials": 42
+  },
+  "production": false
+}

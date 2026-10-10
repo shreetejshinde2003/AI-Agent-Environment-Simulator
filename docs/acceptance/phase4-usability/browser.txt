@@ -1,0 +1,61 @@
+PASS Organization purpose, create/join entry and named workspace navigation
+PASS Creation persists an organization and displays initial code once
+PASS Invitation copy works without showing the code in history
+PASS Workspace switching does not duplicate panels or redisplay a hidden code
+PASS Organization Owner without HR responsibility receives guidance and real API denial
+PASS HR responsibility assignment through real member controls and mounted access recheck work
+PASS Code can be hidden and no timed expiry is falsely promised
+PASS Unknown invitation history blocks replacement and recovers without hiding existing codes
+PASS Private one-use invitation joins a real membership
+PASS Consumed invitation reports a safe recoverable error
+PASS Invalid invitation leaves recoverable guidance
+PASS Member invitation administration is denied by the real API
+PASS Member has no invitation or member-administration controls
+PASS Invitation confirmation contains keyboard focus and Escape returns to its trigger
+PASS Invitation replacement requires confirmation and saves new history
+PASS Revocation is confirmed and persists
+PASS A revoked code cannot create a membership
+PASS Owner changes ordinary member access through a confirmation
+PASS Last Owner removal controls remain absent
+PASS Cancelling member removal leaves access intact
+PASS Confirmed membership removal revokes scoped access without affecting other organizations
+PASS Historical sample is available while new execution is disabled
+PASS Opening sample causes zero provider calls
+PASS Sample exposes actual stored input, answer and descriptive evidence
+PASS Disabled-live explanation and action preserve server gate
+PASS Synthetic case/mode/repetition configuration updates count while execution remains gated
+PASS Benchmark details stay separate from stable checkbox names and selections
+PASS Saved experiment reloads from authoritative history
+PASS Research evidence opens the exact saved trial despite delayed task-list visibility
+PASS HR five-step guide opens for authorized Recruiter
+PASS Guided requirement form saves real revisioned content
+PASS AI proposal runs through the real source-bound API with a mocked provider and no automatic draft adoption
+PASS JD draft saves with the selected immutable requirement source
+PASS Recruiter submits but receives no reviewer/approver decision control
+PASS Reviewer recommendation records a real immutable event
+PASS Approver completes the supported state machine with retained history
+PASS IAM Admin without HR responsibility cannot author or decide
+PASS Hiring refresh completes and saved record actions remain available
+PASS Revised JD requires its own submission while original approval and decision history remain visible
+PASS Unused agent receives a server dependency explanation without weakening revision protection
+PASS Archive preserves history and blocks new execution
+PASS Reactivation saves an authorized new version
+PASS Custom-agent result persists through the real API with a mocked provider
+PASS Second custom-agent execution releases the action lock on the same mounted page
+PASS Saving remains usable after sequential custom-agent executions
+PASS Polling failure reports connection problem without fabricated fresh results
+PASS Polling recovers after an actual local HTTP failure
+PASS Default polling makes zero application WebSocket attempts
+PASS Failed Research registry read has keyboard retry and never claims empty saved history
+PASS Persisted result table has a labelled keyboard focus target
+PASS Custom-agent original and archived revisions remain inspectable after editing and execution
+PASS Mobile organization forms and navigation fit viewport
+PASS Mobile sample uses an independently scrollable results table
+PASS Organization and historical Research views fit a 320px viewport
+PASS Mobile saved custom-agent form and results fit viewport
+PASS HR saved approval fits 390px and 320px viewports
+PASS Five-step hiring guide fits a 320px viewport
+PASS Shared-profile account change discards prior HR authority and workspace state
+PASS All Research execution gates remain disabled throughout acceptance
+PASS No external requests or uncaught browser errors
+60 browser checks passed
