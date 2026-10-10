@@ -1,0 +1,2553 @@
+{
+  "date": "2026-10-10",
+  "startingHead": "3ffabb3b56fa1119c1154690f7e0552973b1316a",
+  "scope": "Local synthetic tests; external socket connections forbidden; no production or real provider verification",
+  "backendDistinctFinal": {
+    "passed": 454,
+    "skipped": 35
+  },
+  "frontend": {
+    "passed": 40,
+    "failed": 0,
+    "skipped": 0
+  },
+  "recordedRuns": [
+    {
+      "run": "a",
+      "counts": {
+        "passed": 62
+      }
+    },
+    {
+      "run": "b",
+      "counts": {
+        "passed": 98
+      }
+    },
+    {
+      "run": "c",
+      "counts": {
+        "passed": 125,
+        "failed": 1
+      }
+    },
+    {
+      "run": "d",
+      "counts": {
+        "passed": 100
+      }
+    },
+    {
+      "run": "e-existing",
+      "counts": {
+        "skipped": 35,
+        "passed": 56
+      }
+    },
+    {
+      "run": "budget-final",
+      "counts": {
+        "passed": 66
+      }
+    },
+    {
+      "run": "gaps-final-verified",
+      "counts": {
+        "passed": 19
+      }
+    }
+  ],
+  "notes": [
+    "c had one original deadline-test failure; budget-final supersedes its 66 budget cases.",
+    "d had 100 passing invocations with two repeated upload-API cases; 98 distinct cases.",
+    "Five upload-ownership cases occur in both d and e-existing; count once in final totals.",
+    "Draft gap probes: 7 failures/11 passes and an interrupted deadline probe; malformed fixture assumptions corrected.",
+    "First PKCE HTTP gap probe expected 303 instead of actual 302: 1 failure/18 passes; final gaps supersedes it."
+  ],
+  "warnings": [
+    "Starlette/AnyIO BlockingPortal deprecation",
+    "LangGraph allowed_objects pending default change"
+  ],
+  "cases": [
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_actual_timeout_cancels_adapter",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_archive_after_queue_prevents_provider_call",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_auth_and_tenant_isolation",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_builtin_agent_cannot_be_archived_through_custom_api[analysis]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_builtin_agent_cannot_be_archived_through_custom_api[data]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_builtin_agent_cannot_be_archived_through_custom_api[direct]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_builtin_agent_cannot_be_archived_through_custom_api[orchestrator]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_builtin_agent_cannot_be_archived_through_custom_api[report]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_builtin_agent_cannot_be_archived_through_custom_api[research]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_builtin_agent_cannot_be_archived_through_custom_api[summarizer]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_builtin_agent_cannot_be_archived_through_custom_api[web_search]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_custom_execution_traverses_real_adapter_with_mocked_sdk_only",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_definitions_update_revisions_archive_and_duplicate_names",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_deletion_checks_preserve_unused_and_used_agent_evidence",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_execution_uses_persisted_config_provider_and_authoritative_evidence",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_failure_timeout_invalid_output_persist_without_secrets[empty]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_failure_timeout_invalid_output_persist_without_secrets[oversize]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_failure_timeout_invalid_output_persist_without_secrets[provider]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_failure_timeout_invalid_output_persist_without_secrets[timeout]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_model_removed_from_server_allowlist_fails_closed",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_queued_run_pins_original_revision_after_edits",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_revision_rows_are_immutable_in_sqlite",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_revoked_membership_between_queue_and_worker_prevents_provider",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_role_controls_and_removed_membership[admin-True]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_role_controls_and_removed_membership[member-False]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_role_controls_and_removed_membership[owner-True]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_run_validation_prevents_provider_call[payload0]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_run_validation_prevents_provider_call[payload1]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_run_validation_prevents_provider_call[payload2]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_run_validation_prevents_provider_call[payload3]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_system_task_entrypoint_cannot_bypass_builder",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_unicode_name_casefold_expansion_is_supported",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_unsafe_or_invalid_configuration_rejected[active-true]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_unsafe_or_invalid_configuration_rejected[apiKey-secret]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_unsafe_or_invalid_configuration_rejected[capability-shell]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_unsafe_or_invalid_configuration_rejected[inputContract-file]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_unsafe_or_invalid_configuration_rejected[instructions- ]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_unsafe_or_invalid_configuration_rejected[instructions-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_unsafe_or_invalid_configuration_rejected[maxTokens-2000]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_unsafe_or_invalid_configuration_rejected[maxTokens-512]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_unsafe_or_invalid_configuration_rejected[model-arbitrary]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_unsafe_or_invalid_configuration_rejected[name- ]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_unsafe_or_invalid_configuration_rejected[outputContract-json]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_unsafe_or_invalid_configuration_rejected[provider-openai]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_unsafe_or_invalid_configuration_rejected[purpose-]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_unsafe_or_invalid_configuration_rejected[systemPrompt-override]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_unsafe_or_invalid_configuration_rejected[timeoutSeconds-121]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_unsafe_or_invalid_configuration_rejected[tools-value15]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_unsafe_or_invalid_configuration_rejected[url-http://localhost]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_unsafe_or_invalid_configuration_rejected[workspaceId-other]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_v10_additive_migration_and_integrity",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder",
+      "case": "test_v10_database_without_builder_tables_migrates_preserving_runs",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_builder_postgres",
+      "case": "test_live_custom_execution_persists_stage_and_recycle_evidence",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_agent_builder_postgres",
+      "case": "test_live_definitions_revisions_force_rls_and_tenant_denial",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_agent_builder_postgres",
+      "case": "test_live_deletion_eligibility_keeps_revision_guards_and_tenant_boundary",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_agent_builder_postgres",
+      "case": "test_live_member_manager_inactive_enforcement_in_repository_and_rls",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_agent_builder_postgres",
+      "case": "test_live_unicode_name_casefold_expansion_is_supported",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_agent_builder_postgres",
+      "case": "test_live_v10_additive_migration_preserves_existing_evidence",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_agent_contracts.ContractTests",
+      "case": "test_alternative_upstream_material_without_fake_stages",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_contracts.ContractTests",
+      "case": "test_concurrent_run_metrics_are_isolated",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_contracts.ContractTests",
+      "case": "test_direct_source_context_is_supported_without_upstream_artifact",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_contracts.ContractTests",
+      "case": "test_errors_redact_configured_credentials_and_tokens",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_contracts.ContractTests",
+      "case": "test_fixed_mode_prefers_immediate_predecessor_and_keeps_raw_input_bounded",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_contracts.ContractTests",
+      "case": "test_internal_research_analysis_report_handoff_preserves_exact_text",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_contracts.ContractTests",
+      "case": "test_invalid_uploads_rejected",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_contracts.ContractTests",
+      "case": "test_malformed_context_is_rejected_without_echoing_content",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_contracts.ContractTests",
+      "case": "test_missing_required_source_is_rejected_before_model_call",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_contracts.ContractTests",
+      "case": "test_optional_absence_has_no_fake_prompt_sections",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_contracts.ContractTests",
+      "case": "test_original_directive_and_supplied_output_in_every_prompt",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_contracts.ContractTests",
+      "case": "test_registry_exposes_capabilities_inputs_and_outputs",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_contracts.ContractTests",
+      "case": "test_typed_context_preserves_directive_and_exact_output_provenance",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_agent_contracts.ContractTests",
+      "case": "test_upload_preparation_limits_and_safe_filename",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_browser_session_security",
+      "case": "test_allowed_browser_upload_and_logout_remain_functional",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_browser_session_security",
+      "case": "test_browser_without_trusted_source_cannot_mutate[headers0]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_browser_session_security",
+      "case": "test_browser_without_trusted_source_cannot_mutate[headers1]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_browser_session_security",
+      "case": "test_browser_without_trusted_source_cannot_mutate[headers2]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_browser_session_security",
+      "case": "test_browser_without_trusted_source_cannot_mutate[headers3]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_browser_session_security",
+      "case": "test_existing_socket_stops_receiving_after_authority_removed[expiry]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_browser_session_security",
+      "case": "test_existing_socket_stops_receiving_after_authority_removed[logout]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_browser_session_security",
+      "case": "test_existing_socket_stops_receiving_after_authority_removed[membership]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_browser_session_security",
+      "case": "test_existing_socket_stops_receiving_after_authority_removed[user]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_browser_session_security",
+      "case": "test_existing_socket_stops_receiving_after_authority_removed[workspace]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_browser_session_security",
+      "case": "test_trusted_referer_and_cors_preflight_remain_functional",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_browser_session_security",
+      "case": "test_untrusted_browser_cannot_force_logout",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_browser_session_security",
+      "case": "test_untrusted_browser_cannot_open_authenticated_websocket[https://attacker.example]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_browser_session_security",
+      "case": "test_untrusted_browser_cannot_open_authenticated_websocket[null]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_browser_session_security",
+      "case": "test_untrusted_browser_cannot_upload_with_session_cookie[http://localhost:5173.attacker.example]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_browser_session_security",
+      "case": "test_untrusted_browser_cannot_upload_with_session_cookie[https://attacker.example]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_browser_session_security",
+      "case": "test_untrusted_browser_cannot_upload_with_session_cookie[null]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_google_auth_api",
+      "case": "test_callback_creates_local_user_and_session",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_google_auth_api",
+      "case": "test_callback_rejects_wrong_nonce",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_google_auth_api",
+      "case": "test_callback_rejects_wrong_state_without_provider_call",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_google_auth_api",
+      "case": "test_google_login_builds_state_nonce_and_pkce",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_google_auth_api",
+      "case": "test_logout_revokes_session",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_google_auth_api",
+      "case": "test_me_reads_valid_application_session",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_google_auth_api",
+      "case": "test_me_requires_session",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_google_auth_api",
+      "case": "test_repeated_google_login_reuses_personal_workspace",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_google_auth_api",
+      "case": "test_unverified_google_email_is_rejected",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agent_contracts",
+      "case": "test_large_sources_fail_without_truncation",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agent_contracts",
+      "case": "test_prompt_injection_is_data_and_context_immutable",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agent_contracts",
+      "case": "test_request_boundary[hr_draft_validation]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agent_contracts",
+      "case": "test_request_boundary[hr_jd_draft]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agent_contracts",
+      "case": "test_request_boundary[hr_requirement_analysis]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agent_contracts",
+      "case": "test_revision_strictness[-1]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agent_contracts",
+      "case": "test_revision_strictness[0]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agent_contracts",
+      "case": "test_revision_strictness[1]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agent_contracts",
+      "case": "test_revision_strictness[None]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agent_contracts",
+      "case": "test_revision_strictness[True]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agents",
+      "case": "test_admission_revocation_cancellation_duplicate_claim_and_recovery",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agents",
+      "case": "test_agents_execute_validate_and_persist[hr_draft_validation]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agents",
+      "case": "test_agents_execute_validate_and_persist[hr_jd_draft]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agents",
+      "case": "test_agents_execute_validate_and_persist[hr_requirement_analysis]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agents",
+      "case": "test_draft_mismatched_sources_and_recruiter_validation_denial",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agents",
+      "case": "test_exact_sources_updates_and_prompt_injection",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agents",
+      "case": "test_generic_request_cannot_claim_hr_execution_identity",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agents",
+      "case": "test_hr_capability_permissions[None-False-False]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agents",
+      "case": "test_hr_capability_permissions[hr_approver-False-True]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agents",
+      "case": "test_hr_capability_permissions[hr_recruiter-True-False]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agents",
+      "case": "test_hr_capability_permissions[hr_reviewer-False-True]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agents",
+      "case": "test_hr_recycle_no_role_cannot_discover_and_owner_can_explicitly_purge",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agents",
+      "case": "test_invalid_input_no_call[invalid0]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agents",
+      "case": "test_invalid_input_no_call[invalid1]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agents",
+      "case": "test_invalid_input_no_call[invalid2]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agents",
+      "case": "test_invalid_input_no_call[invalid3]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agents",
+      "case": "test_invalid_output_safe_failure_and_usage[not-json]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agents",
+      "case": "test_invalid_output_safe_failure_and_usage[{\"summary\": \"x\", \"findings\": [{\"category\": \"supported\", \"source\": \"role_knowledge\", \"field\": \"bogus\", \"explanation\": \"x\"}]}]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agents",
+      "case": "test_invalid_output_safe_failure_and_usage[{\"summary\":\"x\",\"findings\":[],\"approved\":true}]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agents",
+      "case": "test_invalid_output_safe_failure_and_usage[{}]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agents",
+      "case": "test_missing_context_anonymous_no_approval_routes",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agents",
+      "case": "test_personal_no_hr_cross_tenant_and_catalog",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agents",
+      "case": "test_provider_failure_safe_evidence[failure0]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agents",
+      "case": "test_provider_failure_safe_evidence[failure1]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agents",
+      "case": "test_revoked_during_execution[membership]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agents",
+      "case": "test_revoked_during_execution[role]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_agents",
+      "case": "test_timeout_unknown_usage_and_missing_credentials",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_human_role_adversarial",
+      "case": "test_admin_demotion_revokes_hr_role_management_immediately",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_human_role_adversarial",
+      "case": "test_hr_role_deactivation_revokes_domain_permission_immediately",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_human_role_adversarial",
+      "case": "test_hr_roles_are_isolated_between_organizations_for_same_user",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_human_role_adversarial",
+      "case": "test_inactive_admin_membership_revokes_hr_management_with_live_session",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_human_role_adversarial",
+      "case": "test_inactive_target_membership_invalidates_existing_hr_permissions",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_human_role_adversarial",
+      "case": "test_member_cannot_self_assign_hr_role_through_direct_api_call",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_human_role_adversarial",
+      "case": "test_outsider_cannot_probe_hr_role_listing_or_assignment_routes",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_human_role_adversarial",
+      "case": "test_owner_of_one_organization_cannot_manage_hr_roles_in_another",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_human_role_adversarial",
+      "case": "test_personal_workspace_cannot_be_used_as_hr_role_management_scope",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_review_storage",
+      "case": "test_approval_requires_review_eligibility[approve-False]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_review_storage",
+      "case": "test_approval_requires_review_eligibility[approve-True]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_review_storage",
+      "case": "test_approval_requires_review_eligibility[recommend-True]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_review_storage",
+      "case": "test_audit_history_is_database_immutable[delete-table0]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_review_storage",
+      "case": "test_audit_history_is_database_immutable[delete-table1]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_review_storage",
+      "case": "test_audit_history_is_database_immutable[update-table0]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_review_storage",
+      "case": "test_audit_history_is_database_immutable[update-table1]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_review_storage",
+      "case": "test_changed_or_archived_jd_blocks_old_decisions[False]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_review_storage",
+      "case": "test_changed_or_archived_jd_blocks_old_decisions[True]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_review_storage",
+      "case": "test_concurrent_decisions_only_one_is_saved",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_review_storage",
+      "case": "test_database_rejects_skipped_review_event",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_review_storage",
+      "case": "test_pinned_sources_submission_and_history",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_review_storage",
+      "case": "test_terminal_decisions_revision_resubmission_and_no_transfer[approve-True]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_review_storage",
+      "case": "test_terminal_decisions_revision_resubmission_and_no_transfer[reject-False]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_review_storage",
+      "case": "test_terminal_decisions_revision_resubmission_and_no_transfer[reject-True]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_review_storage",
+      "case": "test_terminal_decisions_revision_resubmission_and_no_transfer[request_changes-False]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_review_storage",
+      "case": "test_terminal_decisions_revision_resubmission_and_no_transfer[request_changes-True]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_review_storage",
+      "case": "test_v12_additive_migration_preserves_hr_sources",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_api",
+      "case": "test_ai_association_rejects_wrong_revision_and_failed_proposal",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_api",
+      "case": "test_changes_and_resubmit_real_endpoints",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_api",
+      "case": "test_client_cannot_claim_actor_or_authority[extra0]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_api",
+      "case": "test_client_cannot_claim_actor_or_authority[extra1]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_api",
+      "case": "test_client_cannot_claim_actor_or_authority[extra2]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_api",
+      "case": "test_client_cannot_claim_actor_or_authority[extra3]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_api",
+      "case": "test_decision_validation[changes0]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_api",
+      "case": "test_decision_validation[changes1]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_api",
+      "case": "test_decision_validation[changes2]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_api",
+      "case": "test_decision_validation[changes3]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_api",
+      "case": "test_decision_validation[changes4]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_api",
+      "case": "test_decision_validation[changes5]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_api",
+      "case": "test_decision_validation[changes6]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_api",
+      "case": "test_explicit_ai_association_remains_proposal[hr_draft_validation]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_api",
+      "case": "test_explicit_ai_association_remains_proposal[hr_jd_draft]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_api",
+      "case": "test_explicit_ai_association_remains_proposal[hr_requirement_analysis]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_api",
+      "case": "test_real_actor_attribution_history_and_duplicate_prevention",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_api",
+      "case": "test_revoked_role_denies_decision_immediately",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_api",
+      "case": "test_role_policy_no_iam_owner_promotion[None-False-False-False-False-False]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_api",
+      "case": "test_role_policy_no_iam_owner_promotion[hr_approver-False-True-True-False-True]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_api",
+      "case": "test_role_policy_no_iam_owner_promotion[hr_recruiter-True-False-False-False-False]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_api",
+      "case": "test_role_policy_no_iam_owner_promotion[hr_reviewer-False-True-False-True-False]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_api",
+      "case": "test_session_personal_and_cross_tenant_error_contracts",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_api",
+      "case": "test_stale_submission_not_submitted_draft_and_unknown_ai",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_postgres",
+      "case": "test_pg_actor_spoofing_and_skipped_review_are_denied",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_postgres",
+      "case": "test_pg_additive_v12_without_review_tables",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_postgres",
+      "case": "test_pg_approval_races_authoritative_jd_edit",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_postgres",
+      "case": "test_pg_concurrent_decisions_and_jd_edit_conflict",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_postgres",
+      "case": "test_pg_cross_tenant_and_personal_workspaces",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_postgres",
+      "case": "test_pg_final_change_request_requires_approver_and_notes_are_required",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_postgres",
+      "case": "test_pg_force_rls_immutable_audit_and_actor_integrity",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_postgres",
+      "case": "test_pg_recruiter_cannot_insert_review_or_approval_via_sql",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_postgres",
+      "case": "test_pg_revocation_fails_closed[membership]",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_postgres",
+      "case": "test_pg_revocation_fails_closed[role]",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_postgres",
+      "case": "test_pg_revocation_fails_closed[user]",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_postgres",
+      "case": "test_pg_revocation_fails_closed[workspace]",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_hr_reviews_postgres",
+      "case": "test_pg_v12_migration_preserves_jd_and_old_approval",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_hr_workflow_integration",
+      "case": "test_complete_journey_retains_original_sources_ai_and_decisions",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_workflow_integration",
+      "case": "test_exact_source_usage_includes_immutable_jd_history[requirements-0]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_workflow_integration",
+      "case": "test_exact_source_usage_includes_immutable_jd_history[role-knowledge-1]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_workflow_integration",
+      "case": "test_workflow_reads_and_capabilities_follow_effective_hr_roles[roles0-False-False-False]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_workflow_integration",
+      "case": "test_workflow_reads_and_capabilities_follow_effective_hr_roles[roles1-True-False-False]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_workflow_integration",
+      "case": "test_workflow_reads_and_capabilities_follow_effective_hr_roles[roles2-False-True-False]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_workflow_integration",
+      "case": "test_workflow_reads_and_capabilities_follow_effective_hr_roles[roles3-False-True-True]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_workflow_integration",
+      "case": "test_workflow_reads_and_capabilities_follow_effective_hr_roles[roles4-True-True-True]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_workflow_integration",
+      "case": "test_workflow_traversal_fails_closed[foreign]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_workflow_integration",
+      "case": "test_workflow_traversal_fails_closed[inactive_membership]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_workflow_integration",
+      "case": "test_workflow_traversal_fails_closed[personal]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_hr_workflow_integration",
+      "case": "test_workflow_traversal_fails_closed[revoked_role]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_llm_client",
+      "case": "test_call_llm_preserves_missing_provider_usage_as_none",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_llm_client",
+      "case": "test_call_llm_preserves_real_zero_usage",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_llm_client",
+      "case": "test_llm_response_total_tokens_is_none_when_input_usage_missing",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_llm_client",
+      "case": "test_llm_response_total_tokens_is_none_when_output_usage_missing",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_llm_client",
+      "case": "test_llm_response_total_tokens_when_usage_is_measured",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_membership_role_management",
+      "case": "test_admin_can_remove_member_but_not_admin_or_owner",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_membership_role_management",
+      "case": "test_admin_cannot_promote_members_or_change_admin_roles",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_membership_role_management",
+      "case": "test_fresh_v10_database_persists_admin_role",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_membership_role_management",
+      "case": "test_inactive_target_cannot_be_promoted",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_membership_role_management",
+      "case": "test_last_active_owner_cannot_be_demoted",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_membership_role_management",
+      "case": "test_last_active_owner_cannot_be_removed",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_membership_role_management",
+      "case": "test_member_and_outsider_cannot_change_roles",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_membership_role_management",
+      "case": "test_member_and_outsider_cannot_remove_members",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_membership_role_management",
+      "case": "test_membership_removal_is_scoped_to_one_organization",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_membership_role_management",
+      "case": "test_owner_can_add_second_owner_then_demote_self",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_membership_role_management",
+      "case": "test_owner_can_deactivate_member_and_hr_roles_atomically",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_membership_role_management",
+      "case": "test_owner_can_promote_member_to_admin_and_demote_admin",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_membership_role_management",
+      "case": "test_owner_can_remove_self_when_second_owner_exists",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_membership_role_management",
+      "case": "test_role_change_is_scoped_to_one_organization",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_membership_role_management",
+      "case": "test_v6_membership_constraint_migrates_to_v8_and_preserves_rows",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_portability",
+      "case": "test_access_logs_redact_auth_query_only",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_portability",
+      "case": "test_auth_responses_never_cached[/api/v1/auth/google/callback-get]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_portability",
+      "case": "test_auth_responses_never_cached[/api/v1/auth/google/login-get]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_portability",
+      "case": "test_auth_responses_never_cached[/api/v1/auth/logout-post]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_portability",
+      "case": "test_auth_responses_never_cached[/api/v1/auth/me-get]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_portability",
+      "case": "test_bad_public_callback_fails_before_redirect[http://ai-agent-environment-simulator.vercel.app/api/v1/auth/google/callback]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_portability",
+      "case": "test_bad_public_callback_fails_before_redirect[https://ai-agent-environment-simulator.vercel.app/api/v1/auth/google/callback?extra=1]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_portability",
+      "case": "test_bad_public_callback_fails_before_redirect[https://ai-agent-environment-simulator.vercel.app/wrong]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_portability",
+      "case": "test_bad_public_callback_fails_before_redirect[https://backend.invalid/api/v1/auth/google/callback]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_portability",
+      "case": "test_devices_isolated_and_cookie_substitution_rejected",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_portability",
+      "case": "test_failed_provider_flow_also_consumed[denied]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_portability",
+      "case": "test_failed_provider_flow_also_consumed[provider_failure]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_portability",
+      "case": "test_fresh_browser_logout_relogin",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_portability",
+      "case": "test_https_cookie_attributes_ignore_untrusted_proxy_headers",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_portability",
+      "case": "test_invalid_transaction_never_calls_google[expired]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_portability",
+      "case": "test_invalid_transaction_never_calls_google[missing_cookie]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_portability",
+      "case": "test_invalid_transaction_never_calls_google[missing_state]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_portability",
+      "case": "test_invalid_transaction_never_calls_google[no_transaction]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_portability",
+      "case": "test_invalid_transaction_never_calls_google[tampered_cookie]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_portability",
+      "case": "test_invalid_transaction_never_calls_google[wrong_state]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_portability",
+      "case": "test_replay_with_original_cookie_rejected",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_portability",
+      "case": "test_restart_changed_ip_and_restored_browser_cookies",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_portability",
+      "case": "test_sqlite_competing_consumers_and_additive_upgrade",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_portability",
+      "case": "test_two_tabs_preserve_pending_logins",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_portability_postgres",
+      "case": "test_postgres_oauth_consumption",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_oauth_reliability",
+      "case": "test_browser_failure_recovers_without_sensitive_redirect[denied]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_reliability",
+      "case": "test_browser_failure_recovers_without_sensitive_redirect[expired]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_reliability",
+      "case": "test_browser_failure_recovers_without_sensitive_redirect[missing_cookie]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_reliability",
+      "case": "test_browser_failure_recovers_without_sensitive_redirect[network]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_reliability",
+      "case": "test_browser_failure_recovers_without_sensitive_redirect[nonce]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_reliability",
+      "case": "test_browser_failure_recovers_without_sensitive_redirect[tampered_cookie]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_reliability",
+      "case": "test_config_failure_does_not_redirect_to_untrusted_frontend[/api/v1/auth/google/callback]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_reliability",
+      "case": "test_config_failure_does_not_redirect_to_untrusted_frontend[/api/v1/auth/google/login]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_reliability",
+      "case": "test_expired_session_recovers_with_fresh_login",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_reliability",
+      "case": "test_independent_profile_session_survives_other_profile_switch",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_reliability",
+      "case": "test_logout_does_not_destroy_pending_transaction",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_oauth_reliability",
+      "case": "test_reverse_callbacks_replace_shared_session_and_block_stale_tab",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_phase2_security_acceptance",
+      "case": "test_archive_reactivate_preserves_original_revision",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_phase2_security_acceptance",
+      "case": "test_concurrent_approvals_have_one_winner_and_one_conflict",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_phase2_security_acceptance",
+      "case": "test_csv_export_neutralizes_formula_text[+1+1]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_phase2_security_acceptance",
+      "case": "test_csv_export_neutralizes_formula_text[-1+1]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_phase2_security_acceptance",
+      "case": "test_csv_export_neutralizes_formula_text[=1+1]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_phase2_security_acceptance",
+      "case": "test_csv_export_neutralizes_formula_text[@SUM(1)]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_phase2_security_acceptance",
+      "case": "test_csv_export_neutralizes_formula_text[\\r\\n=1+1]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_phase2_security_acceptance",
+      "case": "test_csv_export_neutralizes_formula_text[\\t=1+1]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_phase2_security_acceptance",
+      "case": "test_purged_run_does_not_authorize_agent_deletion",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_phase2_security_acceptance",
+      "case": "test_reverse_oauth_callbacks_bind_each_pkce_verifier_over_mock_http",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_phase2_security_acceptance",
+      "case": "test_upload_api_rejects_harmless_malformed_inputs[csv-shape]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_phase2_security_acceptance",
+      "case": "test_upload_api_rejects_harmless_malformed_inputs[empty]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_phase2_security_acceptance",
+      "case": "test_upload_api_rejects_harmless_malformed_inputs[encoding]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_phase2_security_acceptance",
+      "case": "test_upload_api_rejects_harmless_malformed_inputs[extension]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_phase2_security_acceptance",
+      "case": "test_upload_api_rejects_harmless_malformed_inputs[nonfinite-json]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_phase2_security_acceptance",
+      "case": "test_upload_api_rejects_harmless_malformed_inputs[nul]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_phase2_security_acceptance",
+      "case": "test_upload_api_rejects_harmless_malformed_inputs[recursive-json]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_phase2_security_acceptance",
+      "case": "test_upload_api_rejects_harmless_malformed_inputs[size]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_phase2_security_acceptance",
+      "case": "test_upload_name_and_injection_remain_inert_data",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_product_invites",
+      "case": "test_admin_can_manage_invites_but_removed_admin_cannot",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_product_invites",
+      "case": "test_concurrent_consumption_has_exactly_one_winner",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_product_invites",
+      "case": "test_concurrent_self_changes_cannot_remove_both_owners[demote]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_product_invites",
+      "case": "test_concurrent_self_changes_cannot_remove_both_owners[remove]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_product_invites",
+      "case": "test_disabled_identity_does_not_count_as_an_active_owner[demote]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_product_invites",
+      "case": "test_disabled_identity_does_not_count_as_an_active_owner[remove]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_product_invites",
+      "case": "test_invites_generate_consume_revoke_replace_no_plaintext",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_product_invites",
+      "case": "test_member_and_cross_tenant_management_denied[generate]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_product_invites",
+      "case": "test_member_and_cross_tenant_management_denied[list]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_product_invites",
+      "case": "test_member_and_cross_tenant_management_denied[revoke]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_product_invites",
+      "case": "test_nonactive_history_with_stale_digest_fails_closed",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_product_invites",
+      "case": "test_v13_migration_preserves_legacy_code_and_records_consumption",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_product_invites_postgres",
+      "case": "test_admin_can_manage_invites_but_removed_admin_cannot",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_product_invites_postgres",
+      "case": "test_concurrent_consumption_has_exactly_one_winner",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_product_invites_postgres",
+      "case": "test_concurrent_self_changes_cannot_remove_both_owners[demote]",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_product_invites_postgres",
+      "case": "test_concurrent_self_changes_cannot_remove_both_owners[remove]",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_product_invites_postgres",
+      "case": "test_disabled_identity_does_not_count_as_an_active_owner[demote]",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_product_invites_postgres",
+      "case": "test_disabled_identity_does_not_count_as_an_active_owner[remove]",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_product_invites_postgres",
+      "case": "test_invites_generate_consume_revoke_replace_no_plaintext",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_product_invites_postgres",
+      "case": "test_member_and_cross_tenant_management_denied[generate]",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_product_invites_postgres",
+      "case": "test_member_and_cross_tenant_management_denied[list]",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_product_invites_postgres",
+      "case": "test_member_and_cross_tenant_management_denied[revoke]",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_product_invites_postgres",
+      "case": "test_nonactive_history_with_stale_digest_fails_closed",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_product_invites_postgres",
+      "case": "test_v13_additive_postgres_invite_migration",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_provider_failure_disclosure",
+      "case": "test_system_provider_error_does_not_persist_sdk_payload",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_rbac_adversarial",
+      "case": "test_admin_cannot_escalate_self_or_another_member_to_privileged_roles",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_rbac_adversarial",
+      "case": "test_demotion_takes_effect_immediately_for_management_permissions",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_rbac_adversarial",
+      "case": "test_forged_workspace_header_cannot_read_other_organization_runs",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_rbac_adversarial",
+      "case": "test_inactive_membership_revokes_workspace_access_even_with_live_session",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_rbac_adversarial",
+      "case": "test_last_owner_cannot_remove_own_ownership_through_direct_api_call",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_rbac_adversarial",
+      "case": "test_member_cannot_self_promote_to_admin_even_with_direct_api_call",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_rbac_adversarial",
+      "case": "test_owner_of_one_organization_cannot_tamper_with_another_organization",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_rbac_adversarial",
+      "case": "test_personal_workspace_never_grants_organization_management_permissions",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_api_delete_list_restore_conflict_and_confirmation_contract",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_api_org_permissions_and_foreign_workspace_denial[admin]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_api_org_permissions_and_foreign_workspace_denial[member]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_concurrent_lifecycle_change_has_one_winner_and_one_conflict[delete]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_concurrent_lifecycle_change_has_one_winner_and_one_conflict[restore]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_conflicts_and_missing_items_are_deterministic",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_cross_workspace_item_ids_are_hidden[delete]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_cross_workspace_item_ids_are_hidden[purge]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_cross_workspace_item_ids_are_hidden[restore]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_delete_restore_preserves_contract_payload_relations_and_actor_metadata",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_deleted_graph_checkpoint_boundary_fails_closed_and_restore_keeps_identity",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_deleted_run_is_unavailable_to_active_detail_export_and_resume[/simulations/T-bin/events]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_deleted_run_is_unavailable_to_active_detail_export_and_resume[/simulations/T-bin/export]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_deleted_run_is_unavailable_to_active_detail_export_and_resume[/simulations/T-bin]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_deleted_run_is_unavailable_to_active_detail_export_and_resume[/tasks/T-bin/resume]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_deleted_run_is_unavailable_to_active_detail_export_and_resume[/tasks/T-bin]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_deleted_runs_excluded_from_all_active_aggregations",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_durable_checkpoint_marker_fails_closed_when_runtime_credentials_removed",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_explicit_purge_of_never_executed_failed_legacy_run_preserves_shared_upload",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_failed_run_evidence_is_explicitly_purgeable[event]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_failed_run_evidence_is_explicitly_purgeable[graph]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_failed_run_evidence_is_explicitly_purgeable[output]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_failed_run_evidence_is_explicitly_purgeable[relational_drift]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_failed_run_evidence_is_explicitly_purgeable[stage]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_failed_run_evidence_is_explicitly_purgeable[started]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_foreign_identity_cannot_select_personal_bin",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_list_exposes_owner_purge_eligibility_with_execution_evidence",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_live_runs_cannot_be_deleted[in_progress]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_live_runs_cannot_be_deleted[queued]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_org_roles_and_repository_recheck[admin]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_org_roles_and_repository_recheck[member]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_org_roles_and_repository_recheck[owner]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_owner_purges_completed_run_and_all_evidence[False]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_owner_purges_completed_run_and_all_evidence[True]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_purge_removes_relational_evidence_drift[metrics]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_purge_removes_relational_evidence_drift[task]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_recycle_routes_require_authentication",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_recycle_bin",
+      "case": "test_v9_sqlite_migration_is_additive_repeatable_and_preserves_payload",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_atomic_group_rolls_back_and_pending_empty_score",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_benchmarks_are_valid_versioned_safe_and_quality_discriminates[B-analytical]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_benchmarks_are_valid_versioned_safe_and_quality_discriminates[B-data]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_benchmarks_are_valid_versioned_safe_and_quality_discriminates[B-direct]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_benchmarks_are_valid_versioned_safe_and_quality_discriminates[B-mixed]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_benchmarks_are_valid_versioned_safe_and_quality_discriminates[B-report]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_benchmarks_are_valid_versioned_safe_and_quality_discriminates[B-summary]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_benchmarks_are_valid_versioned_safe_and_quality_discriminates[B-synthesis]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_config_drift_deleted_trials_and_benchmark_mutation_are_exposed",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_corrupt_input_provenance_blocks_comparison[all_fingerprints]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_corrupt_input_provenance_blocks_comparison[directive_hash]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_corrupt_input_provenance_blocks_comparison[missing]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_gate_and_judge_do_not_call_provider",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_human_review_is_attributed_append_only_output_bound_and_conflict_safe",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_human_rubric_validation[clarity-2.5]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_human_rubric_validation[correctness-0]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_human_rubric_validation[correctness-6]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_human_rubric_validation[correctness-True]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_human_rubric_validation[notes- ]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_human_rubric_validation[sourceConsistency-None]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_invalid_configuration_persists_nothing[bad0]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_invalid_configuration_persists_nothing[bad10]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_invalid_configuration_persists_nothing[bad11]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_invalid_configuration_persists_nothing[bad12]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_invalid_configuration_persists_nothing[bad13]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_invalid_configuration_persists_nothing[bad1]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_invalid_configuration_persists_nothing[bad2]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_invalid_configuration_persists_nothing[bad3]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_invalid_configuration_persists_nothing[bad4]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_invalid_configuration_persists_nothing[bad5]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_invalid_configuration_persists_nothing[bad6]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_invalid_configuration_persists_nothing[bad7]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_invalid_configuration_persists_nothing[bad8]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_invalid_configuration_persists_nothing[bad9]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_minimal_demo_cancelled_provider_call_retains_failure_and_continues",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_minimal_single_adaptive_demo_persists_reload_exports_without_external_requests",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_missing_and_zero_usage_and_unknown_latency",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_observed_model_and_corrupt_benchmark_checksums_block_comparison",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_owner_purge_marks_research_incomplete_without_rewriting_remaining_evidence",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_pending_route_counts_retry_timeout_recovery_and_different_input",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_provider_failure_records_downstream_nonexecution_and_continues",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_repeated_modes_group_persist_reproduce_and_export",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_research_configuration_detects_protocol_implementation_drift[api/routes/experiments.py]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_research_configuration_detects_protocol_implementation_drift[experiments/evaluation.py]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_research_configuration_detects_protocol_implementation_drift[experiments/provenance.py]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_revoked_workspace_stops_worker_before_provider",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research",
+      "case": "test_tenant_workspace_export_rerun_and_review_fail_closed",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_contracts",
+      "case": "test_benchmark_rejects_invalid_semantics[changes0]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_contracts",
+      "case": "test_benchmark_rejects_invalid_semantics[changes1]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_contracts",
+      "case": "test_benchmark_rejects_invalid_semantics[changes2]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_contracts",
+      "case": "test_benchmark_rejects_invalid_semantics[changes3]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_contracts",
+      "case": "test_benchmark_rejects_invalid_semantics[changes4]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_contracts",
+      "case": "test_benchmark_rejects_invalid_semantics[changes5]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_contracts",
+      "case": "test_descriptive_statistics_known_values_and_sample_sd",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_contracts",
+      "case": "test_registry_identity_snapshot_hashes_and_modes_are_stable",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_admission_reservation_exhaustion_persists_no_trials",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_admission_reservations_never_refunded[cancelled]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_admission_reservations_never_refunded[http_error]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_admission_reservations_never_refunded[missing_usage]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_admission_reserves_all_future_input_and_output_before_execution",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_boundary_itself_blocks_fourth_request_even_with_sdk_retries",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_cancellation_timeout_transport_fail_closed_with_partial_evidence[cancelled]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_cancellation_timeout_transport_fail_closed_with_partial_evidence[timeout]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_cancellation_timeout_transport_fail_closed_with_partial_evidence[transport]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_cancelled_admission_stops_already_queued_work",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_changed_approved_benchmark_is_rejected",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_concurrent_streamed_requests_cannot_overreserve_shared_attempts",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_database_lock_excludes_second_local_process",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_exact_sdk_serialization_is_accounted_at_boundary",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_expiry_between_trials_rejects_all_new_calls",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_failed_admission_write_consumes_authority",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_gate_auth_tenant_and_judge_guards",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_generated_upstream_text_cannot_bypass_report_preflight",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_historical_sample_provenance_is_unchanged",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_launcher_authority_cannot_be_reused[different_database]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_launcher_authority_cannot_be_reused[fork]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_launcher_authority_cannot_be_reused[missing]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_launcher_preserves_disabled_behavior_and_fixes_demo_topology[False]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_launcher_preserves_disabled_behavior_and_fixes_demo_topology[True]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_live_evidence_always_requires_bounded_protocol",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_lost_or_mismatched_admitted_budget_fails_closed[expired]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_lost_or_mismatched_admitted_budget_fails_closed[missing]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_lost_or_mismatched_admitted_budget_fails_closed[wrong_tenant]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_missing_context_never_falls_back_to_normal_sdk",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_monotonic_deadline_interrupts_inflight_request",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_overlapping_admissions_admit_exactly_one_experiment",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_pretransport_rejections_send_nothing[expired]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_pretransport_rejections_send_nothing[output_cap]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_pretransport_rejections_send_nothing[oversized]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_pretransport_rejections_send_nothing[reservation]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_pretransport_rejections_send_nothing[wrong_endpoint]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_protocol_rejects_other_admissions[change0]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_protocol_rejects_other_admissions[change1]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_protocol_rejects_other_admissions[change2]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_protocol_rejects_other_admissions[change3]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_protocol_rejects_other_admissions[change4]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_real_transport_constructed_with_zero_retries",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_reservation_persistence_failure_prevents_transport",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_sdk_http_failures_never_retry_and_stop_remaining_trials[429]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_sdk_http_failures_never_retry_and_stop_remaining_trials[500]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_topology_drift_before_later_request_stops_transport",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_two_trials_three_actual_http_requests_shared_and_retained",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_unaccounted_request_fields_fail_closed[extra0]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_unaccounted_request_fields_fail_closed[extra1]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_unaccounted_request_fields_fail_closed[extra2]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_unaccounted_request_fields_fail_closed[extra3]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_unaccounted_request_fields_fail_closed[extra4]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_unaccounted_request_fields_fail_closed[extra5]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_unsupported_topology_rejects_before_admission[DEBUG-True]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_unsupported_topology_rejects_before_admission[HOST-0.0.0.0]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_unsupported_topology_rejects_before_admission[KUBERNETES_SERVICE_HOST-mock-hosted]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_unsupported_topology_rejects_before_admission[RAILWAY_ENVIRONMENT_ID-mock-hosted]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_unsupported_topology_rejects_before_admission[RESEARCH_DEMO_REPLICAS-0]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_unsupported_topology_rejects_before_admission[RESEARCH_DEMO_REPLICAS-2]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_unsupported_topology_rejects_before_admission[RESEARCH_DEMO_TOPOLOGY-unsupported]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_unsupported_topology_rejects_before_admission[UVICORN_WORKERS-2]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_unsupported_topology_rejects_before_admission[VERCEL-1]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_unsupported_topology_rejects_before_admission[WEB_CONCURRENCY-2]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_usage_is_observable_policy_not_hard_token_bound[False-7]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_usage_is_observable_policy_not_hard_token_bound[True-20000]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_demo_budget",
+      "case": "test_usage_is_observable_policy_not_hard_token_bound[True-513]",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_research_postgres",
+      "case": "test_pg_research_execution_metrics_review_reload_and_rls",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_research_postgres",
+      "case": "test_pg_research_immutable_metadata_and_atomic_admission",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_research_postgres",
+      "case": "test_pg_research_review_reauthorization_after_revocation",
+      "status": "skipped",
+      "reason": "TENANT_TEST_DATABASE_URL not set; live PostgreSQL enforcement unverified"
+    },
+    {
+      "module": "backend.tests.test_upload_tenant_api",
+      "case": "test_upload_get_is_scoped_to_selected_workspace",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_upload_tenant_api",
+      "case": "test_upload_route_binds_selected_workspace_and_actor",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_upload_tenant_ownership",
+      "case": "test_backfill_derives_one_unambiguous_workspace_without_creator",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_upload_tenant_ownership",
+      "case": "test_backfill_does_not_guess_conflicting_workspaces",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_upload_tenant_ownership",
+      "case": "test_backfill_does_not_guess_orphan_workspace",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_upload_tenant_ownership",
+      "case": "test_upload_ownership_helper_is_idempotent",
+      "status": "passed"
+    },
+    {
+      "module": "backend.tests.test_upload_tenant_ownership",
+      "case": "test_v9_upload_schema_has_explicit_nullable_ownership",
+      "status": "passed"
+    }
+  ]
+}
