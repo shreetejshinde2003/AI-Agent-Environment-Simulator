@@ -181,11 +181,16 @@ def test_expiry_between_trials_rejects_all_new_calls(bounded, monkeypatch):
 
 def test_monotonic_deadline_interrupts_inflight_request(bounded, monkeypatch):
     (repo, client), requests = bounded
-    monkeypatch.setattr(demo, "DEADLINE_SECONDS", 0.1)
     async def handler(request):
         requests.append(request)
         await asyncio.Event().wait()
-    monkeypatch.setattr(httpx, "AsyncHTTPTransport", lambda **kwargs: httpx.MockTransport(handler))
+    def transport(**kwargs):
+        # Admission includes database writes and may take >100 ms. Shorten
+        # the admitted deadline before the transport's timeout is scheduled.
+        # Pre-send expiry is covered separately; this probe must reach HTTP.
+        next(iter(demo.ledgers.values())).deadline = demo.time.monotonic() + 0.5
+        return httpx.MockTransport(handler)
+    monkeypatch.setattr(httpx, "AsyncHTTPTransport", transport)
     eid = create(client)
     assert len(requests) == 1 and demo.ledgers[eid].stopped == "deadline_exhausted"
     assert all(t.status == TaskStatus.FAILED and t.output is None for t in runs(repo, eid))
