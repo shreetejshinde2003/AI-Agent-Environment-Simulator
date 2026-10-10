@@ -48,6 +48,14 @@ class Settings(BaseSettings):
     RESEARCH_JUDGE_ENABLED: bool = False
     RESEARCH_LIVE_ENABLED: bool = False
     RESEARCH_DEMO_ENABLED: bool = False  # Apply bounded policy to local fixture acceptance too.
+    # No hosted/default launcher can assert process-local demo authority.
+    RESEARCH_DEMO_TOPOLOGY: str = "unsupported"
+    RESEARCH_DEMO_REPLICAS: int = 0
+    WEB_CONCURRENCY: int | None = None
+    UVICORN_WORKERS: int | None = None
+    RAILWAY_ENVIRONMENT_ID: str | None = None
+    KUBERNETES_SERVICE_HOST: str | None = None
+    VERCEL: str | None = None
     RESEARCH_FIXTURE_SHA256: str | None = None
     RESEARCH_EVIDENCE_KIND: str = "provider_live"
     LANGGRAPH_RUNTIME_ENABLED: bool = False

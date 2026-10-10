@@ -1,64 +1,71 @@
 # Bounded Research live-demo readiness
 
-Updated 2026-10-10. Implementation baseline: local `main` at `67f699d18e6415b88eefbf73b6f3d5538072f4ab`.
+Updated 2026-10-10, from local `main` baseline `bf3fdcd347b159da7b2e4bc269ee03ae9d6804c7`.
 
-**Live execution remains NO-GO.** The local implementation now bounds HTTP transport attempts and admission, but does not prove a hard experiment-wide model-token or billing ceiling. No provider, credential, gate, deployment or production change was made. Execution defaults remain disabled.
+**Hard-token guarantees remain NO-GO.** A small real-provider test is conditionally suitable only if the owner explicitly accepts an estimated total budget and the local deployment conditions below. No such test is authorized or executed here. All effective execution gates remain disabled; no credential setup, production connection, migration, push or deployment occurred.
 
-## Verified policy
+## Exact inspected model and request path
 
-The existing authenticated Research Lab admission/execution path applies `bounded-demo-v1` whenever evidence kind is `provider_live`. `RESEARCH_DEMO_ENABLED` defaults false and lets isolated deterministic-fixture tests exercise the same policy. Ordinary simulations retain their existing provider behavior. Broader historical fixture research protocols remain supported for mocked acceptance; fixture configuration is not authorization for real calls.
+Effective Direct, Research and Report model: **`openai/gpt-oss-120b`**. The configured fast model is `openai/gpt-oss-20b`, but none of these three agents selects it. Admission and the provider path now reject a different demo model. Each agent uses the existing `call_llm` adapter; all three demo requests pass through the same budget transport. Report includes generated Research text, so its complete prompt cannot be known at admission.
 
-| Control | Enforced behavior |
+Installed versions: **Groq 1.7.0, HTTPX 0.28.1**. The SDK strips omitted arguments and serializes a compact UTF-8 JSON body through `groq._utils._json.openapi_dumps`: `ensure_ascii=False`, separators `(',', ':')`, `allow_nan=False`. The exact admitted body keys are `model`, `messages`, `max_tokens`; actual messages are system and user strings. There are no implicit client-added documents, tools, judges or additional message bodies. Transport rejects unaccounted body fields, models, roles, non-string contents, non-HTTPS/alternate endpoints and query parameters. It measures the SDK's final bytes, not a separately reconstructed approximation. Generated upstream text and non-ASCII characters are subject to the same final-byte check.
+
+Groq documents `max_tokens` as deprecated in favor of `max_completion_tokens`, with the same generated-completion limit; this patch retains the established **512** setting and rejects conflicting extra fields. Reasoning effort is omitted, so GPT-OSS uses the documented provider default **medium**. A short completion allowance may leave no usable final answer after reasoning; existing empty-output failure remains honest. These are provider API semantics, not independent server-compliance proof. Sources inspected October 10: [Groq API reference](https://console.groq.com/docs/api-reference), [reasoning documentation](https://console.groq.com/docs/reasoning).
+
+## Tokenizer finding
+
+A model-specific public tokenizer/renderer exists: [OpenAI Harmony](https://github.com/openai/harmony) exposes `HARMONY_GPT_OSS` and completion rendering; the [official GPT-OSS model repository](https://huggingface.co/openai/gpt-oss-120b/blob/34a49b3f83ac94f307cfaeb145c90a134787e8ee/chat_template.jinja) supplies a chat template. That template has model identity, date/cutoff, reasoning-effort and built-in-tool rendering inputs as well as message contents.
+
+No `tiktoken`, `transformers`, `tokenizers` or `openai-harmony` package is installed in this backend environment. No package/model/tokenizer was downloaded. **Inference from the inspected public material:** a pinned local reference tokenizer could count a chosen reference rendering for all three paths, including Report just before transmission, but exact Groq template/version/injected-prefix parity has not been established. Counting message content alone omits framing; tokenizing the HTTP JSON counts a different representation. Neither is an exact server prompt count. The Groq API/SDK material inspected does not supply a provider-certified preflight count for this path. Installing a tokenizer would not resolve that parity gap by itself.
+
+Consequently, this implementation intentionally uses an explicit conservative engineering estimate. The **256-unit framing margin is unvalidated**, not a proof about Groq's template. Hidden/server-injected input, reasoning accounting, model aliases and usage on failed/remote-cancelled requests remain external assumptions. No hard experiment-wide total-token or billing upper bound is claimed.
+
+## Enforced limits and reservations
+
+| Control | Verified local guarantee |
 | --- | --- |
-| Admission | Exactly B-direct v1, modes ordered `[single, adaptive]`, repetitions 1, exactly two Tasks in the existing atomic repository admission. Approved benchmark snapshot SHA-256: `2153e664f10f4cd0d412729ce842ab0165c8ed7b528500f2192c2f44d6ed379f`. Changed sources/checks/directive are rejected. |
-| Scope | One admission per process lifetime, including after failure. No rerun, Fixed, extra case, repetition, judge or durable graph runtime. Single executes Direct; Adaptive executes Research → Report through the established engine. |
-| Attempts | Shared maximum **3 transport reservations**, immediately before the underlying HTTP transport invocation. Every specialist call consumes the same ledger. A reservation cannot be refunded. Pre-send persistence failure can consume a slot without any network invocation; evidence distinguishes reservations from `transportInvocations`. |
-| Retries | Dedicated Groq client sets `max_retries=0`; underlying HTTPX transport sets `retries=0`. Redirect following and environment proxy discovery are disabled for this client. Only POST to Groq's chat-completions endpoint is admitted. |
-| Output | Every request must carry **512 max output tokens**. Streaming/tools are rejected. A provider report exceeding that cap fails the stage and prevents further requests. This validates request settings and reported usage, not independent provider compliance. |
-| Request reservation | Serialized JSON body ≤ **4096 bytes**. Each attempt permanently reserves body bytes + 512 units against a shared **16384-unit** policy. With three attempts the maximum reservation is **13824 units**. These mixed units are explicitly labelled; they are **not a verified total-token bound**. Oversized requests fail before transport. |
-| Observed usage | Aggregate provider-reported prompt + completion tokens across successful responses; stop if reported cumulative usage exceeds **16384 tokens**. This is a post-response check, not a hard preflight ceiling. Missing usage retains unknown coverage and reservations, accepts only the genuine returned output, then stops subsequent calls. Failed/timeout/cancelled requests have unknown usage. No zero-cost claim. |
-| Deadline | Shared **180-second monotonic deadline**, starting at ledger creation immediately after atomic admission. Includes queuing and all trial work. Rechecked at stage/provider admission and immediately before transport; asynchronous timeout covers the stage, SDK request and response-body read. Expired responses fail closed. No fresh deadline on later stages. |
-| Failure | HTTP error, transport failure, deadline, cancellation, invalid request, exhausted budget, missing ledger or mismatched tenant/user/run scope prevents subsequent calls. Persist before sending; no call if that write fails. Gate/configuration and existing tenant permission are rechecked on the reservation write. |
-| Evidence | Existing tenant-owned Task JSON and RunEvents retain `demoPolicy`, retry policy, reservation/transport counts, reported usage coverage, stop reason, stage results and explicit trial completion/failure. Cancellation is a stop reason; authoritative Task status remains failed. Completed earlier trial/stage output survives; failed output is not invented. Reports retain these events. |
-| Restart | Ledger authority is intentionally process-local. Missing state fails closed; saved events cannot replenish or reconstruct the budget. No demo resume. No schema/table/migration added; new optional JSON fields preserve schema-14 and historical Task loading. |
+| Protocol | Exactly the approved B-direct v1 digest `2153e664f10f4cd0d412729ce842ab0165c8ed7b528500f2192c2f44d6ed379f`, modes `[single, adaptive]`, one repetition, two atomically saved Tasks. No Fixed, rerun, judge or durable graph runtime. |
+| Admission authority | Nonblocking process mutex protects admission, including overlapping requests. One admission per launcher/process lifetime; a failed admission write consumes authority. No new admission while queueing or after ledger loss/failure. |
+| Admission input reservation | Permanently hold **3 × (4096 serialized bytes + 256 estimated framing units) = 13056 input estimate units**, before saving either trial. This includes capacity for unknown future Report text. |
+| Admission output reservation | Hold **3 × 512 = 1536 requested output tokens**. This is the sum of requested provider caps, not locally enforceable generated-token proof. |
+| Combined reservation | **14592 estimated units** held against **16384-unit** admission policy. If capacity is insufficient, persist zero trials and send zero requests. Both Tasks carry an existing `demo_budget_admitted` event with reservations and `hardTotalTokenGuarantee=false`. No refund for short responses, HTTP errors, timeout, cancellation or missing usage. |
+| Per-request preflight | Exact serialized body ≤ **4096 bytes**; output setting **512**; only the inspected model and accounted plain-text request shape. Each transport slot consumes body bytes + 256 margin + 512 against the already admitted capacity. Oversized generated predecessor text prevents the Report request; retained Research output survives. |
+| Attempts and retries | Shared maximum **3 actual zero-retry HTTP transport invocations**. SDK `max_retries=0`, HTTPX `retries=0`, redirects off, environment proxy discovery off. Reservation/evidence write precedes invocation; failed writes can consume a slot without sending. No application/specialist call bypasses the transport ledger. |
+| Usage | Retain provider-reported input/completion sums separately and together, plus unknown/partial coverage. The existing **16384 reported-token post-response threshold** stops further calls if exceeded. It cannot prevent that response from already consuming more than the estimate/threshold. Missing usage stops later calls and retains unknown coverage; genuine available output may be retained. No cost or zero-usage invention. |
+| Deadline | Shared **180-second monotonic deadline**, now created before atomic admission. Includes admission, queueing and execution; no refresh for the second trial. No new provider call after expiry. Stage/SDK/response-body timeouts and expired responses fail closed. |
+| Evidence | Existing Task/stage/events retain admission reservations, consumed estimated units, transport slots/invocations, observed usage, stop reason, partial outputs and explicit trial completion/failure. Cancellation remains a stop reason with authoritative failed Task status. Evidence-store failure can prevent later terminal writes; it does not permit an unreserved call. |
 
-The three-request ceiling covers invocation of a zero-retry HTTP transport, including connection failures conservatively. It cannot count provider-side internal computation or prove whether a failed connection reached the server. Cancellation/timeout closes local admission; it cannot recall a request already accepted remotely. Persistence can itself fail, so explicit terminal evidence is guaranteed only while the authorized evidence store remains writable; the pre-send reservation remains the durable conservative bound.
+## Deployment admission verification
 
-## Mock-only acceptance
+Defaults are `RESEARCH_DEMO_TOPOLOGY=unsupported`, `RESEARCH_DEMO_REPLICAS=0`, with live/judge/demo-fixture/graph gates false. Generic ASGI/Uvicorn entrypoints have no launcher lease and reject demo admission even if the live gate is mistakenly set. They cannot infer a supported topology simply from missing environment variables.
 
-**167 passed, 0 failed, 0 skipped**, two existing Starlette/AnyIO and LangGraph dependency warnings. Selection:
+Only the normal local `backend/run.py` demo branch can grant runtime authority. It requires explicit `single_process_local`, replicas exactly 1, configured loopback HOST (`127.0.0.1` or `::1`), DEBUG false and an absolute local SQLite database path. It calls Uvicorn with **workers=1, reload=false**. Worker-count declarations above one and known Railway/Kubernetes/Vercel hosted markers are rejected. An exclusive advisory lock on the canonical database sidecar excludes another cooperating process on the same host/database; PID ownership rejects inherited fork authority. Admission also verifies that the authoritative repository matches the launcher's database. Topology/lease is rechecked at the transport boundary, including after the pre-send evidence write. The disabled/non-demo launcher behavior is preserved.
+
+**Scope limitations:** this is a POSIX local launcher contract, not remote-host attestation or an account-wide lock. Separate hosts/databases or uncooperative programs using the same credentials cannot be discovered or bounded. The owner must ensure one dedicated process, one database, no other credential users, no reload/restart and no unrelated application traffic. Declared multi-worker/multi-replica/hosted or unknown topology fails closed; arbitrary concealed replication is not a supported guarantee. Restart does not reconstruct budget authority for saved runs; fresh authority after restarting must never be treated as authorization for another experiment. Do not unlink the advisory-lock sidecar while a process holds it.
+
+No schema, migration, permission, RLS, historical report/manifest or fixture evidence changes. Default disabled gates and normal simulation behavior are preserved.
+
+## Focused mock-only acceptance
+
+**126 passed, 0 failed, 0 skipped**, with two existing Starlette/AnyIO and LangGraph dependency warnings:
 
 ```text
-.venv/bin/python -m pytest \
-  backend/tests/test_research_demo_budget.py \
+.venv/bin/python -m pytest backend/tests/test_research_demo_budget.py \
   backend/tests/test_research.py backend/tests/test_research_contracts.py \
-  backend/tests/test_llm_client.py backend/tests/test_task_pipeline.py \
-  backend/tests/test_single_graph.py backend/tests/test_adaptive_graph.py \
-  backend/tests/test_fixed_graph.py backend/tests/test_graph_runtime.py \
-  backend/tests/test_quality_evaluation_api.py \
-  backend/tests/test_tenant_execution_wiring.py -q
+  backend/tests/test_llm_client.py -q
 ```
 
-The new 33-case budget suite uses the installed **Groq 1.7.0 / HTTPX 0.28.1 SDK**, an in-memory HTTP transport, synthetic test-only key and isolated SQLite data. No external provider request is sent. It verifies:
+The budget suite has **66 cases** (33 prior + 33 added here). It uses the real installed SDK over in-memory HTTP transport, synthetic test-only keys and disposable SQLite. New checks cover admission-wide reservation persistence/exhaustion, overlapping admission, cancelled admission with already queued work, failed admission writes, no refunds on failure/cancellation/missing usage, exact request serialization, oversized generated Report input, unaccounted fields, unsupported topology, missing/forked/mismatched launcher authority, configuration drift, exclusion of a second local process and mocked launcher flags/cleanup. Prior transport tests retain the three-request success proof, zero-retry 429/500 failures, fourth-request rejection even with a hostile retry-enabled SDK, cancellation/partial evidence, monotonic expiry and historical checksum checks.
 
-- two persisted admissions and three actual MockTransport requests shared across Direct/Research/Report; real SDK factory receives zero retries and the underlying transport factory receives zero retries;
-- an intentionally retry-enabled SDK cannot send a fourth request through the budget transport;
-- 429/500 cause exactly one transport request and no SDK retry or later specialist call;
-- protocol/benchmark changes, repeated admission, missing/mismatched ledger, expired deadline, oversized body, output setting, exhausted reservations and failed pre-send evidence writes send no further request;
-- in-flight monotonic timeout, cancellation and connection failure retain partial evidence; cancellation during Adaptive preserves the completed Single output and leaves Report unstarted;
-- missing usage remains unknown and stops later calls; reported overage fails closed without inventing output;
-- gate/judge/unauthenticated/cross-tenant rejection and blocked model evaluation, plus unchanged historical sample bytes/checksum.
+The other 60 cases cover directly relevant research admission/evidence/tenant gates and provider contracts. The earlier 167-test selection is historical baseline evidence; unrelated simulation/graph suites were not repeated. No frontend changed, so no frontend checks required. No new PostgreSQL/RLS, browser, real-provider or production result is inferred.
 
-The remaining tests verify the existing research protocols, authorization/revocation and tenant execution wiring, ordinary Single/Fixed/Adaptive/pipeline behavior and evaluation/provider contracts. The initial deadline test exposed cancellation misclassification; the correction uses monotonic expiry to classify deadline cancellation correctly. Final acceptance is the count above.
+## Owner decision for an estimated-budget acceptance run
 
-No frontend code changed; no frontend checks required. No fresh PostgreSQL/RLS, browser, production or real-provider acceptance is claimed. Historical 47-test readiness acceptance and 42-trial sample are prior fixture evidence, not new live results. Historical report/manifest files were not modified.
+**Conditionally suitable for a small operational test, not for a hard-token/cost guarantee.** Before any real call the owner must explicitly authorize:
 
-## Remaining NO-GO conditions and real-test authorization
+1. One dedicated loopback backend through the verified launcher, one isolated absolute-path SQLite database, one worker/replica, DEBUG/reload false, no restart or concurrent credential users/other application execution. Known hosted deployment markers must be absent because this is genuinely local, not removed to bypass checks.
+2. Local credential handling and the exact `openai/gpt-oss-120b` model; one pinned B-direct experiment, Single + Adaptive, two trials; three HTTP attempts maximum, zero retries/judges/resume/reruns, 512 requested output tokens per call and 180 seconds total.
+3. Explicit acceptance that **13056 input estimate units + 1536 output caps = 14592 estimated units is not a guaranteed token count or spending cap**; the 16384 observed-token check acts only after responses. Missing usage, hidden framing, reasoning, remote timeout/cancellation and account telemetry can leave actual usage unknown or above estimate. If that uncertainty is unacceptable, remain NO-GO until provider-certified preflight/rendering and output/usage contracts establish an enforceable bound.
+4. Review persisted admission/attempt/usage/failure events and exact Task IDs after reload/export, compare provider account usage if separately authorized, preserve genuine partial evidence, keep it separate from the historical sample, and stop the dedicated backend immediately after the single test. Restart only with execution/judge gates disabled.
 
-1. **Hard token ceiling is unproven.** Bytes + output-cap reservations are an enforceable local admission policy, not model-token accounting. Verify the selected model's tokenizer/chat-template overhead, reasoning-token accounting and server output-cap semantics, then implement/test a conservative pre-send total-token bound if a hard token ceiling remains required. A successful provider response can disclose a total over the post-response threshold; errors may never disclose usage. Do not present 16384 units as 16384 guaranteed tokens.
-2. **The latch is process-local.** It does not coordinate multiple workers/hosts or forbid a new experiment after process restart. The supported prospective environment is exactly one dedicated backend process, one event loop, one isolated local database, no reload/restart during the admission, no unrelated simulation/HR/agent execution, and no second server sharing credentials. Distributed/restart-safe authorization would need a separately reviewed durable design. Lost-state execution fails closed rather than resuming.
-3. **Remote completion and billing remain external.** Timeout/cancellation can leave remote work running. Provider account telemetry is separate from returned stage usage; missing usage stays unknown. Account-wide traffic is outside this experiment's bound.
-4. **No approval has been granted.** After resolving the hard-token condition, obtain explicit authorization naming the dedicated loopback environment/database, local credential handling, provider/model, approved benchmark digest, one two-trial experiment, three HTTP attempts maximum, 512 output cap, validated total-token limit and 180-second deadline. Judges, reruns, durable resume, auxiliary agents, other traffic and deployment must be excluded. Model availability and current provider semantics also require verification before that authorized test.
-5. **Review retained evidence and disable afterwards.** Use normal authenticated Research Lab endpoints and tenant permissions. Retain/export exact Task IDs, raw outputs, stages/routes, budget events, provider usage and failures; keep the genuine report separate from the historical sample. Stop the dedicated process after the authorized experiment and restart only with gates disabled. Do not purge evidence.
-
-Approval of this implementation does not enable a provider call. Stay stopped before any credential setup, live request, push or deployment.
+No owner authorization is implied by this report or commit. STOP for owner review before credential handling, a live Groq call, production connection, deployment or push.

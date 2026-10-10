@@ -1,5 +1,6 @@
 """Controlled matched experiments across Single, Fixed and Adaptive modes."""
 
+import asyncio
 import uuid
 from datetime import datetime, timezone
 
@@ -151,9 +152,25 @@ async def get_benchmarks(request: Request, x_workspace_id: str | None = Header(d
 
 
 async def admit_research(payload, background_tasks, *, workspace_id, user_id, parent=None):
+    from app.experiments.demo_budget import bounded_demo, admission_lock, require_local_runtime, DemoBudgetError
+    if not settings.RESEARCH_LIVE_ENABLED or not bounded_demo():
+        return await _admit_research(payload, background_tasks, workspace_id=workspace_id, user_id=user_id, parent=parent)
+    try:
+        require_local_runtime(repository.url)
+    except DemoBudgetError as exc:
+        raise HTTPException(403, str(exc)) from None
+    if not admission_lock.acquire(blocking=False):
+        raise HTTPException(409, "Demo admission is already in progress")
+    try:
+        return await _admit_research(payload, background_tasks, workspace_id=workspace_id, user_id=user_id, parent=parent)
+    finally:
+        admission_lock.release()
+
+
+async def _admit_research(payload, background_tasks, *, workspace_id, user_id, parent=None):
     if not settings.RESEARCH_LIVE_ENABLED:
         raise HTTPException(403, "Research provider execution is disabled; explicit live-provider approval is required")
-    from app.experiments.demo_budget import bounded_demo, DemoBudget, ledgers
+    from app.experiments.demo_budget import bounded_demo, DemoBudget, ledgers, runtime_lease, APPROVED_MODEL, DemoBudgetError
     demo = bounded_demo()
     if demo:
         if (payload.benchmark_ids != ("B-direct",) or payload.modes != ("single", "adaptive")
@@ -161,7 +178,7 @@ async def admit_research(payload, background_tasks, *, workspace_id, user_id, pa
             raise HTTPException(422, "Demo requires B-direct v1, Single + Adaptive, one repetition; no rerun")
         if settings.RESEARCH_JUDGE_ENABLED or settings.LANGGRAPH_RUNTIME_ENABLED:
             raise HTTPException(403, "Demo requires judges and durable resume disabled")
-        if ledgers:
+        if ledgers or runtime_lease["consumed"]:
             raise HTTPException(409, "Demo admission already consumed in this process; no repeat admission")
     cases = {case.id: case for case in catalog()}
     if demo:
@@ -172,6 +189,8 @@ async def admit_research(payload, background_tasks, *, workspace_id, user_id, pa
     if any(bid not in cases or any(mode not in cases[bid].modes for mode in payload.modes) for bid in payload.benchmark_ids):
         raise HTTPException(422, "Unknown benchmark or unsupported mode")
     config = current_configuration()
+    if demo and any(dict(config.agent_models)[agent] != APPROVED_MODEL for agent in ("direct", "research", "report")):
+        raise HTTPException(422, "Demo requires the inspected openai/gpt-oss-120b model")
     experiment_id = "E-" + uuid.uuid4().hex[:12]
     prepared = []
     # Balanced rotation avoids always placing Single first. BackgroundTasks run sequentially.
@@ -188,12 +207,37 @@ async def admit_research(payload, background_tasks, *, workspace_id, user_id, pa
         task.research = ResearchTrial(experiment=payload, configuration=config, benchmark=case,
             benchmark_sha256=canonical_hash(case.model_dump(mode="json")), trial_number=trial, run_ids=run_ids, parent_experiment_id=parent,
             demo_policy="bounded-demo-v1" if demo else None)
+    if demo:
+        from app.models.schemas import RunEvent
+        try:
+            budget = DemoBudget(experiment_id, workspace_id, user_id, run_ids)
+        except DemoBudgetError as exc:
+            raise HTTPException(422, str(exc)) from None
+        for task, _, _ in prepared:
+            task.events.append(RunEvent(id=uuid.uuid4().hex, type="demo_budget_admitted",
+                text=budget.snapshot("admission_reserved"), timestamp=datetime.now(timezone.utc)))
+        # A failed write cannot silently restore one-experiment authority.
+        runtime_lease["consumed"] = True
     # One atomic admission: a failure cannot leave an unidentifiable partial experiment.
     repository.save_research_group([t for t, _, _ in prepared], workspace_id=workspace_id, user_id=user_id)
     if demo:
-        ledgers[experiment_id] = DemoBudget(experiment_id, workspace_id, user_id, run_ids)
-    for task, _, _ in prepared:
-        await enqueue_task(task, background_tasks, user_id=user_id)
+        ledgers[experiment_id] = budget
+    try:
+        for task, _, _ in prepared:
+            await enqueue_task(task, background_tasks, user_id=user_id)
+    except (Exception, asyncio.CancelledError) as exc:
+        if demo:
+            from app.models.schemas import TaskStatus
+            budget.stopped = "admission_cancelled" if isinstance(exc, asyncio.CancelledError) else "admission_enqueue_failed"
+            for task, _, _ in prepared:
+                task.status = TaskStatus.FAILED
+                task.error = budget.stopped
+                task.output = None
+                task.completed_at = datetime.now(timezone.utc)
+                task.events.append(RunEvent(id=uuid.uuid4().hex, type="demo_trial_failed",
+                    text=budget.snapshot(budget.stopped), timestamp=task.completed_at))
+            repository.save_research_group([t for t, _, _ in prepared], workspace_id=workspace_id, user_id=user_id)
+        raise
     return comparison([t for t, _, _ in prepared])
 
 
