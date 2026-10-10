@@ -61,6 +61,88 @@ def create(client, **kwargs):
     return result.json()['experimentId']
 
 
+def test_minimal_single_adaptive_demo_persists_reload_exports_without_external_requests(local, monkeypatch):
+    import httpx
+    repo, client = local
+    external = AsyncMock(side_effect=AssertionError('External provider transport forbidden'))
+    monkeypatch.setattr(httpx.AsyncClient, 'send', external)
+    monkeypatch.setattr(settings, 'RESEARCH_JUDGE_ENABLED', False)
+    sdk = llm_client._client.chat.completions.create
+    monkeypatch.setattr(settings, 'RESEARCH_LIVE_ENABLED', False)
+    disabled = client.post('/api/v1/experiments/research', json={
+        'benchmarkIds': ['B-direct'], 'modes': ['single', 'adaptive'], 'repetitions': 1})
+    assert disabled.status_code == 403 and repo.list() == []
+    assert sdk.await_count == 0 and external.await_count == 0
+    monkeypatch.setattr(settings, 'RESEARCH_LIVE_ENABLED', True)  # Mock-only process, restored by fixture.
+    eid = create(client, modes=['single', 'adaptive'], repetitions=1,
+                 purpose='Mocked minimal faculty demonstration; not live evidence')
+    scope = dict(workspace_id=repo.get_personal_workspace('USR-a')['id'], user_id='USR-a')
+    saved = repo.research_tasks(**scope, experiment_id=eid)
+    assert len(saved) == 2 and len({task.id for task in saved}) == 2
+    assert {task.execution_mode.value for task in saved} == {'single', 'adaptive'}
+    assert all(task.status == TaskStatus.COMPLETED and task.output == 'recovery time objective' for task in saved)
+    single = next(task for task in saved if task.execution_mode.value == 'single')
+    adaptive = next(task for task in saved if task.execution_mode.value == 'adaptive')
+    assert [stage.agent_id for stage in single.stages] == ['direct'] and single.route_plan is None
+    assert adaptive.route_plan.selected_agent_ids == ('research', 'report')
+    assert [stage.agent_id for stage in adaptive.stages] == ['research', 'report']
+    assert all(stage.status == 'completed' and stage.total_tokens == 18 for task in saved for stage in task.stages)
+    from app.storage import models as dbm
+    with repo.engine.connect() as connection:
+        ids = [task.id for task in saved]
+        rows = connection.execute(select(dbm.agent_executions).where(dbm.agent_executions.c.simulation_id.in_(ids))).mappings().all()
+        assert len(rows) == 3 and all(row['status'] == 'completed' and row['output'] for row in rows)
+        assert set(connection.execute(select(dbm.tasks.c.id).where(dbm.tasks.c.simulation_id.in_(ids))).scalars()) == set(ids)
+    assert sdk.await_count == 3 and external.await_count == 0
+
+    assert all(call.kwargs['max_tokens'] == 1024 for call in sdk.await_args_list)
+    assert all(call.kwargs['model'] == dict(single.research.configuration.agent_models)['direct'] for call in sdk.await_args_list)
+    # A new repository/connection reads the same retained records, not the process cache.
+    reopened = Repository(repo.url)
+    try:
+        restored = reopened.research_tasks(**scope, experiment_id=eid)
+        assert {task.id: task.model_dump(mode='json') for task in restored} == {task.id: task.model_dump(mode='json') for task in saved}
+    finally:
+        reopened.engine.dispose()
+    listing = client.get('/api/v1/experiments/research').json()
+    assert next(item for item in listing if item['experimentId'] == eid)['expectedRuns'] == 2
+    path = '/api/v1/experiments/research/' + eid
+    first = client.get(path + '/report').json()
+    assert client.get(path + '/report').json() == first
+    assert len(first['runEvidence']) == 2 and first['observedEvidence']['status'] == 'complete'
+    assert first['observedEvidence']['configuration']['evidenceKind'] == 'deterministic_fixture'
+    assert [cell['tokens']['mean'] for cell in first['observedEvidence']['cells']] == [18, 36]
+    assert all(run['providerRetries'] is None and run['cost'] is None for run in first['observedEvidence']['runs'])
+    client.cookies.set('app_session', add_session(repo, 'USR-b'))
+    assert client.get(path + '/report').status_code == 404
+    assert client.get('/api/v1/tasks/' + single.id).status_code == 404
+    client.cookies.clear()
+    assert client.post('/api/v1/experiments/research', json={
+        'benchmarkIds': ['B-direct'], 'modes': ['single', 'adaptive'], 'repetitions': 1}).status_code == 401
+    assert sdk.await_count == 3 and external.await_count == 0
+
+
+def test_minimal_demo_cancelled_provider_call_retains_failure_and_continues(local, monkeypatch):
+    repo, client = local
+    count = 0
+    async def cancelled_first(**kwargs):
+        nonlocal count
+        count += 1
+        if count == 1:
+            raise asyncio.CancelledError()
+        return await completion(**kwargs)
+    monkeypatch.setattr(llm_client._client.chat.completions, 'create', AsyncMock(side_effect=cancelled_first))
+    eid = create(client, modes=['single', 'adaptive'], repetitions=1)
+    summary = client.get('/api/v1/experiments/research/' + eid).json()
+    assert summary['status'] == 'complete'  # Terminal includes honest failures, not all-success.
+    assert [run['status'] for run in summary['runs']].count('failed') == 1
+    scope = dict(workspace_id=repo.get_personal_workspace('USR-a')['id'], user_id='USR-a')
+    records = repo.research_tasks(**scope, experiment_id=eid)
+    failed = next(task for task in records if task.status == TaskStatus.FAILED)
+    assert failed.output is None and failed.error and failed.stages[0].status == 'failed'
+    assert any(event.type == 'simulation_failed' for event in failed.events)
+    assert count == 3 and next(task for task in records if task.status == TaskStatus.COMPLETED).output
+
 def test_owner_purge_marks_research_incomplete_without_rewriting_remaining_evidence(local):
     repo, client = local
     eid = create(client)

@@ -91,3 +91,9 @@ Final continuation regression: **232 frontend + 52 focused backend + 6 restricte
 Starting from local `26c5755`: missing-HR-role guidance now names Organizations → Member management → Hiring responsibilities, explains Owner/Admin versus HR permissions, and offers navigation and an authoritative access recheck. Research evidence navigation is disabled until its saved Task loads and during a foreground operation. No authorization, records, schema, RLS or provider configuration changed.
 
 **38 focused frontend tests passed, 0 failed/skipped**, plus lint/build with the existing two Fast Refresh warnings and bundle-size warning. No fresh browser, backend or PostgreSQL suite was run; earlier acceptance counts remain dated evidence, not new overnight results. These corrections remain **LOCAL ONLY**. See [OVERNIGHT_QA_REPORT.md](OVERNIGHT_QA_REPORT.md) for deferred work and manual acceptance.
+
+## Minimal live Research demonstration preparation — 2026-10-10
+
+Local baseline `75c9963`: **47 research backend tests passed, zero failures/skips**, including a new persisted two-trial B-direct Single/Adaptive protocol and cancelled-call evidence. Three mocked SDK calls, zero external HTTP requests in the guarded protocol; new repository reads/history/export and tenant denial verified on disposable SQLite. No production, PostgreSQL or real-provider acceptance is inferred.
+
+Historical 42-trial sample remains available. **Live bounded demo is NO-GO:** the current protocol allows up to nine SDK HTTP attempts for three stage calls with default retries, and has no experiment-wide request/input-token reservation or hard wall-clock deadline. Output caps alone do not establish total usage. No gate or runtime behavior changed. Required minimal budget correction and exact separate approval scope are in [RESEARCH_LIVE_DEMO_READINESS.md](RESEARCH_LIVE_DEMO_READINESS.md). No frontend/schema/RLS changes; prior local/deployed distinctions remain intact.
