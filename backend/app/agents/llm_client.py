@@ -107,11 +107,15 @@ async def call_llm(
     messages.append({"role": "user", "content": prompt})
 
     try:
-        response = await _client.chat.completions.create(
-            model=resolved_model,
-            messages=messages,
-            max_tokens=max_tokens,
-        )
+        if pinned and len(pinned) > 2 and pinned[2]:
+            from app.experiments.demo_budget import demo_completion
+            response = await demo_completion(resolved_model, messages)
+        else:
+            response = await _client.chat.completions.create(
+                model=resolved_model,
+                messages=messages,
+                max_tokens=max_tokens,
+            )
     except Exception:
         # Provider/transport diagnostics can contain arbitrary URLs, request
         # payloads or credentials that pattern redaction cannot reliably remove.

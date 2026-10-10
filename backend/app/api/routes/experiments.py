@@ -144,15 +144,31 @@ def research_records(request, workspace_id, experiment_id=None, permission=Permi
 @router.get("/benchmarks")
 async def get_benchmarks(request: Request, x_workspace_id: str | None = Header(default=None)):
     require_request_permission(request, x_workspace_id, Permission.SIMULATION_VIEW)
+    from app.experiments.demo_budget import bounded_demo
     return {"version": "1", "cases": [case.model_dump(mode="json") for case in catalog()], "humanRubric": HUMAN_RUBRIC,
             "configuration": current_configuration().model_dump(mode="json"), "executionEnabled": settings.RESEARCH_LIVE_ENABLED,
-            "maxRuns": 45, "maxRepetitions": 5}
+            "maxRuns": 2 if bounded_demo() else 45, "maxRepetitions": 1 if bounded_demo() else 5}
 
 
 async def admit_research(payload, background_tasks, *, workspace_id, user_id, parent=None):
     if not settings.RESEARCH_LIVE_ENABLED:
         raise HTTPException(403, "Research provider execution is disabled; explicit live-provider approval is required")
+    from app.experiments.demo_budget import bounded_demo, DemoBudget, ledgers
+    demo = bounded_demo()
+    if demo:
+        if (payload.benchmark_ids != ("B-direct",) or payload.modes != ("single", "adaptive")
+                or payload.repetitions != 1 or parent is not None):
+            raise HTTPException(422, "Demo requires B-direct v1, Single + Adaptive, one repetition; no rerun")
+        if settings.RESEARCH_JUDGE_ENABLED or settings.LANGGRAPH_RUNTIME_ENABLED:
+            raise HTTPException(403, "Demo requires judges and durable resume disabled")
+        if ledgers:
+            raise HTTPException(409, "Demo admission already consumed in this process; no repeat admission")
     cases = {case.id: case for case in catalog()}
+    if demo:
+        from app.experiments.demo_budget import APPROVED_BENCHMARK_SHA256
+        if ("B-direct" not in cases or
+                canonical_hash(cases["B-direct"].model_dump(mode="json")) != APPROVED_BENCHMARK_SHA256):
+            raise HTTPException(409, "Approved demo benchmark snapshot has changed")
     if any(bid not in cases or any(mode not in cases[bid].modes for mode in payload.modes) for bid in payload.benchmark_ids):
         raise HTTPException(422, "Unknown benchmark or unsupported mode")
     config = current_configuration()
@@ -170,9 +186,12 @@ async def admit_research(payload, background_tasks, *, workspace_id, user_id, pa
     run_ids = tuple(t.id for t, _, _ in prepared)
     for task, case, trial in prepared:
         task.research = ResearchTrial(experiment=payload, configuration=config, benchmark=case,
-            benchmark_sha256=canonical_hash(case.model_dump(mode="json")), trial_number=trial, run_ids=run_ids, parent_experiment_id=parent)
+            benchmark_sha256=canonical_hash(case.model_dump(mode="json")), trial_number=trial, run_ids=run_ids, parent_experiment_id=parent,
+            demo_policy="bounded-demo-v1" if demo else None)
     # One atomic admission: a failure cannot leave an unidentifiable partial experiment.
     repository.save_research_group([t for t, _, _ in prepared], workspace_id=workspace_id, user_id=user_id)
+    if demo:
+        ledgers[experiment_id] = DemoBudget(experiment_id, workspace_id, user_id, run_ids)
     for task, _, _ in prepared:
         await enqueue_task(task, background_tasks, user_id=user_id)
     return comparison([t for t, _, _ in prepared])

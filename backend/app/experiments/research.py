@@ -32,6 +32,7 @@ def catalog():
 
 
 def current_configuration():
+    from app.experiments.demo_budget import bounded_demo, MAX_OUTPUT_TOKENS
     from app.api.routes.tasks import _IMPLEMENTED_AGENTS
     from app.agents.llm_client import DEFAULT_MODEL, DEFAULT_MAX_TOKENS
     root = Path(__file__).resolve().parents[1]
@@ -41,7 +42,8 @@ def current_configuration():
                 root / "models/schemas.py", root / "storage/database.py"])
     return ResearchConfiguration(
         agent_models=tuple((aid, agent.MODEL or DEFAULT_MODEL) for aid, agent in sorted(_IMPLEMENTED_AGENTS.items())),
-        max_output_tokens=DEFAULT_MAX_TOKENS,
+        max_output_tokens=MAX_OUTPUT_TOKENS if bounded_demo() else DEFAULT_MAX_TOKENS,
+        retry_policy="demo: zero SDK and transport retries" if bounded_demo() else "existing SDK defaults; provider retries unobserved",
         implementation_sha256=canonical_hash({str(path.relative_to(root)): sha256_text(path.read_text()) for path in files}),
         runtime="langgraph" if settings.LANGGRAPH_RUNTIME_ENABLED else "sequential",
         evidence_kind=settings.RESEARCH_EVIDENCE_KIND,

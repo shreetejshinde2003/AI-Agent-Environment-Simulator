@@ -445,7 +445,7 @@ class ResearchConfiguration(CamelModel):
     dependencies: tuple[tuple[str, str], ...] = ()
     fixture_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     sampling: Literal["provider-default; seed unavailable"] = "provider-default; seed unavailable"
-    retry_policy: Literal["existing SDK defaults; provider retries unobserved"] = "existing SDK defaults; provider retries unobserved"
+    retry_policy: Literal["existing SDK defaults; provider retries unobserved", "demo: zero SDK and transport retries"] = "existing SDK defaults; provider retries unobserved"
 
 
 class ResearchExperimentInput(CamelModel):
@@ -478,6 +478,7 @@ class ResearchTrial(CamelModel):
     trial_number: int = Field(ge=1, le=5)
     run_ids: tuple[str, ...]
     parent_experiment_id: str | None = None
+    demo_policy: Literal["bounded-demo-v1"] | None = None
 
 
 class HumanRubricInput(CamelModel):

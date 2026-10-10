@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     # Deliberately gated until PostgreSQL persistence/security acceptance passes.
     RESEARCH_JUDGE_ENABLED: bool = False
     RESEARCH_LIVE_ENABLED: bool = False
+    RESEARCH_DEMO_ENABLED: bool = False  # Apply bounded policy to local fixture acceptance too.
     RESEARCH_FIXTURE_SHA256: str | None = None
     RESEARCH_EVIDENCE_KIND: str = "provider_live"
     LANGGRAPH_RUNTIME_ENABLED: bool = False

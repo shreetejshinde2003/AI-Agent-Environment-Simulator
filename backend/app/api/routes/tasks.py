@@ -167,7 +167,7 @@ async def evaluate_task_quality(
             },
         )
 
-    if task.research and not settings.RESEARCH_JUDGE_ENABLED:
+    if task.research and (task.research.demo_policy or not settings.RESEARCH_JUDGE_ENABLED):
         raise HTTPException(403, "Research judge calls require separate explicit approval")
 
     # Idempotency: never spend another evaluator request when a
@@ -522,6 +522,16 @@ async def resume_task_api(task_id: str, request: Request, background_tasks: Back
 
 
 async def _run_stage(task: Task, stage: StageExecution, context: ExecutionContext, user_id: str | None = None, *, agent=None):
+    from app.experiments.demo_budget import bounded_demo, demo_context, ledgers, DemoBudgetError
+    demo = bool(task.research and (task.research.demo_policy or bounded_demo()))
+    async def budget_evidence(outcome):
+        if outcome == "attempt_reserved":
+            from app.experiments.research import current_configuration
+            if not settings.RESEARCH_LIVE_ENABLED or task.research.configuration != current_configuration():
+                raise DemoBudgetError("execution_gate_or_configuration_changed")
+        await emit(task, "demo_budget", budget.snapshot(outcome), stage.agent_id, user_id)
+    budget = ledgers.get(task.experiment_id) if demo else None
+    budget_token = demo_context.set((budget, budget_evidence) if budget else None)
     agent = agent or _IMPLEMENTED_AGENTS.get(stage.agent_id)
     previous_duration = stage.duration_seconds or 0
     previous_usage = {name: getattr(stage, name) for name in
@@ -532,7 +542,7 @@ async def _run_stage(task: Task, stage: StageExecution, context: ExecutionContex
     started = time.perf_counter()
     token = current_execution.set(stage)
     pin = research_call_configuration.set((dict(task.research.configuration.agent_models)[stage.agent_id],
-        task.research.configuration.max_output_tokens) if task.research else None)
+        task.research.configuration.max_output_tokens, demo) if task.research else None)
     try:
         await emit(task, "agent_started", f"{stage.agent_id} started", stage.agent_id, user_id)
         await record_activity(stage.agent_id, "Started processing", task=task, user_id=user_id)
@@ -542,7 +552,20 @@ async def _run_stage(task: Task, stage: StageExecution, context: ExecutionContex
             from app.experiments.research import current_configuration
             if not settings.RESEARCH_LIVE_ENABLED or task.research.configuration != current_configuration():
                 raise ValueError("Research execution disabled or configuration changed since admission")
-        result = await agent.run(task.directive, context=context)
+        if demo:
+            expected_agents = ("direct",) if task.execution_mode == TaskExecutionMode.SINGLE else ("research", "report")
+            if (budget is None or task.research.demo_policy != "bounded-demo-v1"
+                    or budget.experiment_id != task.experiment_id or budget.run_ids != task.research.run_ids
+                    or budget.workspace_id != task.workspace_id or budget.user_id != user_id
+                    or task.id not in budget.run_ids or tuple(s.agent_id for s in task.stages) != expected_agents
+                    or settings.RESEARCH_JUDGE_ENABLED or settings.LANGGRAPH_RUNTIME_ENABLED):
+                await emit(task, "demo_budget", "missing_or_unauthorized_budget_state", stage.agent_id, user_id)
+                raise DemoBudgetError("missing_or_unauthorized_budget_state")
+            budget.check()
+            async with asyncio.timeout(max(0, budget.deadline - time.monotonic())):
+                result = await agent.run(task.directive, context=context)
+        else:
+            result = await agent.run(task.directive, context=context)
         if not isinstance(result, str) or not result.strip():
             raise ValueError(f"{stage.agent_id} returned empty output")
         if task.execution_mode in GRAPH_MODES:
@@ -550,14 +573,22 @@ async def _run_stage(task: Task, stage: StageExecution, context: ExecutionContex
         stage.output = result
         stage.status = "completed"
     except (Exception, asyncio.CancelledError) as exc:
+        if demo and budget:
+            budget.stopped = budget.stopped or ("deadline_exhausted" if isinstance(exc, TimeoutError) or time.monotonic() >= budget.deadline
+                else "cancelled" if isinstance(exc, asyncio.CancelledError) else
+                str(exc) if isinstance(exc, DemoBudgetError) else "stage_failed")
+            await budget_evidence(budget.stopped)
         stage.status = "failed"
         stage.error = safe_error(exc)
         if isinstance(exc, AgentInputError):
             stage.input_error = exc.detail
         raise
     finally:
+        demo_context.reset(budget_token)
         research_call_configuration.reset(pin)
         current_execution.reset(token)
+        if demo and budget:
+            await budget_evidence("stage_" + stage.status)
         stage.completed_at = now()
         stage.duration_seconds = previous_duration + time.perf_counter() - started
         for name, value in previous_usage.items():
@@ -776,6 +807,12 @@ async def _run_task_inner(
         task.duration_seconds = int(task.elapsed_seconds)
 
         successful = task.status == TaskStatus.COMPLETED
+        if task.research and task.research.demo_policy:
+            from app.experiments.demo_budget import ledgers
+            budget = ledgers.get(task.experiment_id)
+            await emit(task, "demo_trial_completed" if successful else "demo_trial_failed",
+                budget.snapshot("trial_completed" if successful else "trial_failed") if budget else "missing_budget_state",
+                user_id=user_id)
 
         if task.execution_mode in (
             TaskExecutionMode.SINGLE,
