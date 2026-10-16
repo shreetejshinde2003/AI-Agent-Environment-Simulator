@@ -1,6 +1,6 @@
-# FMProject — Multi-Agent AI Environment Simulator
+# AI Agent Environment Simulator: A Multi-Agent AI Platform for HR Analytics
 
-FMProject is an academic React/Vite and FastAPI application for observing persisted
+AI-Agent-Environment-Simulator is an academic React/Vite and FastAPI application for observing persisted
 AI execution, comparing Single / Fixed / Adaptive orchestration, and assisting
 organization HR teams with revision-bound proposals and explicit human review.
 It uses the central Groq adapter; Google supplies identity through OIDC, not AI.
